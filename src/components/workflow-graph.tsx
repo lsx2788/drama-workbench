@@ -1,6 +1,5 @@
 "use client";
-import { useId, useRef, useState, useEffect, useMemo } from "react";
-import { Minus, Plus, Maximize2 } from "lucide-react";
+import { useId, useMemo } from "react";
 import { str, type RecordData } from "@/client/api";
 import {
   layoutWorkflow,
@@ -32,68 +31,23 @@ export function WorkflowGraph({
       ),
     [nodes, dependencies],
   );
-  const viewport = useRef<HTMLDivElement>(null);
-  const [availableWidth, setAvailableWidth] = useState(800);
-  const [manualZoom, setManualZoom] = useState<number | null>(null);
   const marker = useId().replaceAll(":", "");
-  useEffect(() => {
-    const element = viewport.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setAvailableWidth(entry.contentRect.width),
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  const fit = Math.min(1, Math.max(0.25, (availableWidth - 2) / graph.width));
-  const zoom = manualZoom ?? Math.max(0.65, fit);
   const positions = new Map(graph.nodes.map((n) => [n.id, n]));
   return (
     <section className="workflow-graph" aria-label="制作流程图">
-      <div className="graph-toolbar">
-        <div>
-          <strong>制作流程图</strong>
-          <span>箭头表示前置依赖，点击节点查看详情</span>
-        </div>
-        <div className="graph-controls">
-          <button
-            aria-label="缩小流程图"
-            disabled={zoom <= 0.25}
-            onClick={() => setManualZoom(Math.max(0.25, zoom - 0.15))}
-          >
-            <Minus size={15} />
-          </button>
-          <span aria-live="polite">{Math.round(zoom * 100)}%</span>
-          <button
-            aria-label="放大流程图"
-            disabled={zoom >= 1.5}
-            onClick={() => setManualZoom(Math.min(1.5, zoom + 0.15))}
-          >
-            <Plus size={15} />
-          </button>
-          <button
-            onClick={() => {
-              setManualZoom(fit);
-              viewport.current?.scrollTo(0, 0);
-            }}
-          >
-            <Maximize2 size={14} /> 适应宽度
-          </button>
-        </div>
-      </div>
       {graph.hasCycle && (
         <p role="alert" className="error">
           依赖中存在循环，请检查节点关系。
         </p>
       )}
-      <div className="graph-viewport" ref={viewport}>
+      <div className="graph-viewport">
         {!nodes.length ? (
           <Empty>
             这个流程暂时没有节点。节点及其依赖生成后，会展示在这里。
           </Empty>
         ) : (
           <div
-            style={{ width: graph.width * zoom, height: graph.height * zoom }}
+            style={{ width: graph.width, height: graph.height }}
             className="graph-surface"
           >
             <div
@@ -101,7 +55,6 @@ export function WorkflowGraph({
               style={{
                 width: graph.width,
                 height: graph.height,
-                transform: `scale(${zoom})`,
               }}
             >
               <svg
@@ -193,10 +146,6 @@ export function WorkflowGraph({
             </div>
           </div>
         )}
-      </div>
-      <div className="graph-caption">
-        {nodes.length} 个节点 · {graph.edges.length} 条依赖 ·
-        从上往下推进，并行节点并列展示，可滚动查看
       </div>
     </section>
   );

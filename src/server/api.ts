@@ -40,9 +40,12 @@ import {
 } from "./work-service";
 import { nodeStateSchema } from "./schemas";
 import { workspace } from "./read-service";
+import { createSection, appendUnit } from "./section-service";
 
 type Creator = (s: Store, p: string, input: unknown) => unknown;
 const creators: Record<string, Creator> = {
+  sections: createSection,
+  units: appendUnit,
   documents: createDocument,
   workflows: createWorkflow,
   nodes: createNode,

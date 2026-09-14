@@ -648,44 +648,8 @@ footer {
   overflow: hidden;
   margin-bottom: 24px;
 }
-.graph-toolbar {
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
-}
-.graph-toolbar strong {
-  font-size: 14px;
-}
-.graph-toolbar > div:first-child > span {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 5px;
-}
-.graph-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.graph-controls > span {
-  width: 42px;
-  text-align: center;
-  font-size: 12px;
-}
-.graph-controls button {
-  padding: 7px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
 .graph-viewport {
   overflow: auto;
-  max-height: 520px;
-  min-height: 210px;
   background-color: #fafbf8;
   background-image: radial-gradient(#d4dcd3 1px, transparent 1px);
   background-size: 20px 20px;
@@ -754,12 +718,6 @@ footer {
   font-size: 10px;
   color: var(--green);
   margin-top: auto;
-}
-.graph-caption {
-  padding: 10px 20px;
-  font-size: 11px;
-  color: var(--muted);
-  border-top: 1px solid var(--line);
 }
 .flow-details-layout {
   min-width: 0;
@@ -1544,4 +1502,81 @@ pre {
   .asset-toolbar {
     flex-wrap: wrap;
   }
+}
+
+.production-phase {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+}
+.production-phase > header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 4px 18px;
+}
+.production-phase > header > span {
+  color: var(--green);
+  font-size: 12px;
+  background: #edf3e9;
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.production-phase h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.production-phase header small {
+  color: var(--muted);
+  margin-left: auto;
+}
+.production-phase .workflow-graph {
+  margin: 0;
+  border: 0;
+  border-radius: 8px;
+}
+.phase-arrow {
+  display: flex;
+  justify-content: center;
+  color: #93a699;
+  padding: 12px;
+}
+.production-unit {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.production-unit + .production-unit {
+  margin-top: 10px;
+}
+.production-unit > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 14px;
+}
+.production-unit > summary::-webkit-details-marker {
+  display: none;
+}
+.production-unit > summary strong {
+  flex: 1;
+  font-size: 14px;
+}
+.production-unit > summary span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.production-unit[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.production-unit[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: #f7faf4;
+}
+.unit-flow {
+  padding: 8px;
 }

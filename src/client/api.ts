@@ -10,6 +10,7 @@ export interface Workspace {
   };
   documents: RecordData[];
   workflows: RecordData[];
+  sections: RecordData[];
   nodes: RecordData[];
   dependencies: RecordData[];
   agents: RecordData[];

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Store } from "../src/server/db";
 import { seedDemo } from "../scripts/seed-demo";
+import { structureQinghe } from "../scripts/structure-qinghe";
 import { workspace } from "../src/server/read-service";
 import {
   searchAssets,
@@ -102,4 +103,23 @@ test("complete demo preserves age variants, real files, lineage and planned prod
     assert.ok(records.some((r) => r.category === category));
   assert.equal(seedDemo(s), p);
   assert.equal(workspace(s, p).assets.length, w.assets.length);
+  structureQinghe(s, p);
+  const structured = workspace(s, p);
+  assert.equal(structured.nodes.length, 36);
+  assert.equal(structured.sections.filter((g) => g.phase === "unit").length, 3);
+  for (const old of w.nodes)
+    assert.ok(structured.nodes.some((n) => n.id === old.id));
+  for (const old of w.sessions)
+    assert.ok(structured.sessions.some((ss) => ss.id === old.id));
+  assert.equal(structured.assets.length, w.assets.length);
+  const upgradedGraph = layoutWorkflow(
+    structured.nodes.map((n) => ({ id: String(n.id) })),
+    structured.dependencies.map((d) => ({
+      from: String(d.depends_on),
+      to: String(d.node_id),
+    })),
+  );
+  assert.equal(upgradedGraph.hasCycle, false);
+  structureQinghe(s, p);
+  assert.equal(workspace(s, p).nodes.length, 36);
 });

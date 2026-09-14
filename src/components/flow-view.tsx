@@ -1,6 +1,6 @@
 "use client";
 import { str } from "@/client/api";
-import { WorkflowGraph } from "./workflow-graph";
+import { ProductionFlow } from "./production-flow";
 import { NodeDetails } from "./node-details";
 import { Dialog, Empty } from "./ui";
 import type { ChatViewProps } from "./view-types";
@@ -26,10 +26,10 @@ export function FlowView({
         </div>
       </div>
       {workflow ? (
-        <WorkflowGraph
+        <ProductionFlow
           key={str(workflow, "id")}
-          nodes={nodes}
-          dependencies={w.dependencies}
+          w={w}
+          workflowId={str(workflow, "id")}
           selectedId={selectedNodeId}
           onSelect={onSelectNode}
         />

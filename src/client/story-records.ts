@@ -13,8 +13,11 @@ export interface StoryRecord {
     "asset" | "document" | "highlight" | "session" | "item" | "run" | "project";
 }
 export function storyRecords(w: Workspace): StoryRecord[] {
-  const nodeName = (id: unknown) =>
-    str(w.nodes.find((n) => n.id === id) ?? {}, "name");
+  const nodeName = (id: unknown) => {
+    const node = w.nodes.find((n) => n.id === id);
+    const section = w.sections.find((s) => s.id === node?.section_id);
+    return `${section?.phase === "unit" ? `${str(section, "name")} / ` : ""}${str(node ?? {}, "name")}`;
+  };
   const base = (r: RecordData) => ({
     id: str(r, "id"),
     code: str(r, "id").slice(0, 8),

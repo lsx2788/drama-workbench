@@ -17,6 +17,7 @@ export const documentSchema = z
 export const workflowSchema = z.object({ name: short }).strict();
 export const nodeSchema = z
   .object({
+    sectionId: z.string().uuid().optional(),
     workflowId: z.string().uuid(),
     name: short,
     objective: optionalText,

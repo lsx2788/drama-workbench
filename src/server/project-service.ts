@@ -95,7 +95,12 @@ export function createWorkflow(s: Store, p: string, input: unknown) {
   );
   return s.one("SELECT * FROM workflows WHERE id=?", key);
 }
-export function createNode(s: Store, p: string, input: unknown) {
+export function createNode(
+  s: Store,
+  p: string,
+  input: unknown,
+  options: { appendUnit?: boolean } = {},
+) {
   const d = nodeSchema.parse(input);
   const w = requireRow(
     s.one(
@@ -105,7 +110,20 @@ export function createNode(s: Store, p: string, input: unknown) {
     ),
     "流程",
   );
-  assert(w.status === "draft", "只允许在流程草案中增加节点");
+  assert(
+    w.status === "draft" ||
+      (options.appendUnit && w.status === "active" && d.sectionId),
+    "只允许在流程草案中增加节点，已发布流程请使用分集扩展接口",
+  );
+  if (d.sectionId)
+    assert(
+      s.one(
+        "SELECT id FROM workflow_sections WHERE id=? AND workflow_id=?",
+        d.sectionId,
+        d.workflowId,
+      ),
+      "节点分组必须属于同一流程",
+    );
   for (const parent of d.dependencies)
     assert(
       nodeInProject(s, p, parent).workflow_id === d.workflowId,
@@ -132,6 +150,8 @@ export function createNode(s: Store, p: string, input: unknown) {
     );
     for (const parent of new Set(d.dependencies))
       s.run("INSERT INTO node_dependencies VALUES(?,?)", key, parent);
+    if (d.sectionId)
+      s.run("INSERT INTO node_sections VALUES(?,?)", key, d.sectionId);
     return s.one("SELECT * FROM nodes WHERE id=?", key);
   });
 }

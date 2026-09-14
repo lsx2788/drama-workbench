@@ -98,4 +98,14 @@ CREATE TABLE IF NOT EXISTS project_archives (
  project_id TEXT PRIMARY KEY REFERENCES projects(id), archived_at TEXT NOT NULL
 );
 INSERT OR IGNORE INTO schema_migrations VALUES(2,datetime('now'));
+CREATE TABLE IF NOT EXISTS workflow_sections (
+ id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id),
+ phase TEXT NOT NULL CHECK(phase IN ('preparation','unit','delivery')),
+ kind TEXT NOT NULL CHECK(kind IN ('shared','episode','chapter')),
+ name TEXT NOT NULL, position INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS node_sections (
+ node_id TEXT PRIMARY KEY REFERENCES nodes(id), section_id TEXT NOT NULL REFERENCES workflow_sections(id)
+);
+INSERT OR IGNORE INTO schema_migrations VALUES(3,datetime('now'));
 `;

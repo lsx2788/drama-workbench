@@ -26,6 +26,15 @@ export function NodeDetails({
         action={<Badge value={str(current, "status")} />}
       >
         <p className="pre">{str(current, "objective")}</p>
+        {current.section_id ? (
+          <p className="muted">
+            所属分组：
+            {str(
+              w.sections.find((s) => s.id === current.section_id) ?? {},
+              "name",
+            )}
+          </p>
+        ) : null}
         <p className="muted">
           所属流程：
           {str(
@@ -37,7 +46,11 @@ export function NodeDetails({
           前置节点：
           {w.dependencies
             .filter((d) => d.node_id === current.id)
-            .map((d) => w.nodes.find((n) => n.id === d.depends_on)?.name)
+            .map((d) => {
+              const node = w.nodes.find((n) => n.id === d.depends_on);
+              const section = w.sections.find((s) => s.id === node?.section_id);
+              return `${section?.phase === "unit" ? `${str(section, "name")} / ` : ""}${str(node ?? {}, "name")}`;
+            })
             .join("、") || "无"}
         </p>
       </Panel>

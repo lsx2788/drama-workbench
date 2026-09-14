@@ -5,6 +5,7 @@ import { migration } from "./migration";
 
 export type Row = Record<string, unknown>;
 export class Store {
+  private transactionDepth = 0;
   readonly db: DatabaseSync;
   readonly root: string;
   constructor(root: string) {
@@ -26,14 +27,22 @@ export class Store {
     return this.db.prepare(sql).run(...args);
   }
   transaction<T>(fn: () => T): T {
-    this.db.exec("BEGIN IMMEDIATE");
+    const depth = this.transactionDepth;
+    const savepoint = `nested_${depth}`;
+    this.db.exec(depth === 0 ? "BEGIN IMMEDIATE" : `SAVEPOINT ${savepoint}`);
+    this.transactionDepth++;
     try {
       const result = fn();
-      this.db.exec("COMMIT");
+      this.db.exec(depth === 0 ? "COMMIT" : `RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
-      this.db.exec("ROLLBACK");
+      this.db.exec(
+        depth === 0 ? "ROLLBACK" : `ROLLBACK TO SAVEPOINT ${savepoint}`,
+      );
+      if (depth > 0) this.db.exec(`RELEASE SAVEPOINT ${savepoint}`);
       throw error;
+    } finally {
+      this.transactionDepth--;
     }
   }
   close() {
