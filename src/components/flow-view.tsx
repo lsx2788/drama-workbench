@@ -1,23 +1,21 @@
 "use client";
-import { useState } from "react";
-import { api, str, type Workspace } from "@/client/api";
+import { NodeChats } from "./node-chats";
+import type { ChatViewProps } from "./view-types";
+import { api, str } from "@/client/api";
 import { Badge, Empty, Panel, date } from "./ui";
-import type { FormKind } from "./create-form";
 export function FlowView({
-  w,
-  p,
-  create,
-  refresh,
-  fail,
-}: {
-  w: Workspace;
-  p: string;
-  create: (k: FormKind, defaults?: Record<string, string>) => void;
-  refresh: () => Promise<void>;
-  fail: (e: unknown) => void;
+  selectedNodeId,
+  onSelectNode,
+  ...props
+}: ChatViewProps & {
+  selectedNodeId: string;
+  onSelectNode: (nodeId: string) => void;
 }) {
-  const [selected, setSelected] = useState("");
-  const current = w.nodes.find((n) => n.id === selected) ?? w.nodes[0];
+  const { w, p, create, refresh, fail } = props;
+  const current =
+    w.nodes.find((n) => n.id === selectedNodeId) ??
+    w.nodes.find((n) => n.workflow_id === w.overview.workflow?.id) ??
+    w.nodes[0];
   async function change(path: string, body?: unknown, method = "POST") {
     try {
       await api(`/projects/${p}/${path}`, {
@@ -66,7 +64,7 @@ export function FlowView({
             <button
               key={str(n, "id")}
               className={`node-card ${current?.id === n.id ? "selected" : ""}`}
-              onClick={() => setSelected(str(n, "id"))}
+              onClick={() => onSelectNode(str(n, "id"))}
             >
               <span className="node-number">
                 {String(i + 1).padStart(2, "0")}
@@ -104,7 +102,13 @@ export function FlowView({
               }
             >
               <p>{str(current, "objective")}</p>
-              <small className="mono">节点 ID · {str(current, "id")}</small>
+              <p className="muted">
+                所属流程：
+                {str(
+                  w.workflows.find((f) => f.id === current.workflow_id) ?? {},
+                  "name",
+                )}
+              </p>
               <p className="muted">
                 前置节点：
                 {w.dependencies
@@ -156,6 +160,11 @@ export function FlowView({
                 </p>
               )}
             </Panel>
+            <NodeChats
+              key={str(current, "id")}
+              {...props}
+              nodeId={str(current, "id")}
+            />
             <Panel
               title="节点内的 AI"
               action={
@@ -186,10 +195,13 @@ export function FlowView({
                     </p>
                     <button
                       onClick={() =>
-                        create("session", { agentId: str(a, "id") })
+                        create("session", {
+                          agentId: str(a, "id"),
+                          nodeId: str(current, "id"),
+                        })
                       }
                     >
-                      建立会话
+                      添加聊天
                     </button>
                   </details>
                 ))}

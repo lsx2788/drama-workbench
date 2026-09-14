@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { api, str, type Workspace } from "@/client/api";
+import { api, type Workspace } from "@/client/api";
 import { Dialog, Field } from "./ui";
 
 import { fields, titles, endpoints, type FormKind } from "./form-config";
@@ -18,12 +18,22 @@ export function CreateForm({
   workspace?: Workspace;
   projectId: string;
   onClose: () => void;
-  onSaved: (data: unknown) => void;
+  onSaved: (data: unknown) => void | Promise<void>;
   defaults?: Record<string, string>;
 }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const spec = fields(kind, workspace);
+  const scopedWorkspace =
+    kind === "session" && defaults.nodeId && workspace
+      ? {
+          ...workspace,
+          agents: workspace.agents.filter((a) => a.node_id === defaults.nodeId),
+          sessions: workspace.sessions.filter(
+            (s) => s.node_id === defaults.nodeId,
+          ),
+        }
+      : workspace;
+  const spec = fields(kind, scopedWorkspace);
   return (
     <Dialog title={titles[kind]} onClose={onClose}>
       <form
@@ -50,7 +60,7 @@ export function CreateForm({
                 : `/projects/${projectId}/${endpoints[kind]}`,
               { method: "POST", body: JSON.stringify(body) },
             );
-            onSaved(result);
+            await onSaved(result);
           } catch (err) {
             setError(err instanceof Error ? err.message : "保存失败");
           } finally {

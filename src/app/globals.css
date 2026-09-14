@@ -902,6 +902,65 @@ pre {
   flex-direction: column;
   min-width: 0;
 }
+.session-group-title {
+  margin: 16px 8px 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.node-chat-list {
+  display: grid;
+  gap: 8px;
+}
+.node-chat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--line);
+}
+.node-chat-card.selected {
+  background: var(--soft);
+  border-color: var(--green);
+}
+.node-chat-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+.node-chat-copy strong {
+  font-size: 14px;
+}
+.node-chat-copy small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.node-chat-copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.node-chat-open {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.node-chat-toolbar {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--soft);
+  font-size: 12px;
+}
+.node-chat-open .messages {
+  min-height: 160px;
+}
 .chat-header {
   padding: 18px;
   display: flex;

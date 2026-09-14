@@ -36,6 +36,8 @@ export function Workbench() {
     [p, setP] = useState(""),
     [w, setW] = useState<Workspace>(),
     [tab, setTab] = useState("overview"),
+    [selectedNodeId, setSelectedNodeId] = useState(""),
+    [chat, setChat] = useState({ sessionId: "", quoteId: "" }),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [form, setForm] = useState<{
@@ -63,11 +65,31 @@ export function Workbench() {
   }, [p]);
   useEffect(() => {
     setW(undefined);
+    setSelectedNodeId("");
+    setChat({ sessionId: "", quoteId: "" });
     if (p) refresh().catch(fail);
   }, [p, refresh]);
   const create = (kind: FormKind, defaults?: Record<string, string>) =>
     setForm({ kind, defaults });
   const project = projects.find((row) => row.id === p);
+  const chatActions = {
+    sessionId: chat.sessionId,
+    quoteId: chat.quoteId,
+    onSelect: (sessionId: string) => setChat({ sessionId, quoteId: "" }),
+    onClearQuote: () => setChat((previous) => ({ ...previous, quoteId: "" })),
+    onQuote: (quoteId: string) => {
+      const coordinator =
+        w?.sessions.find(
+          (s) => s.id === chat.sessionId && s.node_type === "coordinator",
+        ) ?? w?.sessions.find((s) => s.node_type === "coordinator");
+      if (!coordinator) {
+        fail(new Error("请先在总控节点建立聊天"));
+        return;
+      }
+      setChat({ sessionId: str(coordinator, "id"), quoteId });
+      setTab("chat");
+    },
+  };
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -181,6 +203,12 @@ export function Workbench() {
               )}
               {tab === "flow" && (
                 <FlowView
+                  {...chatActions}
+                  selectedNodeId={selectedNodeId}
+                  onSelectNode={(nodeId) => {
+                    setSelectedNodeId(nodeId);
+                    setChat({ sessionId: "", quoteId: "" });
+                  }}
                   w={w}
                   p={p}
                   create={create}
@@ -199,6 +227,7 @@ export function Workbench() {
               )}
               {tab === "chat" && (
                 <DiscussionView
+                  {...chatActions}
                   w={w}
                   p={p}
                   create={create}
@@ -230,7 +259,17 @@ export function Workbench() {
             if (form.kind === "project") {
               await loadProjects();
               setP(str(result as RecordData, "id"));
-            } else await refresh();
+            } else {
+              await refresh();
+              if (form.kind === "session") {
+                const session = result as RecordData;
+                setChat({ sessionId: str(session, "id"), quoteId: "" });
+                if (form.defaults?.nodeId) {
+                  setSelectedNodeId(form.defaults.nodeId);
+                  setTab("flow");
+                } else setTab("chat");
+              }
+            }
           }}
         />
       )}
