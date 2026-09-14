@@ -1,19 +1,19 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   Clapperboard,
-  LayoutDashboard,
   GitBranch,
   Boxes,
   MessagesSquare,
-  FileText,
-  Activity,
   Plus,
   ArrowUpRight,
   ChevronRight,
+  FolderOpen,
+  X,
 } from "lucide-react";
 import { api, str, type Workspace, type RecordData } from "@/client/api";
 import { Empty } from "./ui";
+import { ProjectTree, type NavigationTarget } from "./project-tree";
 import { CreateForm, type FormKind } from "./create-form";
 import { FlowView } from "./flow-view";
 import { AssetView } from "./asset-view";
@@ -23,20 +23,17 @@ import { OverviewView } from "./overview-view";
 import { DocumentsView } from "./documents-view";
 import { RunsView } from "./runs-view";
 
-const tabs = [
-  { id: "overview", label: "项目总览", icon: LayoutDashboard },
-  { id: "flow", label: "流程与事项", icon: GitBranch },
-  { id: "assets", label: "资产库", icon: Boxes },
-  { id: "chat", label: "沟通中心", icon: MessagesSquare },
-  { id: "documents", label: "故事与文稿", icon: FileText },
-  { id: "runs", label: "执行记录", icon: Activity },
-];
 export function Workbench() {
   const [projects, setProjects] = useState<RecordData[]>([]),
     [p, setP] = useState(""),
     [w, setW] = useState<Workspace>(),
     [tab, setTab] = useState("overview"),
     [selectedNodeId, setSelectedNodeId] = useState(""),
+    [selectedWorkflowId, setSelectedWorkflowId] = useState(""),
+    [directoryOpen, setDirectoryOpen] = useState(false),
+    [navigationScroll, setNavigationScroll] = useState<"node" | "chat" | null>(
+      null,
+    ),
     [chat, setChat] = useState({ sessionId: "", quoteId: "" }),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -60,18 +57,51 @@ export function Workbench() {
       .catch(fail)
       .finally(() => setLoading(false));
   }, [loadProjects]);
+  const activeProject = useRef(p);
+  activeProject.current = p;
   const refresh = useCallback(async () => {
-    if (p) setW(await api<Workspace>(`/projects/${p}/workspace`));
+    if (!p) return;
+    const data = await api<Workspace>(`/projects/${p}/workspace`);
+    if (activeProject.current === p) setW(data);
   }, [p]);
   useEffect(() => {
     setW(undefined);
     setSelectedNodeId("");
+    setSelectedWorkflowId("");
+    setForm(null);
+    setError("");
     setChat({ sessionId: "", quoteId: "" });
     if (p) refresh().catch(fail);
   }, [p, refresh]);
+  useEffect(() => {
+    if (!directoryOpen) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDirectoryOpen(false);
+    };
+    document.addEventListener("keydown", dismiss);
+    return () => document.removeEventListener("keydown", dismiss);
+  }, [directoryOpen]);
   const create = (kind: FormKind, defaults?: Record<string, string>) =>
     setForm({ kind, defaults });
+  useEffect(() => {
+    if (!navigationScroll || directoryOpen || !w) return;
+    const target = document.querySelector(
+      navigationScroll === "chat" ? ".chat-panel" : ".node-detail",
+    );
+    if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
+    setNavigationScroll(null);
+  }, [navigationScroll, directoryOpen, w]);
   const project = projects.find((row) => row.id === p);
+  function navigate(target: NavigationTarget, keepDirectoryOpen = false) {
+    setTab(target.view);
+    setSelectedWorkflowId(target.workflowId ?? "");
+    setSelectedNodeId(target.nodeId ?? "");
+    setChat({ sessionId: target.sessionId ?? "", quoteId: "" });
+    // Expanding a folder keeps the mobile directory open; selecting a leaf closes it.
+    if (!keepDirectoryOpen) setDirectoryOpen(false);
+    if (!keepDirectoryOpen && target.nodeId)
+      setNavigationScroll(target.sessionId ? "chat" : "node");
+  }
   const chatActions = {
     sessionId: chat.sessionId,
     quoteId: chat.quoteId,
@@ -92,7 +122,24 @@ export function Workbench() {
   };
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {directoryOpen && (
+        <button
+          className="directory-backdrop"
+          aria-label="关闭项目目录"
+          onClick={() => setDirectoryOpen(false)}
+        />
+      )}
+      <aside
+        className={`sidebar ${directoryOpen ? "directory-open" : ""}`}
+        id="project-directory"
+      >
+        <button
+          className="directory-close"
+          aria-label="收起项目目录"
+          onClick={() => setDirectoryOpen(false)}
+        >
+          <X size={18} />
+        </button>
         <a className="brand" href="/">
           <span className="brand-icon">
             <Clapperboard size={23} />
@@ -101,35 +148,26 @@ export function Workbench() {
             映序<small>DRAMA WORKBENCH</small>
           </div>
         </a>
-        <div className="workspace-label">
-          制作空间 <span>LOCAL</span>
-        </div>
-        <select
-          aria-label="切换项目"
-          className="project-switch"
-          value={p}
-          onChange={(e) => setP(e.target.value)}
-        >
-          {!projects.length && <option value="">尚未创建项目</option>}
-          {projects.map((row) => (
-            <option value={str(row, "id")} key={str(row, "id")}>
-              {str(row, "name")}
-            </option>
-          ))}
-        </select>
-        <nav>
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              className={tab === t.id ? "active" : ""}
-              onClick={() => setTab(t.id)}
-            >
-              <t.icon size={18} />
-              {t.label}
-              {tab === t.id && <span className="nav-dot" />}
-            </button>
-          ))}
-        </nav>
+        <div className="workspace-label">项目文件夹</div>
+        <ProjectTree
+          projects={projects}
+          projectId={p}
+          workspace={w}
+          current={{
+            view: tab,
+            workflowId: selectedWorkflowId,
+            nodeId: selectedNodeId,
+            sessionId: chat.sessionId,
+          }}
+          onProject={(id) => {
+            setP(id);
+            setTab("overview");
+            setSelectedNodeId("");
+            setSelectedWorkflowId("");
+            setChat({ sessionId: "", quoteId: "" });
+          }}
+          onNavigate={navigate}
+        />
         <button className="new-project" onClick={() => create("project")}>
           <Plus size={16} /> 创建新项目
         </button>
@@ -140,6 +178,14 @@ export function Workbench() {
       </aside>
       <main>
         <header className="topbar">
+          <button
+            className="directory-toggle"
+            aria-expanded={directoryOpen}
+            aria-controls="project-directory"
+            onClick={() => setDirectoryOpen(!directoryOpen)}
+          >
+            <FolderOpen size={17} /> 项目目录
+          </button>
           <div>
             工作空间 <ChevronRight size={14} />
             <strong>{(project?.name as string) || "开始你的第一个项目"}</strong>
@@ -204,9 +250,18 @@ export function Workbench() {
               {tab === "flow" && (
                 <FlowView
                   {...chatActions}
+                  selectedWorkflowId={selectedWorkflowId}
+                  onSelectWorkflow={setSelectedWorkflowId}
                   selectedNodeId={selectedNodeId}
                   onSelectNode={(nodeId) => {
                     setSelectedNodeId(nodeId);
+                    if (nodeId)
+                      setSelectedWorkflowId(
+                        str(
+                          w.nodes.find((n) => n.id === nodeId) ?? {},
+                          "workflow_id",
+                        ),
+                      );
                     setChat({ sessionId: "", quoteId: "" });
                   }}
                   w={w}

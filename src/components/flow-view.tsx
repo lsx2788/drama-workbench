@@ -1,24 +1,26 @@
 "use client";
-import { useState } from "react";
 import { WorkflowGraph } from "./workflow-graph";
 import { NodeChats } from "./node-chats";
 import type { ChatViewProps } from "./view-types";
 import { api, str } from "@/client/api";
 import { Badge, Empty, Panel, date } from "./ui";
 export function FlowView({
+  selectedWorkflowId,
+  onSelectWorkflow,
   selectedNodeId,
   onSelectNode,
   ...props
 }: ChatViewProps & {
+  selectedWorkflowId: string;
+  onSelectWorkflow: (workflowId: string) => void;
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
 }) {
   const { w, p, create, refresh, fail } = props;
-  const [workflowId, setWorkflowId] = useState("");
   const selectedNode = w.nodes.find((n) => n.id === selectedNodeId);
   const workflow =
     w.workflows.find(
-      (f) => f.id === (selectedNode?.workflow_id ?? workflowId),
+      (f) => f.id === (selectedNode?.workflow_id ?? selectedWorkflowId),
     ) ??
     w.overview.workflow ??
     w.workflows[0];
@@ -56,7 +58,7 @@ export function FlowView({
               <button
                 aria-pressed={workflow?.id === f.id}
                 onClick={() => {
-                  setWorkflowId(str(f, "id"));
+                  onSelectWorkflow(str(f, "id"));
                   onSelectNode(
                     str(
                       w.nodes.find((n) => n.workflow_id === f.id) ?? {},

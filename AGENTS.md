@@ -5,6 +5,7 @@ Read docs/方案.md before changing domain behavior. This is a local-first found
 - Overview is a read model derived from authoritative tables. Never persist duplicate current-stage fields on projects.
 - Agents belong to workflow nodes. No job/role-template entity. A coordinator is attached to a coordinator node.
 - Workflow creation, node setup, node AI assignment and work-item setup belong to the AI-facing APIs. Keep the workflow UI focused on inspection, navigation, discussion and user review; do not reintroduce manual setup controls.
+- Navigation begins with collapsed project folders. Reveal workflow, node and chat branches progressively; avoid a permanently expanded flat list of feature tabs.
 - Humans message the coordinator only; child discussions are readable and quotable. Do not add fake AI replies.
 - Persist agent identity, sessions, external session identifiers, configuration snapshots, messages and discussion highlights independently.
 - Deterministic APIs: explicit filters, standard JSON, no fallback guesses or silent relaxed matches.
