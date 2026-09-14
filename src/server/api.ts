@@ -4,6 +4,8 @@ import { getStore, type Store } from "./db";
 import { DomainError, projectExists } from "./common";
 import {
   createProject,
+  listProjects,
+  archiveProject,
   createDocument,
   createWorkflow,
   createNode,
@@ -79,8 +81,13 @@ async function route(request: Request, parts: string[]) {
   const s = getStore(),
     method = request.method;
   if (parts.length === 1 && parts[0] === "projects") {
-    if (method === "GET")
-      return s.all("SELECT * FROM projects ORDER BY created_at DESC");
+    if (method === "GET") {
+      const query = z
+        .object({ archived: z.enum(["true", "false"]).optional() })
+        .strict()
+        .parse(Object.fromEntries(new URL(request.url).searchParams));
+      return listProjects(s, query.archived === "true");
+    }
     if (method === "POST") return createProject(s, await request.json());
   }
   if (parts[0] !== "projects" || !parts[1]) return missing();
@@ -166,6 +173,13 @@ async function route(request: Request, parts: string[]) {
     }
   }
   if (method === "PATCH") {
+    if (resource === "archive" && parts.length === 3) {
+      const input = z
+        .object({ archived: z.boolean() })
+        .strict()
+        .parse(await request.json());
+      return archiveProject(s, p, input.archived);
+    }
     if (resource === "nodes" && key && parts.length === 4)
       return updateNodeState(
         s,

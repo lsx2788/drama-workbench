@@ -92,7 +92,10 @@ test("complete demo preserves age variants, real files, lineage and planned prod
     "场景",
     "道具与服装",
     "组合资产",
-    "分镜与制作",
+    "制作资料",
+    "图片",
+    "音频",
+    "视频",
     "讨论与决策",
     "任务与执行",
   ])

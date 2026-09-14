@@ -11,6 +11,8 @@ import {
 import { storyRecords, type StoryRecord } from "@/client/story-records";
 import { Badge, Dialog, Empty, Panel, date } from "./ui";
 import { AssetFile } from "./asset-file";
+import { Folder, ArrowLeft, ChevronRight } from "lucide-react";
+import { libraryCategories } from "@/client/library-categories";
 const attributeLabels: Record<string, string> = {
   age: "年龄",
   gender: "性别",
@@ -115,13 +117,12 @@ function AssetRecord({
 }
 export function StoryLibrary({ w, p }: { w: Workspace; p: string }) {
   const [query, setQuery] = useState(""),
-    [category, setCategory] = useState("全部"),
+    [category, setCategory] = useState<string | null>(null),
     [selected, setSelected] = useState<StoryRecord | null>(null);
   const records = useMemo(() => storyRecords(w), [w]);
-  const categories = ["全部", ...new Set(records.map((r) => r.category))];
   const matches = records.filter(
     (r) =>
-      (category === "全部" || r.category === category) &&
+      r.category === category &&
       `${r.code} ${r.name} ${r.description} ${r.content} ${r.node} ${JSON.stringify(r.source)}`
         .toLowerCase()
         .includes(query.toLowerCase()),
@@ -130,67 +131,111 @@ export function StoryLibrary({ w, p }: { w: Workspace; p: string }) {
     <>
       <div className="section-actions">
         <div>
-          <h2>故事资产库</h2>
-          <p>故事设定、文稿、素材、决策与制作记录，统一查询。</p>
+          <h2>{category ?? "故事资产库"}</h2>
+          <p>
+            {category
+              ? libraryCategories.find((c) => c.name === category)?.description
+              : "按类别整理故事资料，打开文件夹查看内容。"}
+          </p>
         </div>
-        <span className="muted">{records.length} 条记录</span>
+        {category && <span className="muted">{matches.length} 条记录</span>}
       </div>
-      <div className="library-toolbar">
-        <input
-          aria-label="搜索故事资料"
-          placeholder="搜索名称、编号、年龄、情节或内容…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <select
-          aria-label="资料分类"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          {categories.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-      </div>
-      {matches.length ? (
-        <div className="library-table-wrap">
-          <table className="library-table">
-            <thead>
-              <tr>
-                <th>编号 / 名称</th>
-                <th>分类</th>
-                <th>状态</th>
-                <th>关联节点</th>
-                <th>内容说明</th>
-              </tr>
-            </thead>
-            <tbody>
-              {matches.map((r) => (
-                <tr key={`${r.type}:${r.id}`}>
-                  <td>
+      {!category ? (
+        <div className="library-directory">
+          {["创作资产", "项目记录"].map((group) => (
+            <section key={group} aria-label={group}>
+              <h3>{group}</h3>
+              <div className="library-folders">
+                {libraryCategories
+                  .filter((c) => c.group === group)
+                  .map((c) => (
                     <button
-                      className="record-link"
-                      onClick={() => setSelected(r)}
+                      key={c.name}
+                      className="library-folder"
+                      onClick={() => {
+                        setCategory(c.name);
+                        setQuery("");
+                      }}
+                      aria-label={`打开${c.name}`}
                     >
-                      {r.name}
+                      <span className="library-folder-icon">
+                        <Folder size={23} />
+                      </span>
+                      <span className="library-folder-copy">
+                        <strong>{c.name}</strong>
+                        <small>{c.description}</small>
+                      </span>
+                      <span className="library-folder-count">
+                        {records.filter((r) => r.category === c.name).length}
+                      </span>
+                      <ChevronRight size={15} />
                     </button>
-                    <small>{r.code}</small>
-                  </td>
-                  <td>{r.category}</td>
-                  <td>{r.status ? <Badge value={r.status} /> : "已保存"}</td>
-                  <td>{r.node || "项目共用"}</td>
-                  <td>
-                    <span className="record-summary">
-                      {r.description || "点击查看完整记录"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  ))}
+              </div>
+            </section>
+          ))}
         </div>
       ) : (
-        <Empty>没有匹配的记录。</Empty>
+        <>
+          <div className="library-toolbar">
+            <button
+              className="library-back"
+              onClick={() => {
+                setCategory(null);
+                setQuery("");
+              }}
+            >
+              <ArrowLeft size={16} />
+              返回分类
+            </button>
+            <input
+              aria-label="搜索故事资料"
+              placeholder={`在${category}中搜索…`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {matches.length ? (
+            <div className="library-table-wrap">
+              <table className="library-table">
+                <thead>
+                  <tr>
+                    <th>编号 / 名称</th>
+                    <th>状态</th>
+                    <th>关联节点</th>
+                    <th>内容说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matches.map((r) => (
+                    <tr key={`${r.type}:${r.id}`}>
+                      <td>
+                        <button
+                          className="record-link"
+                          onClick={() => setSelected(r)}
+                        >
+                          {r.name}
+                        </button>
+                        <small>{r.code}</small>
+                      </td>
+                      <td>
+                        {r.status ? <Badge value={r.status} /> : "已保存"}
+                      </td>
+                      <td>{r.node || "项目共用"}</td>
+                      <td>
+                        <span className="record-summary">
+                          {r.description || "点击查看完整记录"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty>没有匹配的记录。</Empty>
+          )}
+        </>
       )}
       {selected && (
         <Dialog title={selected.name} onClose={() => setSelected(null)}>

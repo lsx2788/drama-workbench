@@ -7,6 +7,8 @@ API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectI
 ## 项目及流程
 
 - GET/POST `/api/v1/projects`：列表 / 创建。POST `{name,description?,goal?}`。
+- GET `/api/v1/projects?archived=true`：已归档项目列表，默认列表只含未归档项目。
+- PATCH `/api/v1/projects/:p/archive`：`{archived:true|false}`，归档或恢复目录显示；原始资料仍保留且可按 ID 查询，不改变制作状态。
 - GET `/api/v1/projects/:p/overview`：聚合总览。
 - GET `/api/v1/projects/:p/workspace`：网页聚合数据（小项目版本，分页后续增加）。
 - POST `/api/v1/projects/:p/documents`：`{title,kind: outline|script|note,content,supersedesId?}`。

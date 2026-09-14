@@ -94,4 +94,8 @@ CREATE INDEX IF NOT EXISTS messages_session ON messages(session_id,created_at);
 CREATE INDEX IF NOT EXISTS highlights_node ON highlights(node_id,status);
 CREATE INDEX IF NOT EXISTS reverse_sources ON asset_sources(source_version_id);
 INSERT OR IGNORE INTO schema_migrations VALUES(1,datetime('now'));
+CREATE TABLE IF NOT EXISTS project_archives (
+ project_id TEXT PRIMARY KEY REFERENCES projects(id), archived_at TEXT NOT NULL
+);
+INSERT OR IGNORE INTO schema_migrations VALUES(2,datetime('now'));
 `;

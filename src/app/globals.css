@@ -769,8 +769,74 @@ footer {
   gap: 12px;
   margin-bottom: 20px;
 }
-.library-toolbar select {
-  max-width: 180px;
+.library-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.library-directory section + section {
+  margin-top: 32px;
+}
+.library-directory h3 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+.library-folders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
+  gap: 14px;
+}
+.library-folder {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 18px;
+  text-align: left;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.library-folder:hover {
+  border-color: var(--green);
+  background: #f8faf5;
+}
+.library-folder-icon {
+  color: var(--green);
+  background: #edf3e9;
+  border-radius: 10px;
+  padding: 12px;
+  display: inline-flex;
+}
+.library-folder-copy {
+  flex: 1;
+  min-width: 0;
+}
+.library-folder-copy strong {
+  display: block;
+  font-size: 15px;
+}
+.library-folder-copy small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.library-folder-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+.library-folder > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.library-toolbar input {
+  min-width: 0;
+}
+.library-table td:nth-child(3) {
+  white-space: normal;
 }
 .library-table-wrap {
   overflow: auto;
@@ -799,8 +865,7 @@ footer {
 .library-table td:first-child {
   width: 28%;
 }
-.library-table td:nth-child(2),
-.library-table td:nth-child(3) {
+.library-table td:nth-child(2) {
   white-space: nowrap;
 }
 .library-table td small {

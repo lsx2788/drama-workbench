@@ -57,8 +57,12 @@ export function storyRecords(w: Workspace): StoryRecord[] {
               prop: "道具与服装",
               costume: "道具与服装",
               composite: "组合资产",
+              document: "制作资料",
+              image: "图片",
+              audio: "音频",
+              video: "视频",
             } as Record<string, string>
-          )[str(r, "kind")] ?? "分镜与制作",
+          )[str(r, "kind")] ?? "制作资料",
         status: r.approved_version ? "approved" : "candidate",
         description: str(r, "description"),
         node: nodeName(attrs.nodeId),

@@ -28,6 +28,21 @@ export function createProject(s: Store, input: unknown) {
   );
   return projectExists(s, projectId);
 }
+export function listProjects(s: Store, archived = false) {
+  return s.all(
+    `SELECT p.* FROM projects p WHERE ${archived ? "" : "NOT "}EXISTS(SELECT 1 FROM project_archives a WHERE a.project_id=p.id) ORDER BY p.created_at DESC`,
+  );
+}
+export function archiveProject(s: Store, p: string, archived: boolean) {
+  projectExists(s, p);
+  return s.transaction(() => {
+    if (archived)
+      s.run("INSERT OR IGNORE INTO project_archives VALUES(?,?)", p, now());
+    else s.run("DELETE FROM project_archives WHERE project_id=?", p);
+    audit(s, p, archived ? "project.archived" : "project.restored", p);
+    return { projectId: p, archived };
+  });
+}
 export function createDocument(s: Store, p: string, input: unknown) {
   projectExists(s, p);
   const d = documentSchema.parse(input);
