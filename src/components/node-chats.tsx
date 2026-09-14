@@ -16,15 +16,15 @@ export function NodeChats({
     <Panel
       title={`节点聊天 · ${sessions.length}`}
       action={
-        <button
-          onClick={() =>
-            agents.length
-              ? create("session", { nodeId, agentId: str(agents[0], "id") })
-              : create("agent", { nodeId })
-          }
-        >
-          {agents.length ? "＋ 添加聊天" : "＋ 先添加节点 AI"}
-        </button>
+        agents.length > 0 ? (
+          <button
+            onClick={() =>
+              create("session", { nodeId, agentId: str(agents[0], "id") })
+            }
+          >
+            ＋ 添加聊天
+          </button>
+        ) : undefined
       }
     >
       <p className="muted">
@@ -64,7 +64,7 @@ export function NodeChats({
           这个节点还没有聊天。
           {agents.length
             ? "可为本节点的 AI 添加一个讨论主题。"
-            : "先确定参与这个节点的 AI，再建立聊天。"}
+            : "总控确定参与 AI 后，相关聊天会展示在这里。"}
         </p>
       )}
       {active && (

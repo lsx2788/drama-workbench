@@ -40,27 +40,12 @@ export function FlowView({
       <div className="section-actions">
         <div>
           <h2>流程与事项</h2>
-          <p>流程随故事确定，每个节点都保留自己的 AI、重点和成果。</p>
+          <p>查看制作路径与推进情况，点击节点进入详情和讨论。</p>
         </div>
-        <div className="buttons">
-          <button onClick={() => create("workflow")}>新建流程</button>
-          <button
-            className="primary"
-            onClick={() =>
-              create(
-                "node",
-                workflow?.status === "draft"
-                  ? { workflowId: str(workflow, "id") }
-                  : undefined,
-              )
-            }
-          >
-            ＋ 添加节点
-          </button>
-        </div>
+        <button onClick={() => refresh().catch(fail)}>刷新流程</button>
       </div>
       {!w.workflows.length ? (
-        <Empty>还没有制作流程。先创建草案，再根据讨论添加节点。</Empty>
+        <Empty>暂无制作流程。总控根据讨论结果生成流程后，会展示在这里。</Empty>
       ) : (
         <div className="workflow-bar">
           {w.workflows.map((f) => (
@@ -83,11 +68,6 @@ export function FlowView({
                 <strong>{str(f, "name")}</strong>
               </button>
               <Badge value={str(f, "status")} />
-              {f.status === "draft" && (
-                <button onClick={() => change(`workflows/${f.id}/activate`)}>
-                  发布流程
-                </button>
-              )}
             </div>
           ))}
         </div>
@@ -106,25 +86,7 @@ export function FlowView({
           <div className="node-detail">
             <Panel
               title={str(current, "name")}
-              action={
-                <select
-                  aria-label="节点状态"
-                  value={str(current, "status")}
-                  onChange={(e) =>
-                    change(
-                      `nodes/${current.id}`,
-                      { status: e.target.value },
-                      "PATCH",
-                    )
-                  }
-                >
-                  <option value="planned">待准备</option>
-                  <option value="active">进行中</option>
-                  <option value="blocked">阻塞</option>
-                  <option value="review">待审核</option>
-                  <option value="completed">完成</option>
-                </select>
-              }
+              action={<Badge value={str(current, "status")} />}
             >
               <p>{str(current, "objective")}</p>
               <p className="muted">
@@ -190,18 +152,7 @@ export function FlowView({
               {...props}
               nodeId={str(current, "id")}
             />
-            <Panel
-              title="节点内的 AI"
-              action={
-                <button
-                  onClick={() =>
-                    create("agent", { nodeId: str(current, "id") })
-                  }
-                >
-                  ＋ 添加 AI
-                </button>
-              }
-            >
+            <Panel title="节点内的 AI">
               {w.agents
                 .filter((a) => a.node_id === current.id)
                 .map((a) => (
@@ -231,19 +182,12 @@ export function FlowView({
                   </details>
                 ))}
               {!w.agents.some((a) => a.node_id === current.id) && (
-                <p className="muted">一个节点可以有多个不同定位的 AI。</p>
+                <p className="muted">
+                  暂无参与 AI。总控确定参与者后，会显示在这里。
+                </p>
               )}
             </Panel>
-            <Panel
-              title="工作事项"
-              action={
-                <button
-                  onClick={() => create("item", { nodeId: str(current, "id") })}
-                >
-                  ＋ 新事项
-                </button>
-              }
-            >
+            <Panel title="工作事项">
               {w.items
                 .filter((i) => i.node_id === current.id)
                 .map((i) => (
@@ -257,34 +201,22 @@ export function FlowView({
                       <p className="muted">{str(i, "block_reason")}</p>
                     ) : null}
                     <div className="buttons">
-                      <button
-                        onClick={() =>
-                          change(`items/${i.id}`, { status: "ready" }, "PATCH")
-                        }
-                      >
-                        准备就绪
-                      </button>
-                      <button
-                        onClick={() =>
-                          change(`items/${i.id}`, { status: "review" }, "PATCH")
-                        }
-                      >
-                        提交审核
-                      </button>
-                      <button
-                        onClick={() =>
-                          change(
-                            `items/${i.id}`,
-                            {
-                              status: "completed",
-                              reason: "由本地负责人确认交付完成",
-                            },
-                            "PATCH",
-                          )
-                        }
-                      >
-                        确认完成
-                      </button>
+                      {i.status === "review" && (
+                        <button
+                          onClick={() =>
+                            change(
+                              `items/${i.id}`,
+                              {
+                                status: "completed",
+                                reason: "由本地负责人确认交付完成",
+                              },
+                              "PATCH",
+                            )
+                          }
+                        >
+                          确认完成
+                        </button>
+                      )}
                       <button
                         onClick={async () => {
                           try {

@@ -88,7 +88,7 @@ export function WorkflowGraph({
       <div className="graph-viewport" ref={viewport}>
         {!nodes.length ? (
           <Empty>
-            这个流程还没有节点。添加节点并选择前置节点，连线会自动显示。
+            这个流程暂时没有节点。节点及其依赖生成后，会展示在这里。
           </Empty>
         ) : (
           <div

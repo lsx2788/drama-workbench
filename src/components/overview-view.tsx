@@ -27,10 +27,9 @@ export function OverviewView({
           <button
             onClick={() => {
               setTab("flow");
-              if (!w.workflows.length) create("workflow");
             }}
           >
-            规划制作流程 <ArrowUpRight size={16} />
+            查看制作流程 <ArrowUpRight size={16} />
           </button>
         </div>
         <div className="hero-stamp">
@@ -95,7 +94,9 @@ export function OverviewView({
                 </div>
               </>
             ) : (
-              <Empty>还没有发布流程。先围绕故事讨论，再保存合适的路线。</Empty>
+              <Empty>
+                还没有已确认的流程。与总控讨论后，制作路线会展示在这里。
+              </Empty>
             )}
           </Panel>
           <Panel

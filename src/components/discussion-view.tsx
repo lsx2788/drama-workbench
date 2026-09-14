@@ -22,7 +22,7 @@ export function DiscussionView(props: ChatViewProps) {
       </div>
       {!session ? (
         <Empty>
-          先在流程节点中添加 AI，再建立聊天。总控协调节点是你的沟通入口。
+          暂无聊天。总控协调节点是你的沟通入口，节点 AI 就绪后可展开讨论。
         </Empty>
       ) : (
         <div className="discussion-layout">
