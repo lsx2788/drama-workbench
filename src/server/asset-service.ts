@@ -233,17 +233,31 @@ export function assetDetail(s: Store, p: string, key: string) {
   return {
     ...asset,
     attributes: JSON.parse(String(asset.attributes_json)),
-    versions: versions.map((v) => ({
-      ...v,
-      files: s
-        .all("SELECT * FROM files WHERE version_id=?", String(v.id))
-        .map((f) => ({ ...f, url: `/api/v1/projects/${p}/files/${f.id}` })),
-      sources: s.all(
-        "SELECT a.code,a.name,v.id,v.version FROM asset_sources e JOIN asset_versions v ON v.id=e.source_version_id JOIN assets a ON a.id=v.asset_id WHERE e.version_id=?",
-        String(v.id),
-      ),
-      reviews: s.all("SELECT * FROM reviews WHERE version_id=?", String(v.id)),
-    })),
+    versions: versions.map(
+      (
+        v,
+      ): Row & {
+        files: (Row & { url: string })[];
+        sources: Row[];
+        reviews: Row[];
+      } => ({
+        ...v,
+        files: s
+          .all("SELECT * FROM files WHERE version_id=?", String(v.id))
+          .map((f): Row & { url: string } => ({
+            ...f,
+            url: `/api/v1/projects/${p}/files/${f.id}`,
+          })),
+        sources: s.all(
+          "SELECT a.code,a.name,v.id,v.version FROM asset_sources e JOIN asset_versions v ON v.id=e.source_version_id JOIN assets a ON a.id=v.asset_id WHERE e.version_id=?",
+          String(v.id),
+        ),
+        reviews: s.all(
+          "SELECT * FROM reviews WHERE version_id=?",
+          String(v.id),
+        ),
+      }),
+    ),
   };
 }
 export function lineage(s: Store, p: string, key: string) {

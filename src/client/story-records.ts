@@ -1,0 +1,106 @@
+import { str, type Workspace, type RecordData } from "./api";
+export interface StoryRecord {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  status: string;
+  description: string;
+  content: string;
+  node: string;
+  source: RecordData;
+  type:
+    "asset" | "document" | "highlight" | "session" | "item" | "run" | "project";
+}
+export function storyRecords(w: Workspace): StoryRecord[] {
+  const nodeName = (id: unknown) =>
+    str(w.nodes.find((n) => n.id === id) ?? {}, "name");
+  const base = (r: RecordData) => ({
+    id: str(r, "id"),
+    code: str(r, "id").slice(0, 8),
+    source: r,
+    node: "",
+    content: "",
+    description: "",
+    status: "",
+  });
+  return [
+    {
+      ...base(w.overview.project),
+      type: "project",
+      name: "项目说明与制作目标",
+      category: "故事文稿",
+      content: str(w.overview.project, "goal"),
+      description: str(w.overview.project, "description"),
+    },
+    ...w.documents.map((r) => ({
+      ...base(r),
+      type: "document" as const,
+      name: str(r, "title"),
+      category: "故事文稿",
+      status: `修订 ${r.revision}`,
+      content: str(r, "content"),
+      description: str(r, "content").slice(0, 120),
+    })),
+    ...w.assets.map((r) => {
+      const attrs = JSON.parse(str(r, "attributes_json") || "{}");
+      return {
+        ...base(r),
+        type: "asset" as const,
+        code: str(r, "code"),
+        name: str(r, "name"),
+        category:
+          (
+            {
+              character: "人物",
+              scene: "场景",
+              prop: "道具与服装",
+              costume: "道具与服装",
+              composite: "组合资产",
+            } as Record<string, string>
+          )[str(r, "kind")] ?? "分镜与制作",
+        status: r.approved_version ? "approved" : "candidate",
+        description: str(r, "description"),
+        node: nodeName(attrs.nodeId),
+      };
+    }),
+    ...w.highlights.map((r) => ({
+      ...base(r),
+      type: "highlight" as const,
+      name: str(r, "content"),
+      category: "讨论与决策",
+      status: str(r, "status"),
+      content: str(r, "content"),
+      description: str(r, "rationale"),
+      node: nodeName(r.node_id),
+    })),
+    ...w.sessions.map((r) => ({
+      ...base(r),
+      type: "session" as const,
+      name: str(r, "title"),
+      category: "讨论与决策",
+      status: str(r, "status"),
+      description: str(r, "agent_name"),
+      node: nodeName(r.node_id),
+    })),
+    ...w.items.map((r) => ({
+      ...base(r),
+      type: "item" as const,
+      name: str(r, "title"),
+      category: "任务与执行",
+      status: str(r, "status"),
+      content: str(r, "objective"),
+      description: str(r, "acceptance"),
+      node: nodeName(r.node_id),
+    })),
+    ...w.runs.map((r) => ({
+      ...base(r),
+      type: "run" as const,
+      name: `执行记录 ${str(r, "id").slice(0, 8)}`,
+      category: "任务与执行",
+      status: str(r, "status"),
+      description: str(r, "error"),
+      content: str(r, "input_snapshot"),
+    })),
+  ] as StoryRecord[];
+}

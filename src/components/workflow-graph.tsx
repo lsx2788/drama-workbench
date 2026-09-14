@@ -28,6 +28,7 @@ export function WorkflowGraph({
           from: str(d, "depends_on"),
           to: str(d, "node_id"),
         })),
+        "vertical",
       ),
     [nodes, dependencies],
   );
@@ -136,18 +137,22 @@ export function WorkflowGraph({
                 {graph.edges.map((e) => {
                   const source = positions.get(e.from)!,
                     target = positions.get(e.to)!;
-                  const x = source.x + NODE_WIDTH,
-                    y = source.y + NODE_HEIGHT / 2;
-                  const endX = target.x - 5,
-                    endY = target.y + NODE_HEIGHT / 2;
-                  const bend = Math.max(38, (endX - x) / 2),
+                  const x = source.x + NODE_WIDTH / 2,
+                    y = source.y + NODE_HEIGHT;
+                  const endX = target.x + NODE_WIDTH / 2,
+                    endY = target.y - 5;
+                  const bend = Math.max(38, (endY - y) / 2),
                     active = e.from === selectedId || e.to === selectedId;
+                  const edgePath =
+                    endY - y > 150
+                      ? `M ${x} ${y} L ${x} ${y + 24} L ${graph.width - 12} ${y + 24} L ${graph.width - 12} ${endY - 24} L ${endX} ${endY - 24} L ${endX} ${endY}`
+                      : `M ${x} ${y} C ${x} ${y + bend}, ${endX} ${endY - bend}, ${endX} ${endY}`;
                   return (
                     <path
                       key={`${e.from}:${e.to}`}
                       data-from={e.from}
                       data-to={e.to}
-                      d={`M ${x} ${y} C ${x + bend} ${y}, ${endX - bend} ${endY}, ${endX} ${endY}`}
+                      d={edgePath}
                       fill="none"
                       stroke={active ? "#254e42" : "#a3b6ac"}
                       strokeWidth={active ? 2.5 : 1.8}
@@ -176,9 +181,6 @@ export function WorkflowGraph({
                       <strong>{str(node, "name")}</strong>
                       <Badge value={str(node, "status")} />
                     </span>
-                    <span className="graph-node-objective">
-                      {str(node, "objective") || "点击查看节点信息与聊天"}
-                    </span>
                     <span className="graph-node-footer">
                       {node.node_type === "coordinator"
                         ? "总控协调"
@@ -194,7 +196,7 @@ export function WorkflowGraph({
       </div>
       <div className="graph-caption">
         {nodes.length} 个节点 · {graph.edges.length} 条依赖 ·
-        并行节点分行展示，较大流程可滚动查看
+        从上往下推进，并行节点并列展示，可滚动查看
       </div>
     </section>
   );

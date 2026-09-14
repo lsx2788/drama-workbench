@@ -10,13 +10,17 @@ export interface PlacedNode extends GraphNode {
   y: number;
 }
 export const NODE_WIDTH = 224;
-export const NODE_HEIGHT = 120;
-const COLUMN_GAP = 96;
+export const NODE_HEIGHT = 82;
+const COLUMN_GAP = 64;
 const ROW_GAP = 40;
 const PADDING = 32;
 
 /** Place each node after all of its prerequisites. Unconnected nodes remain peers. */
-export function layoutWorkflow(nodes: GraphNode[], dependencies: GraphEdge[]) {
+export function layoutWorkflow(
+  nodes: GraphNode[],
+  dependencies: GraphEdge[],
+  direction: "horizontal" | "vertical" = "horizontal",
+) {
   const ids = new Set(nodes.map((n) => n.id));
   const edges = [
     ...new Map(
@@ -53,6 +57,26 @@ export function layoutWorkflow(nodes: GraphNode[], dependencies: GraphEdge[]) {
     columns.set(rank, [...(columns.get(rank) ?? []), n]);
   }
   const rows = Math.max(1, ...[...columns.values()].map((c) => c.length));
+  if (direction === "vertical") {
+    const width = PADDING * 2 + rows * NODE_WIDTH + (rows - 1) * ROW_GAP;
+    return {
+      nodes: [...columns].flatMap(([rank, column]) => {
+        const span = column.length * NODE_WIDTH + (column.length - 1) * ROW_GAP;
+        return column.map((n, index) => ({
+          id: n.id,
+          x: (width - span) / 2 + index * (NODE_WIDTH + ROW_GAP),
+          y: PADDING + rank * (NODE_HEIGHT + COLUMN_GAP),
+        }));
+      }),
+      edges,
+      hasCycle,
+      width,
+      height:
+        PADDING * 2 +
+        NODE_HEIGHT +
+        Math.max(0, ...columns.keys()) * (NODE_HEIGHT + COLUMN_GAP),
+    };
+  }
   const height = PADDING * 2 + rows * NODE_HEIGHT + (rows - 1) * ROW_GAP;
   const placed: PlacedNode[] = [];
   for (const [rank, column] of columns) {

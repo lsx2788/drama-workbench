@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write src tests docs README.md AGENTS.md"
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "format": "prettier --write src scripts tests docs README.md AGENTS.md"
   },
   "keywords": [],
   "author": "",
