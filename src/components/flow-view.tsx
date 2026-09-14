@@ -1,4 +1,6 @@
 "use client";
+import { useState } from "react";
+import { WorkflowGraph } from "./workflow-graph";
 import { NodeChats } from "./node-chats";
 import type { ChatViewProps } from "./view-types";
 import { api, str } from "@/client/api";
@@ -12,10 +14,16 @@ export function FlowView({
   onSelectNode: (nodeId: string) => void;
 }) {
   const { w, p, create, refresh, fail } = props;
-  const current =
-    w.nodes.find((n) => n.id === selectedNodeId) ??
-    w.nodes.find((n) => n.workflow_id === w.overview.workflow?.id) ??
-    w.nodes[0];
+  const [workflowId, setWorkflowId] = useState("");
+  const selectedNode = w.nodes.find((n) => n.id === selectedNodeId);
+  const workflow =
+    w.workflows.find(
+      (f) => f.id === (selectedNode?.workflow_id ?? workflowId),
+    ) ??
+    w.overview.workflow ??
+    w.workflows[0];
+  const nodes = w.nodes.filter((n) => n.workflow_id === workflow?.id);
+  const current = nodes.find((n) => n.id === selectedNodeId) ?? nodes[0];
   async function change(path: string, body?: unknown, method = "POST") {
     try {
       await api(`/projects/${p}/${path}`, {
@@ -36,7 +44,17 @@ export function FlowView({
         </div>
         <div className="buttons">
           <button onClick={() => create("workflow")}>新建流程</button>
-          <button className="primary" onClick={() => create("node")}>
+          <button
+            className="primary"
+            onClick={() =>
+              create(
+                "node",
+                workflow?.status === "draft"
+                  ? { workflowId: str(workflow, "id") }
+                  : undefined,
+              )
+            }
+          >
             ＋ 添加节点
           </button>
         </div>
@@ -46,8 +64,24 @@ export function FlowView({
       ) : (
         <div className="workflow-bar">
           {w.workflows.map((f) => (
-            <div key={str(f, "id")}>
-              <strong>{str(f, "name")}</strong>
+            <div
+              key={str(f, "id")}
+              className={workflow?.id === f.id ? "selected" : ""}
+            >
+              <button
+                aria-pressed={workflow?.id === f.id}
+                onClick={() => {
+                  setWorkflowId(str(f, "id"));
+                  onSelectNode(
+                    str(
+                      w.nodes.find((n) => n.workflow_id === f.id) ?? {},
+                      "id",
+                    ),
+                  );
+                }}
+              >
+                <strong>{str(f, "name")}</strong>
+              </button>
               <Badge value={str(f, "status")} />
               {f.status === "draft" && (
                 <button onClick={() => change(`workflows/${f.id}/activate`)}>
@@ -58,25 +92,16 @@ export function FlowView({
           ))}
         </div>
       )}
-      <div className="flow-layout">
-        <div className="node-list">
-          {w.nodes.map((n, i) => (
-            <button
-              key={str(n, "id")}
-              className={`node-card ${current?.id === n.id ? "selected" : ""}`}
-              onClick={() => onSelectNode(str(n, "id"))}
-            >
-              <span className="node-number">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div>
-                <strong>{str(n, "name")}</strong>
-                <small>{str(n, "objective") || "尚未填写节点目标"}</small>
-                <Badge value={str(n, "status")} />
-              </div>
-            </button>
-          ))}
-        </div>
+      {workflow && (
+        <WorkflowGraph
+          key={str(workflow, "id")}
+          nodes={nodes}
+          dependencies={w.dependencies}
+          selectedId={current ? str(current, "id") : ""}
+          onSelect={onSelectNode}
+        />
+      )}
+      <div className="flow-details-layout">
         {current ? (
           <div className="node-detail">
             <Panel

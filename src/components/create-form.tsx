@@ -23,6 +23,10 @@ export function CreateForm({
 }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState(defaults.workflowId);
+  const workflowId =
+    selectedWorkflow ??
+    workspace?.workflows.find((f) => f.status === "draft")?.id;
   const scopedWorkspace =
     kind === "session" && defaults.nodeId && workspace
       ? {
@@ -32,7 +36,12 @@ export function CreateForm({
             (s) => s.node_id === defaults.nodeId,
           ),
         }
-      : workspace;
+      : kind === "node" && workspace
+        ? {
+            ...workspace,
+            nodes: workspace.nodes.filter((n) => n.workflow_id === workflowId),
+          }
+        : workspace;
   const spec = fields(kind, scopedWorkspace);
   return (
     <Dialog title={titles[kind]} onClose={onClose}>
@@ -75,6 +84,11 @@ export function CreateForm({
             ) : f.type === "select" ? (
               <select
                 name={f.key}
+                onChange={
+                  f.key === "workflowId"
+                    ? (e) => setSelectedWorkflow(e.target.value)
+                    : undefined
+                }
                 required={!f.optional}
                 defaultValue={defaults[f.key] ?? f.options?.[0]?.value}
               >
