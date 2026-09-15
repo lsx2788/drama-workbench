@@ -37,7 +37,7 @@ export function WorkspaceTabs({
             ? GitBranch
             : page.kind === "assets"
               ? Database
-              : page.kind === "node"
+              : page.kind === "node" || page.kind === "story"
                 ? FileText
                 : MessageCircle;
         const projectName = str(

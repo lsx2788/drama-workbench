@@ -10,6 +10,7 @@ import { StoryLibrary } from "./story-library";
 import { NodeDetails } from "./node-details";
 import { ChatPanel } from "./chat-panel";
 import { Empty } from "./ui";
+import { StoryReader } from "./story-reader";
 
 export function WorkspacePage({
   page,
@@ -77,6 +78,8 @@ export function WorkspacePage({
     },
   };
   if (page.kind === "flow") return <FlowView w={w} onSelectNode={openNode} />;
+  if (page.kind === "story")
+    return <StoryReader p={p} storyId={page.targetId!} />;
   if (page.kind === "assets")
     return <StoryLibrary w={w} p={p} onImport={() => create("story")} />;
   if (page.kind === "node") {

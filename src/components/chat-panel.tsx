@@ -3,6 +3,37 @@ import { useState } from "react";
 import { api, str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
+import { StoryLink } from "./story-link";
+
+function StoryMessage({ p, message }: { p: string; message: RecordData }) {
+  const content = str(message, "content");
+  const sourcePath = str(message, "story_download_url");
+  const storyId = str(message, "story_id");
+  if (!storyId || !sourcePath) return <p className="pre">{content}</p>;
+  const segments = content.split(sourcePath);
+  return (
+    <>
+      <p className="pre">
+        {segments.map((text, index) => (
+          <span key={index}>
+            {index > 0 && (
+              <StoryLink p={p} storyId={storyId}>
+                {sourcePath}
+              </StoryLink>
+            )}
+            {text}
+          </span>
+        ))}
+      </p>
+      {segments.length === 1 && (
+        <StoryLink p={p} storyId={storyId}>
+          <span>故事原文：{str(message, "story_title")}</span>
+          <small className="story-message-path">{sourcePath}</small>
+        </StoryLink>
+      )}
+    </>
+  );
+}
 export function ChatPanel({
   w,
   p,
@@ -74,16 +105,7 @@ export function ChatPanel({
                   )}
                 </blockquote>
               ) : null}
-              <p className="pre">{str(m, "content")}</p>
-              {m.story_id ? (
-                <a
-                  className="story-download"
-                  href={str(m, "story_download_url")}
-                  download
-                >
-                  故事原文：{str(m, "story_title")}
-                </a>
-              ) : null}
+              <StoryMessage p={p} message={m} />
               <div className="message-actions">
                 <button
                   onClick={() => {

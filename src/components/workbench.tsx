@@ -14,6 +14,7 @@ import { WorkspacePage } from "./workspace-page";
 import { CreateForm, type FormKind } from "./create-form";
 import { Empty } from "./ui";
 import type { StoryDiscussion } from "@/shared/story-import";
+import { StoryNavigation } from "./story-link";
 
 export function Workbench() {
   const [projects, setProjects] = useState<RecordData[]>([]);
@@ -71,7 +72,22 @@ export function Workbench() {
     let current = true;
     loadProjects()
       .then((rows) => {
-        if (current && rows[0]) navigate(str(rows[0], "id"), "coordinator");
+        if (!current) return;
+        const query = new URLSearchParams(window.location.search);
+        const projectId = query.get("project"),
+          storyId = query.get("story");
+        if (projectId && storyId) {
+          if (!rows.some((row) => row.id === projectId)) {
+            fail(new Error("故事所属项目不存在或不可访问"));
+            return;
+          }
+          open({
+            projectId,
+            kind: "story",
+            title: "故事原文",
+            targetId: storyId,
+          });
+        } else if (rows[0]) navigate(str(rows[0], "id"), "coordinator");
       })
       .catch(fail)
       .finally(() => {
@@ -80,7 +96,7 @@ export function Workbench() {
     return () => {
       current = false;
     };
-  }, [loadProjects, navigate, fail]);
+  }, [loadProjects, navigate, open, fail]);
   useEffect(() => {
     for (const page of tabs.pages) {
       if (!workspaces[page.projectId] && !requests.current.has(page.projectId))
@@ -202,19 +218,37 @@ export function Workbench() {
               hidden={page.id !== tabs.activeId}
             >
               {workspaces[page.projectId] ? (
-                <WorkspacePage
-                  page={page}
-                  w={workspaces[page.projectId]}
-                  create={(kind, defaults) =>
-                    create(kind, page.projectId, defaults)
+                <StoryNavigation.Provider
+                  value={(storyId) =>
+                    open({
+                      projectId: page.projectId,
+                      kind: "story",
+                      targetId: storyId,
+                      title:
+                        "原文 · " +
+                        (str(
+                          workspaces[page.projectId].stories.find(
+                            (s) => s.id === storyId,
+                          ) ?? {},
+                          "title",
+                        ) || "故事"),
+                    })
                   }
-                  refresh={() => refresh(page.projectId)}
-                  fail={fail}
-                  open={open}
-                  clearQuote={() =>
-                    dispatch({ type: "clearQuote", id: page.id })
-                  }
-                />
+                >
+                  <WorkspacePage
+                    page={page}
+                    w={workspaces[page.projectId]}
+                    create={(kind, defaults) =>
+                      create(kind, page.projectId, defaults)
+                    }
+                    refresh={() => refresh(page.projectId)}
+                    fail={fail}
+                    open={open}
+                    clearQuote={() =>
+                      dispatch({ type: "clearQuote", id: page.id })
+                    }
+                  />
+                </StoryNavigation.Provider>
               ) : (
                 <Empty>正在读取故事资料…</Empty>
               )}

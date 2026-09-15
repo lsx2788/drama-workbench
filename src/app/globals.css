@@ -2185,3 +2185,112 @@ pre {
     margin: 8px 12px 0;
   }
 }
+
+.story-source-link {
+  color: #607b4d;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.story-source-link:hover {
+  color: #344d29;
+}
+.story-message-path {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.story-reader {
+  max-width: 920px;
+  margin: 0 auto;
+}
+.story-reader-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding-bottom: 20px;
+}
+.story-reader-eyebrow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.story-reader-header h1 {
+  font-size: 24px;
+  font-weight: 500;
+  margin: 12px 0 8px;
+  overflow-wrap: anywhere;
+}
+.story-reader-header p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+}
+.story-reader-download {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #637754;
+  padding: 8px 0;
+}
+.story-reader-path {
+  display: grid;
+  gap: 6px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  background: #eef2e8;
+  font-size: 10px;
+  color: var(--muted);
+}
+.story-reader-path code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  color: #627253;
+}
+.story-reader-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font: inherit;
+  font-size: 14px;
+  line-height: 2;
+  padding: 36px 40px;
+  background: #fffefa;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #36472e05;
+  tab-size: 4;
+}
+.story-reader-encoding {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 16px;
+}
+.story-reader-encoding select {
+  width: auto;
+  font-size: 11px;
+  padding: 6px 10px;
+}
+@media (max-width: 760px) {
+  .story-reader-header {
+    gap: 12px;
+  }
+  .story-reader-header h1 {
+    font-size: 20px;
+  }
+  .story-reader-text {
+    padding: 22px 18px;
+    font-size: 13px;
+  }
+}

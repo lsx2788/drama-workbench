@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, str, type RecordData } from "@/client/api";
 import { Dialog, Panel, date } from "./ui";
+import { StoryLink } from "./story-link";
 
 export function StorySource({ p, storyId }: { p: string; storyId: string }) {
   const [detail, setDetail] = useState<RecordData>();
@@ -34,10 +35,12 @@ export function StorySource({ p, storyId }: { p: string; storyId: string }) {
         {detail.source_kind === "text" ? "粘贴文本" : "上传文件"} ·{" "}
         {str(detail, "original_name")} · {date(detail.created_at)}
       </p>
-      <a className="story-download" href={str(detail, "download_url")} download>
-        下载原始故事
-      </a>
-      <p>原始内容已保存，可下载查看。</p>
+      <StoryLink p={p} storyId={storyId}>
+        浏览原文
+        <small className="story-message-path">
+          {str(detail, "download_url")}
+        </small>
+      </StoryLink>
       <dl className="record-fields">
         <dt>故事编号</dt>
         <dd>{str(detail, "id")}</dd>

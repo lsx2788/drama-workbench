@@ -64,6 +64,7 @@ export function startStoryDiscussion(
         ? `制作偏好：\n${d.preferences.map((preference) => preferenceLabel(preference, catalog)).join("\n")}`
         : "制作偏好尚未填写，阅读后再一起讨论。",
       `我的想法：\n${d.ideas.trim() ? d.ideas : "暂无补充，先一起讨论。"}`,
+      `故事原文路径：${story.download_url}`,
       "请结合附带的故事原文分析。以上是初步意向，我们可以继续讨论调整。",
       "请先梳理已知条件，和我确认基本制作信息；未填写的内容请提出建议后再确认。在我确认关键制作方向前，先不要开始剧本拆解、分镜或资产制作。",
     ].join("\n\n");

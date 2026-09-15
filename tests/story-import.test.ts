@@ -107,6 +107,7 @@ test("story import persists exact sources across restart and scopes retrieval; r
 
   // Metadata lookup and retry must not open or parse stored content.
   const stored = storyFile(s, p, key);
+  assert.match(String(stored.row.file_key), /^story-.+\.txt$/);
   const filename = path.join(root, "files", String(stored.row.file_key));
   renameSync(filename, filename + ".held");
   try {

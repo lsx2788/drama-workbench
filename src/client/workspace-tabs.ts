@@ -1,5 +1,5 @@
 export type ProjectView = "coordinator" | "flow" | "assets";
-export type PageKind = ProjectView | "node" | "chat";
+export type PageKind = ProjectView | "node" | "chat" | "story";
 export interface WorkspacePage {
   id: string;
   projectId: string;
@@ -27,7 +27,7 @@ export const pageTitles: Record<ProjectView, string> = {
 export function tabReducer(state: TabState, action: TabAction): TabState {
   if (action.type === "open") {
     const { page } = action;
-    const id = `${page.projectId}:${page.kind}:${page.kind === "chat" || page.kind === "node" ? page.targetId : ""}`;
+    const id = `${page.projectId}:${page.kind}:${page.kind === "chat" || page.kind === "node" || page.kind === "story" ? page.targetId : ""}`;
     const existing = state.pages.find((p) => p.id === id);
     return {
       activeId: id,

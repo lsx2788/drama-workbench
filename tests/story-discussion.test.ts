@@ -55,6 +55,11 @@ test("preferences exist only in the coordinator message, survive restart and nev
   assert.equal(message.story_id, key);
   assert.equal(message.story_download_url, result.story.download_url);
   assert.ok(!String(message.content).includes(input.text));
+  assert.ok(
+    String(message.content).includes(
+      `故事原文路径：${result.story.download_url}`,
+    ),
+  );
   assert.equal(after.nodes.length, 1);
   assert.equal(after.runs.length, 0);
   assert.equal(after.highlights.length, 0);
