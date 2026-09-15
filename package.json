@@ -7,6 +7,7 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
+    "remote": "node scripts/remote-access.mjs",
     "typecheck": "tsc --noEmit",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "format": "prettier --write src scripts tests docs README.md AGENTS.md"
@@ -31,5 +32,7 @@
     "typescript": "^7.0.2"
   },
   "private": true,
-  "engines": { "node": ">=24.0.0" }
+  "engines": {
+    "node": ">=24.0.0"
+  }
 }
