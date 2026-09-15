@@ -96,8 +96,8 @@ export function startStoriesDiscussion(
           });
     const content = [
       stories.length === 1
-        ? `我已提交《${story.title}》，请先阅读并分析这个故事，再和我讨论制作方向。`
-        : `我已提交 ${stories.length} 个故事文件，请先结合全部文件阅读并分析，再和我讨论制作方向。`,
+        ? `我已提交《${story.title}》，请先了解已有资料，按需分析这个故事，与我讨论制作方向。`
+        : `我已提交 ${stories.length} 个故事文件，请先了解各文件的基本信息和已有分析，按需理解故事，与我讨论制作方向。`,
       d.preferences.length
         ? `制作偏好：\n${d.preferences.map((preference) => preferenceLabel(preference, catalog)).join("\n")}`
         : "制作偏好尚未填写，阅读后再一起讨论。",
@@ -105,7 +105,7 @@ export function startStoriesDiscussion(
       stories
         .map((source) => `故事原文路径：${source.download_url}`)
         .join("\n"),
-      "请结合附带的故事原文分析。以上是初步意向，我们可以继续讨论调整。",
+      "请围绕当前讨论需要按需了解附带的原作，不必先通读全部内容；需要时与原作分析子 AI 协作，由其自主决定阅读范围。以上是初步意向，我们可以继续讨论调整。",
       "请先梳理已知条件，和我确认基本制作信息；未填写的内容请提出建议后再确认。在我确认关键制作方向前，先不要开始剧本拆解、分镜或资产制作。",
     ].join("\n\n");
     const posted = postHumanMessage(s, p, String(session.id), { content });

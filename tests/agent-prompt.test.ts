@@ -17,6 +17,11 @@ import {
 } from "../src/server/agent-prompt-service";
 import { workspace } from "../src/server/read-service";
 import { handleApi } from "../src/server/api";
+import {
+  COORDINATOR_READING_POLICY,
+  migrateCoordinatorReading,
+} from "../src/server/coordinator-reading";
+import { createNode } from "../src/server/project-service";
 
 function setup(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-prompt-"));
@@ -38,6 +43,69 @@ function project(s: Store, name = "提示词验收") {
     nodeId: String(w.nodes[0].id),
   };
 }
+test("reading policy upgrade preserves custom text, old message versions and child AI, and runs only once", (t) => {
+  const s = setup(t),
+    a = project(s);
+  const custom = "保留用户原作结局。先与我确认范围。";
+  updateAgentPrompt(s, a.p, a.agentId, {
+    expectedVersion: 1,
+    instructions: custom,
+  });
+  const before = postHumanMessage(s, a.p, a.sessionId, {
+    content: "升级前的讨论",
+  }).message!;
+  const w = workspace(s, a.p);
+  const node = createNode(s, a.p, {
+    workflowId: w.workflows[0].id,
+    name: "原作分析",
+    nodeType: "work",
+  })!;
+  const child = createAgent(s, a.p, {
+    nodeId: node.id,
+    name: "分析 AI",
+    purpose: "分析原作",
+    instructions: "子 AI 原有指令",
+  });
+  s.run("DELETE FROM schema_migrations WHERE version=13");
+  migrateCoordinatorReading(s);
+  const updated = promptSettings(s, a.p, a.agentId);
+  assert.equal(
+    updated.current.instructions,
+    `${custom}\n\n${COORDINATOR_READING_POLICY}`,
+  );
+  assert.equal(updated.current.version, 3);
+  assert.equal(
+    messagePrompt(s, a.p, String(before.id)).snapshot?.instructions,
+    custom,
+  );
+  assert.equal(
+    promptSettings(s, a.p, String(child.id)).current.instructions,
+    "子 AI 原有指令",
+  );
+  assert.equal(promptSettings(s, a.p, String(child.id)).versions.length, 1);
+  migrateCoordinatorReading(s);
+  assert.deepEqual(promptSettings(s, a.p, a.agentId), updated);
+  // Future user edits remain authoritative; startup must not keep injecting the policy.
+  updateAgentPrompt(s, a.p, a.agentId, {
+    expectedVersion: 3,
+    instructions: "用户后续重新调整的规则",
+  });
+  s.close();
+  const reopened = new Store(s.root);
+  try {
+    assert.equal(
+      promptSettings(reopened, a.p, a.agentId).current.instructions,
+      "用户后续重新调整的规则",
+    );
+    assert.equal(promptSettings(reopened, a.p, a.agentId).versions.length, 4);
+    assert.equal(
+      messagePrompt(reopened, a.p, String(before.id)).snapshot?.instructions,
+      custom,
+    );
+  } finally {
+    reopened.close();
+  }
+});
 test("prompt edits are local, immutable and pinned per submitted message across restart", (t) => {
   const s = setup(t),
     a = project(s),

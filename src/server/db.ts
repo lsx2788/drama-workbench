@@ -6,6 +6,7 @@ import { initializeStoryPreferences } from "./story-preference-catalog";
 import { migrateCoordinatorIntake } from "./coordinator-intake";
 import { migrateStoryBatches } from "./story-batch-migration";
 import { migrateAgentPrompts } from "./agent-prompt-migration";
+import { migrateCoordinatorReading } from "./coordinator-reading";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -24,6 +25,7 @@ export class Store {
     migrateCoordinatorIntake(this);
     migrateStoryBatches(this);
     migrateAgentPrompts(this);
+    migrateCoordinatorReading(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];
