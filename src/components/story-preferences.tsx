@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { Plus } from "lucide-react";
 import type {
   PreferenceCategory,
@@ -19,17 +19,6 @@ export function StoryPreferences({
 }) {
   const [picking, setPicking] = useState(false);
   const groupId = useId();
-  const library = useRef<HTMLElement>(null);
-  const lastSelection = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!picking) return;
-    (lastSelection.current ?? library.current)?.scrollIntoView({
-      block: "center",
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "instant"
-        : "smooth",
-    });
-  }, [picking, value.length]);
   const update = (category: string, option: string, detail = "") =>
     onChange(
       value.map((p) =>
@@ -37,33 +26,31 @@ export function StoryPreferences({
       ),
     );
   return (
-    <section ref={library} className="preference-library" aria-label="制作偏好">
+    <section className="preference-library" aria-label="制作偏好">
       <div className="preference-heading">
         <h3>制作偏好</h3>
         <button
           type="button"
           className="preference-add"
-          aria-label="选择偏好"
-          title="选择偏好"
-          aria-haspopup="dialog"
+          aria-label={picking ? "收起偏好选项" : "选择偏好"}
+          title={picking ? "收起" : "选择偏好"}
           aria-expanded={picking}
-          onClick={() => setPicking(true)}
+          onClick={() => setPicking(!picking)}
         >
           <Plus size={14} aria-hidden="true" />
         </button>
       </div>
-      {value.map((selected, index) => {
+      {picking && (
+        <PreferencePicker catalog={catalog} value={value} onChange={onChange} />
+      )}
+      {value.map((selected) => {
         const category = catalog.find((c) => c.id === selected.category);
         if (!category) return null;
         const option = category.options.find(
           (o) => o.value === selected.option,
         );
         return (
-          <div
-            ref={index === value.length - 1 ? lastSelection : null}
-            className="preference-selection"
-            key={category.id}
-          >
+          <div className="preference-selection" key={category.id}>
             <div className="preference-selection-heading">
               <h4 id={`${groupId}-${category.id}`}>{category.label}</h4>
               <button
@@ -110,14 +97,6 @@ export function StoryPreferences({
           </div>
         );
       })}
-      {picking && (
-        <PreferencePicker
-          catalog={catalog}
-          value={value}
-          onClose={() => setPicking(false)}
-          onChange={onChange}
-        />
-      )}
     </section>
   );
 }

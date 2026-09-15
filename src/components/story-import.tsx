@@ -248,7 +248,7 @@ export function StoryImport({
             />
           </Field>
           <p className="muted">
-            选择和想法会作为消息发给总控，具体制作要求在聊天中讨论确定。
+            开始后，故事和你的想法会自动作为第一条消息发给总控。
           </p>
         </fieldset>
         {error && (
@@ -262,10 +262,10 @@ export function StoryImport({
           </button>
           <button className="primary" disabled={busy}>
             {busy
-              ? "正在准备…"
+              ? "正在开启对话…"
               : saved.current
-                ? "重试进入总控聊天"
-                : "保存并与总控讨论"}
+                ? "重试开启对话"
+                : "开始讨论"}
           </button>
         </div>
       </form>

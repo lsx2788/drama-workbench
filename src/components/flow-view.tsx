@@ -6,6 +6,7 @@ import { unitProgress } from "@/client/production-map";
 import { ProductionFlow } from "./production-flow";
 import { WorkflowGraph } from "./workflow-graph";
 import { NodeDetails } from "./node-details";
+import { ChatPanel } from "./chat-panel";
 import { Badge, Dialog, Empty, Panel } from "./ui";
 import type { ChatViewProps } from "./view-types";
 export function FlowView({
@@ -31,6 +32,11 @@ export function FlowView({
     w.overview.workflow ?? w.workflows.find((f) => f.status === "draft");
   const nodes = w.nodes.filter((n) => n.workflow_id === workflow?.id);
   const current = nodes.find((n) => n.id === selectedNodeId);
+  const activeChat =
+    current &&
+    w.sessions.find(
+      (s) => s.id === props.sessionId && s.node_id === current.id,
+    );
   const unit = w.sections.find(
     (s) => s.id === unitId && s.workflow_id === workflow?.id,
   );
@@ -134,8 +140,26 @@ export function FlowView({
         </Dialog>
       )}
       {current && (
-        <Dialog title={str(current, "name")} onClose={() => onSelectNode("")}>
-          <NodeDetails current={current} {...props} />
+        <Dialog
+          title={
+            activeChat ? str(activeChat, "agent_name") : str(current, "name")
+          }
+          onClose={() => onSelectNode("")}
+        >
+          {activeChat ? (
+            <div className="focused-chat">
+              <div className="focused-chat-toolbar">
+                <button onClick={() => props.onSelect("")}>查看节点资料</button>
+              </div>
+              <ChatPanel
+                key={str(activeChat, "id")}
+                {...props}
+                session={activeChat}
+              />
+            </div>
+          ) : (
+            <NodeDetails current={current} {...props} />
+          )}
         </Dialog>
       )}
     </>

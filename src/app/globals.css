@@ -1351,55 +1351,22 @@ footer {
 .preference-selection .field {
   margin-bottom: 0;
 }
-.preference-picker {
-  position: fixed;
-  inset: 14vh max(24px, calc((100vw - 1050px) / 2)) auto auto;
-  margin: 0;
-  width: 290px;
-  max-height: calc(100dvh - 32px);
-  padding: 0;
-  border: 1px solid #ffffffbb;
-  border-radius: 16px;
-  background: #f9fcf3b8;
-  -webkit-backdrop-filter: blur(14px) saturate(145%);
-  backdrop-filter: blur(14px) saturate(145%);
-  color: var(--ink);
-  box-shadow:
-    0 12px 45px #18271f24,
-    inset 0 1px 0 #ffffffcc;
-}
-.preference-picker::backdrop {
-  background: #18271f0a;
-}
-.preference-picker-body {
-  padding: 16px;
-}
-.preference-picker .panel-heading {
-  margin-bottom: 12px;
-}
-.preference-picker h2 {
-  font-size: 13px;
-  margin: 0;
-  font-weight: 600;
-}
-.preference-picker .panel-heading button {
-  padding: 0;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 50%;
-  background: #ffffff55;
-  font-size: 17px;
+.preference-picker-inline {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #dce5dd;
+  border-radius: 10px;
+  background: #edf3ee80;
 }
 .preference-category-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
 }
 .preference-category-card {
-  padding: 10px;
-  background: #ffffff66;
-  border-color: #ffffffb0;
+  padding: 7px 10px;
+  background: #ffffffb0;
+  border-color: #dfe7e0;
 }
 .preference-category-card input {
   width: 13px;
@@ -1410,8 +1377,33 @@ footer {
   font-weight: 500;
 }
 .preference-category-card:has(input:checked) {
-  background: #dcebe2bb;
+  background: #dcebe2;
   border-color: #729580;
+}
+.preference-add svg {
+  transition: transform 0.15s;
+}
+.preference-add[aria-expanded="true"] svg {
+  transform: rotate(45deg);
+}
+.dialog:has(.focused-chat) {
+  width: min(760px, 100%);
+}
+.focused-chat-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.focused-chat-toolbar button {
+  font-size: 11px;
+  padding: 5px 9px;
+}
+.focused-chat .chat-panel {
+  border: 0;
+}
+.focused-chat .messages {
+  min-height: 180px;
+  max-height: 44dvh;
 }
 @keyframes preference-reveal {
   from {
@@ -1428,24 +1420,6 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   .preference-selection {
     animation: none;
-  }
-}
-@media (max-width: 600px) {
-  .preference-picker {
-    inset: auto 16px 16px;
-    width: auto;
-    max-height: 40dvh;
-  }
-  .preference-picker-body {
-    padding: 14px;
-  }
-  .preference-category-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .preference-category-card {
-    padding: 10px 7px;
-    gap: 6px;
   }
 }
 .error {
