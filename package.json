@@ -9,7 +9,7 @@
     "start": "next start --hostname 127.0.0.1",
     "remote": "node scripts/remote-access.mjs",
     "typecheck": "tsc --noEmit",
-    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:demo": "tsx scripts/seed-guide.ts",
     "format": "prettier --write src scripts tests docs README.md AGENTS.md"
   },
   "keywords": [],
