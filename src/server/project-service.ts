@@ -1,5 +1,10 @@
 import type { Store } from "./db";
 import {
+  assertDeliveryReady,
+  assertProductionCanExpand,
+  syncDeliveryGates,
+} from "./workflow-structure";
+import {
   id,
   now,
   requireRow,
@@ -95,12 +100,7 @@ export function createWorkflow(s: Store, p: string, input: unknown) {
   );
   return s.one("SELECT * FROM workflows WHERE id=?", key);
 }
-export function createNode(
-  s: Store,
-  p: string,
-  input: unknown,
-  options: { appendUnit?: boolean } = {},
-) {
+export function createNode(s: Store, p: string, input: unknown) {
   const d = nodeSchema.parse(input);
   const w = requireRow(
     s.one(
@@ -110,11 +110,7 @@ export function createNode(
     ),
     "流程",
   );
-  assert(
-    w.status === "draft" ||
-      (options.appendUnit && w.status === "active" && d.sectionId),
-    "只允许在流程草案中增加节点，已发布流程请使用分集扩展接口",
-  );
+  assert(w.status === "draft" || w.status === "active", "归档流程不能增加节点");
   if (d.sectionId)
     assert(
       s.one(
@@ -130,6 +126,16 @@ export function createNode(
       "依赖节点必须属于同一流程",
     );
   return s.transaction(() => {
+    const section = d.sectionId
+      ? s.one("SELECT * FROM workflow_sections WHERE id=?", d.sectionId)
+      : undefined;
+    if (d.nodeType === "coordinator")
+      assert(
+        !section || section.phase === "preparation",
+        "总控应属于共用前期或不分组",
+      );
+    else if (section?.phase !== "delivery")
+      assertProductionCanExpand(s, d.workflowId);
     const key = id(),
       count = Number(
         s.one(
@@ -152,6 +158,12 @@ export function createNode(
       s.run("INSERT INTO node_dependencies VALUES(?,?)", key, parent);
     if (d.sectionId)
       s.run("INSERT INTO node_sections VALUES(?,?)", key, d.sectionId);
+    syncDeliveryGates(s, p, d.workflowId);
+    audit(s, p, "workflow.node_added", key, {
+      workflowId: d.workflowId,
+      sectionId: d.sectionId ?? null,
+      dependencies: d.dependencies,
+    });
     return s.one("SELECT * FROM nodes WHERE id=?", key);
   });
 }
@@ -200,7 +212,8 @@ export function updateNodeState(
     s.one("SELECT * FROM workflows WHERE id=?", String(n.workflow_id)),
   );
   assert(w.status === "active", "只有当前已发布流程的节点可以推进");
-  if (status === "active" || status === "completed")
+  if (["active", "review", "completed"].includes(status)) {
+    assertDeliveryReady(s, key);
     assert(
       !s.one(
         "SELECT d.depends_on FROM node_dependencies d JOIN nodes n ON n.id=d.depends_on WHERE d.node_id=? AND n.status<>'completed'",
@@ -208,6 +221,7 @@ export function updateNodeState(
       ),
       "前置节点尚未完成",
     );
+  }
   if (status === "completed")
     assert(
       !s.one(

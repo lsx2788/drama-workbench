@@ -6,17 +6,17 @@ API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectI
 
 ## 项目及流程
 
-- GET/POST `/api/v1/projects`：列表 / 创建。POST `{name,description?,goal?}`。
+- GET/POST `/api/v1/projects`：列表 / 创建。POST `{name,description?,goal?}`。创建时原子初始化一个可用流程、总控节点、未配置执行器的总控 AI 和一条空会话，不预设其他制作节点。响应仍为项目记录，通过 workspace 查询初始流程与节点 ID。
 - GET `/api/v1/projects?archived=true`：已归档项目列表，默认列表只含未归档项目。
 - PATCH `/api/v1/projects/:p/archive`：`{archived:true|false}`，归档或恢复目录显示；原始资料仍保留且可按 ID 查询，不改变制作状态。
 - GET `/api/v1/projects/:p/overview`：聚合总览。
 - GET `/api/v1/projects/:p/workspace`：网页聚合数据（小项目版本，分页后续增加）。
 - POST `/api/v1/projects/:p/documents`：`{title,kind: outline|script|note,content,supersedesId?}`。
 - POST `/api/v1/projects/:p/workflows`：`{name}`，仅创建草案。
-- POST `/api/v1/projects/:p/nodes`：`{workflowId,name,objective?,nodeType?:work|coordinator,dependencies?:nodeId[]}`。
+- POST `/api/v1/projects/:p/nodes`：`{workflowId,name,sectionId?,objective?,nodeType?:work|coordinator,dependencies?:nodeId[]}`。草案和已发布流程均可追加；前置引用必须属于同流程。可给已存在的空分集逐步添加步骤，不复制会话或改写已有普通节点依赖。总控只能不分组或属于共用前期。归档分组中的新节点自动连接当前制作出口；后续新增制作节点会为未开始的归档补足门槛并留下审计记录。归档节点或事项已经开始、自动连线会成环时，整次追加回滚。
 - POST `/api/v1/projects/:p/seasons`：`{workflowId,name,description?,unitIds?:sectionId[]}`，可选的季分组。允许先建空季，或把同流程下尚未归季的分集/章节归入新季；不移动节点或复制会话，不改变执行依赖。跨流程、重复归属或同名季拒绝，整次操作原子完成。
-- POST `/api/v1/projects/:p/sections`：`{workflowId,name,phase:preparation|unit|delivery,kind?:shared|episode|chapter,seasonId?}`，在草案中定义分组。只有分集/章节可带 `seasonId`。节点创建可附 `sectionId`，必须属于同一流程。
-- POST `/api/v1/projects/:p/units`：`{workflowId,name,kind:episode|chapter,seasonId?,steps:[{key,name,objective?,dependencies?:key[],ai?:{name,purpose,instructions?}}]}`。按顺序声明步骤，依赖只引用本次已声明步骤；没有前置步骤的节点依赖共用前期出口，本集出口成为全剧汇总入口的前置。节点、事项和可选 AI/会话独立创建，整次失败回滚。同一季内（或未归季单元中）同名分组、汇总已开始时拒绝扩展；不同季可分别有“第一集”。支持草案及当前已发布流程，不复制已有聊天或制作完成状态。
+- POST `/api/v1/projects/:p/sections`：`{workflowId,name,phase:preparation|unit|delivery,kind?:shared|episode|chapter,seasonId?}`，草案和已发布流程均可增加分组。只有分集/章节可带 `seasonId`。节点创建可附 `sectionId`，必须属于同一流程。
+- POST `/api/v1/projects/:p/units`：`{workflowId,name,kind:episode|chapter,seasonId?,dependencies?:nodeId[],steps?:[{key,name,objective?,dependencies?:key[],ai?:{name,purpose,instructions?}}]}`。前期与归档节点不必预先存在，`steps` 可省略或为空；空单元后续通过 nodes 接口补充，但未定义步骤前会阻止归档节点与事项推进。分集顶层 `dependencies` 指定入口依赖，省略时使用现有共用前期出口，没有前期则无隐式依赖；空分集不接受非空入口依赖，避免丢失约束。步骤内依赖只引用本批已声明步骤。整次失败回滚，保留历史资料；同一季内同名分组或归档已开始时拒绝扩展。
 - POST `/api/v1/projects/:p/workflows/:id/activate`：正式发布，旧流程归档；进行中的旧节点必须先处理。
 - PATCH `/api/v1/projects/:p/nodes/:id`：`{status}`；依赖/未完成事项会阻止提前完成。
 

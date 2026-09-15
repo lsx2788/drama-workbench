@@ -74,7 +74,9 @@ export function productionMap(
       name: unit.name,
       status: progress.status,
       graph_kind: "unit",
-      summary: `${progress.completed} / ${progress.total} 个步骤完成 · 点击进入具体制作流程`,
+      summary: progress.total
+        ? `${progress.completed} / ${progress.total} 个步骤完成 · 点击进入具体制作流程`
+        : "制作步骤尚未定义 · 讨论确定后逐步补充",
     });
   }
   const edges = new Map<string, RecordData>();
@@ -117,6 +119,12 @@ export function productionMap(
           e.depends_on === n.id && prep.some((other) => other.id === e.node_id),
       ),
   );
+  for (const unit of units.filter(
+    (s) => !s.season_id && !unitNodes(str(s, "id")).length,
+  )) {
+    for (const n of prepEnds)
+      link(str(n, "id"), `unit:${unit.id}`, "membership");
+  }
   for (const season of seasons) {
     const key = `season:${season.id}`;
     if (![...edges.values()].some((e) => e.node_id === key)) {

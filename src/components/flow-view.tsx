@@ -73,8 +73,9 @@ export function FlowView({
               <ArrowLeft size={16} /> 返回总流程
             </button>
             <span>
-              {unitProgress(unitNodes).completed} / {unitNodes.length}{" "}
-              个步骤完成
+              {unitNodes.length
+                ? `${unitProgress(unitNodes).completed} / ${unitNodes.length} 个步骤完成`
+                : "制作步骤待讨论"}
             </span>
           </div>
           <WorkflowGraph

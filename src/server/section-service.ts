@@ -1,9 +1,14 @@
 import { z } from "zod";
 import type { Store, Row } from "./db";
-import { assert, audit, id, now, requireRow } from "./common";
+import { assert, audit, id, now, requireRow, nodeInProject } from "./common";
 import { createNode } from "./project-service";
 import { createAgent, createSession } from "./collaboration-service";
 import { createItem } from "./work-service";
+import {
+  assertProductionCanExpand,
+  terminalNodes,
+  workflowStructure,
+} from "./workflow-structure";
 import { attachSectionToSeason, seasonInWorkflow } from "./season-service";
 const short = z.string().trim().min(1).max(200);
 const sectionSchema = z
@@ -67,10 +72,13 @@ function insertSection(s: Store, d: z.infer<typeof sectionSchema>): Row {
 export function createSection(s: Store, p: string, input: unknown) {
   const d = sectionSchema.parse(input);
   assert(
-    workflow(s, p, d.workflowId).status === "draft",
-    "分组结构在流程草案中定义，已发布流程请使用分集扩展接口",
+    ["draft", "active"].includes(String(workflow(s, p, d.workflowId).status)),
+    "归档流程不能增加分组",
   );
-  return s.transaction(() => insertSection(s, d));
+  return s.transaction(() => {
+    if (d.phase === "unit") assertProductionCanExpand(s, d.workflowId);
+    return insertSection(s, d);
+  });
 }
 const unitSchema = z
   .object({
@@ -78,6 +86,7 @@ const unitSchema = z
     name: short,
     kind: z.enum(["episode", "chapter"]),
     seasonId: z.string().uuid().optional(),
+    dependencies: z.array(z.string().uuid()).max(100).optional(),
     steps: z
       .array(
         z
@@ -97,8 +106,8 @@ const unitSchema = z
           })
           .strict(),
       )
-      .min(1)
-      .max(50),
+      .max(50)
+      .default([]),
   })
   .strict();
 /** Expand a fresh unit atomically. It shares prerequisites, never sessions or result state. */
@@ -109,64 +118,21 @@ export function appendUnit(s: Store, p: string, input: unknown) {
       ["draft", "active"].includes(String(workflow(s, p, d.workflowId).status)),
       "归档流程不能扩展",
     );
-    const grouped = s.all(
-      "SELECT n.*,g.phase,g.id AS section_id FROM nodes n JOIN node_sections m ON m.node_id=n.id JOIN workflow_sections g ON g.id=m.section_id WHERE n.workflow_id=?",
-      d.workflowId,
+    assertProductionCanExpand(s, d.workflowId);
+    for (const parent of d.dependencies ?? [])
+      assert(
+        nodeInProject(s, p, parent).workflow_id === d.workflowId,
+        "依赖节点必须属于同一流程",
+      );
+    assert(
+      !d.dependencies?.length || d.steps.length,
+      "空分集暂不绑定步骤依赖，请在添加具体节点时明确前置关系",
     );
+    const { nodes: grouped, edges } = workflowStructure(s, d.workflowId);
     const prep = grouped.filter(
       (n) => n.phase === "preparation" && n.node_type !== "coordinator",
     );
-    const delivery = grouped.filter((n) => n.phase === "delivery");
-    assert(
-      prep.length && delivery.length,
-      "先定义全剧前期与汇总节点，再扩展分集",
-    );
-    assert(
-      delivery.every((n) => n.status === "planned"),
-      "全剧汇总已开始，请先处理汇总状态再扩展分集",
-    );
-    for (const n of delivery)
-      assert(
-        !s.one(
-          "SELECT id FROM items WHERE node_id=? AND status NOT IN ('planned','cancelled')",
-          String(n.id),
-        ),
-        "汇总事项已开始，不能插入新的分集前置依赖",
-      );
-    const edges = s.all(
-      "SELECT e.* FROM node_dependencies e JOIN nodes n ON n.id=e.node_id WHERE n.workflow_id=?",
-      d.workflowId,
-    );
-    const order: Record<string, number> = {
-      preparation: 0,
-      unit: 1,
-      delivery: 2,
-    };
-    for (const e of edges) {
-      const source = grouped.find((n) => n.id === e.depends_on),
-        target = grouped.find((n) => n.id === e.node_id);
-      if (source && target)
-        assert(
-          order[String(source.phase)] <= order[String(target.phase)],
-          "流程分组包含反向依赖，请先整理分组",
-        );
-    }
-    const prepEnds = prep.filter(
-      (n) =>
-        !edges.some(
-          (e) =>
-            e.depends_on === n.id &&
-            prep.some((other) => other.id === e.node_id),
-        ),
-    );
-    const deliveryStarts = delivery.filter(
-      (n) =>
-        !edges.some(
-          (e) =>
-            e.node_id === n.id &&
-            delivery.some((other) => other.id === e.depends_on),
-        ),
-    );
+    const prepEnds = terminalNodes(prep, edges);
     const section = insertSection(s, {
       workflowId: d.workflowId,
       name: d.name,
@@ -184,19 +150,14 @@ export function appendUnit(s: Store, p: string, input: unknown) {
       );
       const parents = step.dependencies.length
         ? step.dependencies.map((key) => nodes.get(key)!)
-        : prepEnds.map((n) => String(n.id));
-      const node = createNode(
-        s,
-        p,
-        {
-          workflowId: d.workflowId,
-          sectionId: section.id,
-          name: step.name,
-          objective: step.objective,
-          dependencies: parents,
-        },
-        { appendUnit: true },
-      )!;
+        : (d.dependencies ?? prepEnds.map((n) => String(n.id)));
+      const node = createNode(s, p, {
+        workflowId: d.workflowId,
+        sectionId: section.id,
+        name: step.name,
+        objective: step.objective,
+        dependencies: parents,
+      })!;
       const nodeId = String(node.id);
       nodes.set(step.key, nodeId);
       let agentId: string | undefined;
@@ -215,19 +176,6 @@ export function appendUnit(s: Store, p: string, input: unknown) {
       });
       items.set(step.key, String(item.id));
     }
-    const exits = d.steps
-      .filter(
-        (step) =>
-          !d.steps.some((other) => other.dependencies.includes(step.key)),
-      )
-      .map((step) => nodes.get(step.key)!);
-    for (const target of deliveryStarts)
-      for (const source of exits)
-        s.run(
-          "INSERT INTO node_dependencies VALUES(?,?)",
-          String(target.id),
-          source,
-        );
     audit(s, p, "workflow.unit_added", String(section.id), {
       name: d.name,
       nodes: [...nodes.values()],

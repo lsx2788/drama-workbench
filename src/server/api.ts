@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getStore, type Store } from "./db";
 import { DomainError, projectExists } from "./common";
 import {
-  createProject,
   listProjects,
   archiveProject,
   createDocument,
@@ -42,6 +41,7 @@ import { nodeStateSchema } from "./schemas";
 import { workspace } from "./read-service";
 import { createSection, appendUnit } from "./section-service";
 import { createSeason } from "./season-service";
+import { createProjectWithCoordinator } from "./project-bootstrap";
 
 type Creator = (s: Store, p: string, input: unknown) => unknown;
 const creators: Record<string, Creator> = {
@@ -93,7 +93,8 @@ async function route(request: Request, parts: string[]) {
         .parse(Object.fromEntries(new URL(request.url).searchParams));
       return listProjects(s, query.archived === "true");
     }
-    if (method === "POST") return createProject(s, await request.json());
+    if (method === "POST")
+      return createProjectWithCoordinator(s, await request.json());
   }
   if (parts[0] !== "projects" || !parts[1]) return missing();
   const [, p, resource, key, action] = parts;

@@ -1,4 +1,5 @@
 import type { Store } from "./db";
+import { assertDeliveryReady } from "./workflow-structure";
 import { id, now, requireRow, nodeInProject, assert, audit } from "./common";
 import { agentInProject, sessionInProject } from "./collaboration-service";
 import { versionInProject } from "./asset-service";
@@ -15,6 +16,7 @@ export function itemInProject(s: Store, p: string, key: string) {
   );
 }
 function assertNodeCanProgress(s: Store, nodeId: string) {
+  assertDeliveryReady(s, nodeId);
   assert(
     s.one(
       "SELECT n.id FROM nodes n JOIN workflows w ON w.id=n.workflow_id WHERE n.id=? AND w.status='active' AND n.status NOT IN ('blocked','completed')",
