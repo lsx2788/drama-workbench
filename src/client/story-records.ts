@@ -12,6 +12,7 @@ export interface StoryRecord {
   type:
     | "story"
     | "asset"
+    | "prompt"
     | "document"
     | "highlight"
     | "session"
@@ -35,6 +36,18 @@ export function storyRecords(w: Workspace): StoryRecord[] {
     status: "",
   });
   return [
+    ...w.agents
+      .filter((r) => str(r, "instructions").trim())
+      .map((r) => ({
+        ...base(r),
+        type: "prompt" as const,
+        name: `${str(r, "name")} · 提示词`,
+        category: "提示词",
+        status: `v${r.config_version}`,
+        content: str(r, "instructions"),
+        description: str(r, "purpose") || str(r, "instructions").slice(0, 120),
+        node: nodeName(r.node_id),
+      })),
     ...w.stories.map((r) => ({
       ...base(r),
       type: "story" as const,

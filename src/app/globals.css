@@ -2540,3 +2540,22 @@ pre {
     min-height: 230px;
   }
 }
+
+.prompt-tabs {
+  flex-wrap: wrap;
+}
+.prompt-library-entry {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 480px) {
+  .prompt-tabs {
+    gap: 6px;
+  }
+  .prompt-tabs button {
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+}

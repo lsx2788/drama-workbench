@@ -14,7 +14,12 @@ export const libraryCategories = [
   },
   {
     name: "制作资料",
-    description: "分镜表、提示词与交付规范",
+    description: "分镜表与交付规范",
+    group: "创作资产",
+  },
+  {
+    name: "提示词",
+    description: "各 AI 的提示词与历史版本",
     group: "创作资产",
   },
   { name: "图片", description: "参考图、静帧与图像文件", group: "创作资产" },

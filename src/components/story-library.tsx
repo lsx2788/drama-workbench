@@ -14,6 +14,7 @@ import { AssetFile } from "./asset-file";
 import { StorySource } from "./story-source";
 import { Folder, ArrowLeft, ChevronRight } from "lucide-react";
 import { libraryCategories } from "@/client/library-categories";
+import { AgentPromptEditor } from "./agent-prompt-settings";
 const attributeLabels: Record<string, string> = {
   age: "年龄",
   gender: "性别",
@@ -120,10 +121,12 @@ export function StoryLibrary({
   w,
   p,
   onImport,
+  refresh,
 }: {
   w: Workspace;
   p: string;
   onImport: () => void;
+  refresh: () => Promise<void>;
 }) {
   const [query, setQuery] = useState(""),
     [category, setCategory] = useState<string | null>(null),
@@ -250,7 +253,15 @@ export function StoryLibrary({
           )}
         </>
       )}
-      {selected && (
+      {selected?.type === "prompt" && (
+        <AgentPromptEditor
+          p={p}
+          agentId={selected.id}
+          refresh={refresh}
+          onClose={() => setSelected(null)}
+        />
+      )}
+      {selected && selected.type !== "prompt" && (
         <Dialog title={selected.name} onClose={() => setSelected(null)}>
           {selected.type === "story" ? (
             <StorySource p={p} storyId={selected.id} />

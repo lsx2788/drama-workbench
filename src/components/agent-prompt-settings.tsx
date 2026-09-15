@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Settings2, X } from "lucide-react";
+import { Settings2, X, Library } from "lucide-react";
 import { api } from "@/client/api";
 import {
   AGENT_PROMPT_MAX_LENGTH,
@@ -8,6 +8,7 @@ import {
   type PromptVersion,
 } from "@/shared/agent-prompt";
 import { date } from "./ui";
+import { LibraryPendingDialog } from "./library-pending-dialog";
 
 function PromptDialog({
   title,
@@ -76,7 +77,7 @@ export function AgentPromptSettings({
         <span>AI 设置</span>
       </button>
       {open && (
-        <PromptEditor
+        <AgentPromptEditor
           p={p}
           agentId={agentId}
           refresh={refresh}
@@ -87,7 +88,7 @@ export function AgentPromptSettings({
   );
 }
 
-function PromptEditor({
+export function AgentPromptEditor({
   p,
   agentId,
   refresh,
@@ -102,6 +103,7 @@ function PromptEditor({
   const [draft, setDraft] = useState("");
   const [baseVersion, setBaseVersion] = useState(0);
   const [history, setHistory] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [selected, setSelected] = useState<PromptVersion | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -152,6 +154,15 @@ function PromptEditor({
               onClick={() => setHistory(true)}
             >
               历史版本
+            </button>
+            <button
+              type="button"
+              className="prompt-library-entry"
+              aria-haspopup="dialog"
+              disabled={busy}
+              onClick={() => setLibraryOpen(true)}
+            >
+              <Library size={14} aria-hidden="true" /> 提示词库
             </button>
           </div>
           {history ? (
@@ -209,7 +220,7 @@ function PromptEditor({
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (busy || conflict) return;
+                if (busy || conflict || libraryOpen) return;
                 setBusy(true);
                 setError("");
                 setNotice("");
@@ -314,6 +325,12 @@ function PromptEditor({
             </p>
           )}
         </>
+      )}
+      {libraryOpen && (
+        <LibraryPendingDialog
+          title="提示词库"
+          onClose={() => setLibraryOpen(false)}
+        />
       )}
     </PromptDialog>
   );

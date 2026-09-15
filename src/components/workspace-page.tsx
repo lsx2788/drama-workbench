@@ -81,7 +81,14 @@ export function WorkspacePage({
   if (page.kind === "story")
     return <StoryReader p={p} storyId={page.targetId!} />;
   if (page.kind === "assets")
-    return <StoryLibrary w={w} p={p} onImport={() => create("story")} />;
+    return (
+      <StoryLibrary
+        w={w}
+        p={p}
+        onImport={() => create("story")}
+        refresh={refresh}
+      />
+    );
   if (page.kind === "node") {
     const node = w.nodes.find((n) => n.id === page.targetId);
     return node ? (
