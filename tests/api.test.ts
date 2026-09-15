@@ -50,7 +50,8 @@ test("HTTP adapter preserves scope, origin checks, uploads and errors", async (t
   const starter = await (await request([...base, "workspace"])).json();
   assert.equal(starter.data.nodes.length, 1);
   assert.equal(starter.data.nodes[0].node_type, "coordinator");
-  assert.equal(starter.data.overview.workflow.status, "active");
+  assert.equal(starter.data.overview.workflow, null);
+  assert.equal(starter.data.workflows[0].status, "draft");
   assert.equal(starter.data.sections.length, 0);
   assert.equal(starter.data.sessions.length, 1);
   const denied = await request(

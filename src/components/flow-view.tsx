@@ -7,6 +7,7 @@ import { ProductionFlow } from "./production-flow";
 import { WorkflowGraph } from "./workflow-graph";
 import { NodeDetails } from "./node-details";
 import { ChatPanel } from "./chat-panel";
+import { NodeChats } from "./node-chats";
 import { Badge, Dialog, Empty, Panel } from "./ui";
 import type { ChatViewProps } from "./view-types";
 export function FlowView({
@@ -28,9 +29,12 @@ export function FlowView({
     heading.current?.focus({ preventScroll: true });
     heading.current?.scrollIntoView({ block: "start" });
   }, [unitId]);
-  const workflow =
-    w.overview.workflow ?? w.workflows.find((f) => f.status === "draft");
-  const nodes = w.nodes.filter((n) => n.workflow_id === workflow?.id);
+  const workflow = w.overview.workflow;
+  const contextIds = workflow
+    ? [workflow.id]
+    : w.workflows.filter((f) => f.status === "draft").map((f) => f.id);
+  const nodes = w.nodes.filter((n) => contextIds.includes(n.workflow_id));
+  const published = !!workflow && nodes.some((n) => n.node_type === "work");
   const current = nodes.find((n) => n.id === selectedNodeId);
   const activeChat =
     current &&
@@ -67,7 +71,35 @@ export function FlowView({
           </p>
         </div>
       </div>
-      {unit ? (
+      {!published ? (
+        <div className="intake-discussion">
+          <div className="intake-discussion-intro">
+            <h3>先与总控确认制作方向</h3>
+            <p>讨论完成并确认方案后，制作流程图会显示在这里。</p>
+          </div>
+          {nodes
+            .filter((n) => n.node_type === "coordinator")
+            .map((n) => (
+              <div key={str(n, "id")}>
+                <NodeChats
+                  {...props}
+                  nodeId={str(n, "id")}
+                  sessionId=""
+                  onSelect={(sessionId) => {
+                    onSelectNode(str(n, "id"));
+                    props.onSelect(sessionId);
+                  }}
+                />
+                <button
+                  className="intake-project-details"
+                  onClick={() => onSelectNode(str(n, "id"))}
+                >
+                  查看故事与项目资料
+                </button>
+              </div>
+            ))}
+        </div>
+      ) : unit ? (
         <>
           <div className="unit-navigation">
             <button

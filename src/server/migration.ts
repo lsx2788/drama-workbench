@@ -142,4 +142,15 @@ INSERT OR IGNORE INTO story_intake_briefs (story_id,preferences_json,ideas,creat
 SELECT story_id,json_array(json_object('category','style','option',style,'detail',custom_style)),ideas,created_at
 FROM story_briefs WHERE NOT EXISTS(SELECT 1 FROM schema_migrations WHERE version=7);
 INSERT OR IGNORE INTO schema_migrations VALUES(7,datetime('now'));
+-- Early bootstrap versions published conversation-only containers as production flows.
+-- Restore these unstarted containers to drafts without altering nodes or discussions.
+UPDATE workflows SET status='draft'
+WHERE status='active'
+AND NOT EXISTS(SELECT 1 FROM schema_migrations WHERE version=10)
+AND EXISTS(SELECT 1 FROM nodes WHERE workflow_id=workflows.id AND node_type='coordinator')
+AND NOT EXISTS(SELECT 1 FROM nodes WHERE workflow_id=workflows.id AND (node_type='work' OR status<>'planned'))
+AND NOT EXISTS(SELECT 1 FROM workflow_sections WHERE workflow_id=workflows.id)
+AND NOT EXISTS(SELECT 1 FROM workflow_seasons WHERE workflow_id=workflows.id)
+AND NOT EXISTS(SELECT 1 FROM items i JOIN nodes n ON n.id=i.node_id WHERE n.workflow_id=workflows.id);
+INSERT OR IGNORE INTO schema_migrations VALUES(10,datetime('now'));
 `;

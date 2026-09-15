@@ -26,9 +26,9 @@ GET `/api/v1/story-preferences` 从数据库返回启用的制作偏好类别及
 
 故事导入仅接受原文和来源字段，不接受 `preferences`、`ideas` 或旧版 `style/customStyle`。用户选择与补充想法只作为下一次总控聊天的输入，不建立独立偏好记录，故事详情不返回 `brief`。旧偏好表仅保留历史数据，运行时不再读写；旧聊天内容保持原样。后续结论由总控按职责调用文稿、重点等接口记录，不在导入或交接时自动写入项目设置。
 
-- POST `/api/v1/projects/:p/stories/:id/discussion`：`{agentId?,preferences?:[{category,option,detail}],ideas?}`，独立于导入的讨论交接。仅提交选中类别；省略或空数组表示留待讨论。每类只能出现一次，选项必须属于启用类别；需要补充时 `detail` 必填，否则为空串，最多 300 字符。`ideas` 最多 5000 字符。这些输入只格式化成消息正文，不另存结构化用户选择。只允许当前流程总控；有多个总控时必须指定。复用唯一空会话，否则建立该故事的讨论会话。保存一条带选择、想法和故事引用的用户消息，返回 `{nodeId,sessionId,messageId,delivery:"stored",execution:"not_configured"}`。同故事重试返回首次成功交接，不重复发消息或改写历史；之后的想法调整通过普通聊天继续。失败保留原始故事，未发送内容留在当前表单供重试（不持久化表单草稿）；不读取正文，不调用模型。
+- POST `/api/v1/projects/:p/stories/:id/discussion`：`{agentId?,preferences?:[{category,option,detail}],ideas?}`，独立于导入的讨论交接。仅提交选中类别；省略或空数组表示留待讨论。每类只能出现一次，选项必须属于启用类别；需要补充时 `detail` 必填，否则为空串，最多 300 字符。`ideas` 最多 5000 字符。这些输入只格式化成消息正文，不另存结构化用户选择。优先使用当前已发布流程总控；尚无已发布流程时允许草案讨论容器内总控，候选有多个时必须指定。复用唯一空会话，否则建立该故事的讨论会话。保存一条带选择、想法和故事引用的用户消息，返回 `{nodeId,sessionId,messageId,delivery:"stored",execution:"not_configured"}`。同故事重试返回首次成功交接，不重复发消息或改写历史；之后的想法调整通过普通聊天继续。失败保留原始故事，未发送内容留在当前表单供重试（不持久化表单草稿）；不读取正文，不调用模型。
 
-- POST `/api/v1/projects/import-story`：创建项目并保存故事。字段 `source=text|file`、`title?`、`importKey`（UUID）；文本方式用 JSON 传 `text`（避免 multipart 文本字段改写换行），文件方式用 multipart 传 `file`。返回 `{project,story}`，新项目只有总控及空会话。
+- POST `/api/v1/projects/import-story`：创建项目并保存故事。字段 `source=text|file`、`title?`、`importKey`（UUID）；文本方式用 JSON 传 `text`（避免 multipart 文本字段改写换行），文件方式用 multipart 传 `file`。返回 `{project,story}`，新项目只有未发布的讨论容器、总控及空会话，overview.workflow 为 null。
 - POST `/api/v1/projects/:p/stories`：同样的表单字段，将故事追加到已有项目，不覆盖其他来源。返回 `{project,story}`。
 - GET `/api/v1/projects/:p/stories`：来源元信息列表；workspace 的 `stories` 同样不携带完整正文。
 - GET `/api/v1/projects/:p/stories/:id`：仅返回来源元信息与 `download_url`，不读取文件正文，不返回解析结果或预览。后续 AI 可按故事 ID 查询并取得原文件。

@@ -1962,3 +1962,25 @@ pre {
   cursor: pointer;
   font-weight: 600;
 }
+
+.intake-discussion {
+  max-width: 800px;
+}
+.intake-discussion-intro {
+  padding: 8px 0 22px;
+}
+.intake-discussion-intro h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 500;
+}
+.intake-discussion-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.intake-project-details {
+  font-size: 12px;
+  margin-top: 10px;
+  color: var(--green);
+}

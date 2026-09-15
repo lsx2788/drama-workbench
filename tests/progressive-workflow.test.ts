@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Store } from "../src/server/db";
 import { createProjectWithCoordinator } from "../src/server/project-bootstrap";
-import { createNode, updateNodeState } from "../src/server/project-service";
+import {
+  createNode,
+  updateNodeState,
+  activateWorkflow,
+} from "../src/server/project-service";
 import { appendUnit, createSection } from "../src/server/section-service";
 import { createItem, setItemState } from "../src/server/work-service";
 import { postHumanMessage } from "../src/server/collaboration-service";
@@ -20,7 +24,8 @@ function setup(t: TestContext) {
     rmSync(root, { recursive: true, force: true });
   });
   const p = String(createProjectWithCoordinator(s, { name: "从讨论开始" }).id);
-  const workflowId = String(workspace(s, p).overview.workflow!.id);
+  const workflowId = String(workspace(s, p).workflows[0].id);
+  activateWorkflow(s, p, workflowId);
   return { s, p, workflowId };
 }
 
@@ -258,7 +263,7 @@ test("new gates cannot introduce cycles or bypass workflow ownership and archiva
   const foreign = String(
     createProjectWithCoordinator(s, { name: "其他项目" }).id,
   );
-  const foreignW = String(workspace(s, foreign).overview.workflow!.id);
+  const foreignW = String(workspace(s, foreign).workflows[0].id);
   assert.throws(
     () => createNode(s, p, { workflowId: foreignW, name: "越界" }),
     /不存在/,

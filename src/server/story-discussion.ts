@@ -36,7 +36,7 @@ export function startStoryDiscussion(
     validateDiscussionPreferences(d.preferences, catalog);
     const agents = s
       .all(
-        "SELECT a.* FROM agents a JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND w.status='active' AND n.node_type='coordinator'",
+        "SELECT a.* FROM agents a JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND n.node_type='coordinator' AND (w.status='active' OR (w.status='draft' AND NOT EXISTS(SELECT 1 FROM workflows current WHERE current.project_id=w.project_id AND current.status='active')))",
         p,
       )
       .filter((a) => !d.agentId || a.id === d.agentId);

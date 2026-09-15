@@ -1,10 +1,5 @@
 import type { Store } from "./db";
-import {
-  createProject,
-  createWorkflow,
-  createNode,
-  activateWorkflow,
-} from "./project-service";
+import { createProject, createWorkflow, createNode } from "./project-service";
 import { createAgent, createSession } from "./collaboration-service";
 import { DEFAULT_COORDINATOR_INSTRUCTIONS } from "./coordinator-intake";
 
@@ -28,7 +23,6 @@ export function createProjectWithCoordinator(s: Store, input: unknown) {
       instructions: DEFAULT_COORDINATOR_INSTRUCTIONS,
     });
     createSession(s, p, { agentId: agent.id, title: "项目讨论" });
-    activateWorkflow(s, p, String(workflow.id));
     return project;
   });
 }
