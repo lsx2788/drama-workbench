@@ -87,38 +87,18 @@ export function storyDetail(
   s: Store,
   p: string,
   key: string,
-): Row & {
-  content: string | null;
-  preview_message: string;
-  download_url: string;
-} {
-  const { row, bytes } = storyFile(s, p, key);
-  let content: string | null = null;
-  let previewMessage = "原文件已保存，暂不解析 Word / PDF 内容，可下载查看。";
-  if (row.mime === "text/plain" || row.mime === "text/markdown") {
-    try {
-      // BOM is an explicit encoding marker; never guess legacy encodings.
-      const encoding =
-        bytes[0] === 0xff && bytes[1] === 0xfe
-          ? "utf-16le"
-          : bytes[0] === 0xfe && bytes[1] === 0xff
-            ? "utf-16be"
-            : "utf-8";
-      content = new TextDecoder(encoding, { fatal: true }).decode(bytes);
-      if (content.includes("\0")) content = null;
-      previewMessage =
-        content === null
-          ? "原文件已保存，此内容无法作为文本预览，可下载查看。"
-          : "";
-    } catch {
-      previewMessage = "原文件已保存，暂不支持此文本编码的预览，可下载查看。";
-    }
-  }
-  const { file_key, import_key, request_hash, ...publicRow } = row;
-  void file_key;
-  void import_key;
-  void request_hash;
-  return { ...present(publicRow), content, preview_message: previewMessage };
+): Row & { download_url: string } {
+  projectExists(s, p);
+  return present(
+    requireRow(
+      s.one(
+        `SELECT ${columns} FROM story_sources WHERE project_id=? AND id=?`,
+        p,
+        key,
+      ),
+      "原始故事",
+    ),
+  );
 }
 
 /** Save bytes before committing references. A failed import never leaves an empty project. */

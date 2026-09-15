@@ -154,8 +154,7 @@ export function StoryImport({
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
               <p className="muted">
-                支持 TXT、Markdown、Word、PDF，最大 20 MB。Word / PDF
-                先保存原文件，暂不解析正文。
+                支持 TXT、Markdown、Word、PDF，最大 20 MB。原文件直接保存。
               </p>
               {file && (
                 <p className="story-file-selection">

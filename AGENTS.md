@@ -14,6 +14,7 @@ Read docs/方案.md before changing domain behavior. This is a local-first found
 - Deterministic APIs: explicit filters, standard JSON, no fallback guesses or silent relaxed matches.
 - Asset variants coexist; versions revise the same asset. Published versions and their lineage are immutable.
 - Store media outside Git. Never commit user media, tutorial downloads, databases, credentials or raw conversation exports.
+- Story imports only persist original text/files and metadata. Content parsing belongs to downstream AI; do not decode uploads, infer encodings, extract text or generate previews during import or metadata lookup. Serve original bytes through the download API.
 - Core first, personal automation second, teams/skill marketplace later. Do not claim runtime execution exists before a real provider is connected.
 - Run npm test, npm run typecheck, npm run build before delivery. Add meaningful tests for invariants.
 

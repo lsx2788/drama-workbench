@@ -1061,12 +1061,8 @@ footer {
   border-color: #6c805c;
   color: #354c2e;
 }
-.story-file-selection,
-.story-source-text {
+.story-file-selection {
   overflow-wrap: anywhere;
-}
-.story-source-text {
-  line-height: 1.85;
 }
 .story-source-row {
   display: flex;

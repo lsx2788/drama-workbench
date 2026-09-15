@@ -27,7 +27,7 @@ export function StorySource({ p, storyId }: { p: string; storyId: string }) {
         {error}
       </p>
     );
-  if (!detail) return <p className="muted">正在读取原始故事…</p>;
+  if (!detail) return <p className="muted">正在读取保存记录…</p>;
   return (
     <>
       <p className="muted">
@@ -37,11 +37,13 @@ export function StorySource({ p, storyId }: { p: string; storyId: string }) {
       <a className="story-download" href={str(detail, "download_url")} download>
         下载原始故事
       </a>
-      {detail.content !== null ? (
-        <p className="pre story-source-text">{str(detail, "content")}</p>
-      ) : (
-        <p>{str(detail, "preview_message")}</p>
-      )}
+      <p>原始内容已保存，可下载查看。</p>
+      <dl className="record-fields">
+        <dt>故事编号</dt>
+        <dd>{str(detail, "id")}</dd>
+        <dt>文件大小</dt>
+        <dd>{Number(detail.size).toLocaleString()} 字节</dd>
+      </dl>
     </>
   );
 }

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { getStore, Store } from "../src/server/db";
@@ -44,7 +44,8 @@ test("story import persists exact sources across restart and scopes retrieval; r
   );
   s.close();
   s = new Store(root);
-  assert.equal(storyDetail(s, p, key).content, text);
+  assert.equal(storyDetail(s, p, key).content, undefined);
+  assert.equal(storyDetail(s, p, key).preview_message, undefined);
   assert.deepEqual(storyFile(s, p, key).bytes, Buffer.from(text));
   assert.equal(listStories(s, p)[0].file_key, undefined);
   assert.equal(storyDetail(s, p, key).request_hash, undefined);
@@ -59,14 +60,14 @@ test("story import persists exact sources across restart and scopes retrieval; r
     storyFile(s, p, String(file.story.id)).bytes,
     Buffer.from(bytes),
   );
-  assert.equal(file.story.content, null);
+  assert.equal(file.story.content, undefined);
   const other = importStory(s, {
     source: "text",
     text: "另一部故事",
     importKey: randomUUID(),
   });
   assert.throws(() => storyDetail(s, String(other.project.id), key), /不存在/);
-  assert.equal(storyDetail(s, p, key).content, text);
+  assert.deepEqual(storyFile(s, p, key).bytes, Buffer.from(text));
   assert.equal(listStories(s, p).length, 2);
 
   const legacy = importStory(
@@ -79,8 +80,12 @@ test("story import persists exact sources across restart and scopes retrieval; r
     },
     p,
   );
-  assert.equal(legacy.story.content, null);
-  assert.match(String(legacy.story.preview_message), /编码/);
+  assert.equal(legacy.story.content, undefined);
+  assert.equal(legacy.story.preview_message, undefined);
+  assert.deepEqual(
+    storyFile(s, p, String(legacy.story.id)).bytes,
+    Buffer.from([0xc4, 0xe3, 0xba, 0xc3]),
+  );
   const bom = importStory(
     s,
     {
@@ -94,7 +99,23 @@ test("story import persists exact sources across restart and scopes retrieval; r
     },
     p,
   );
-  assert.equal(bom.story.content, "你好");
+  assert.equal(bom.story.content, undefined);
+  assert.deepEqual(
+    storyFile(s, p, String(bom.story.id)).bytes,
+    Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("你好", "utf16le")]),
+  );
+
+  // Metadata lookup and retry must not open or parse stored content.
+  const stored = storyFile(s, p, key);
+  const filename = path.join(root, "files", String(stored.row.file_key));
+  renameSync(filename, filename + ".held");
+  try {
+    assert.equal(storyDetail(s, p, key).id, key);
+    assert.equal(importStory(s, input).story.id, key);
+    assert.throws(() => storyFile(s, p, key), /ENOENT/);
+  } finally {
+    renameSync(filename + ".held", filename);
+  }
 });
 
 test("invalid imports and database failures leave no projects, stories or files", (t) => {
@@ -211,7 +232,7 @@ test("multipart APIs import, list, read and download both paths with project iso
   assert.equal((await (await request(base)).json()).data.length, 1);
   assert.equal(
     (await (await request([...base, data.story.id])).json()).data.content,
-    "  故事原文\n第二行  ",
+    undefined,
   );
   const download = await request([...base, data.story.id, "download"]);
   assert.equal(await download.text(), "  故事原文\n第二行  ");
@@ -223,7 +244,13 @@ test("multipart APIs import, list, read and download both paths with project iso
   upload.set("importKey", randomUUID());
   const second = await request(base, upload);
   assert.equal(second.status, 200);
-  assert.equal((await second.json()).data.story.content, "# 原故事\n\n内容");
+  const uploaded = (await second.json()).data.story;
+  assert.equal(uploaded.content, undefined);
+  assert.equal(uploaded.preview_message, undefined);
+  assert.equal(
+    await (await request([...base, uploaded.id, "download"])).text(),
+    "# 原故事\n\n内容",
+  );
   assert.equal(
     (await request(["projects", randomUUID(), "stories", data.story.id]))
       .status,
