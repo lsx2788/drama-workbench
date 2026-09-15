@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { FileText, X } from "lucide-react";
+import { FileText, ImageIcon, X } from "lucide-react";
 import { StoryReader } from "./story-reader";
+import { isStoryImageName } from "@/shared/story-import";
 
 function PreviewDialog({
   p,
@@ -61,7 +62,11 @@ export function StoryPreview({
         className="story-preview-file"
         onClick={() => setOpen(true)}
       >
-        <FileText size={15} />
+        {isStoryImageName(filename) ? (
+          <ImageIcon size={15} />
+        ) : (
+          <FileText size={15} />
+        )}
         <span>{filename}</span>
       </button>
       {open && (

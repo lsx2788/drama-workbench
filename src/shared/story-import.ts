@@ -1,6 +1,29 @@
 export const STORY_MAX_BYTES = 20 * 1024 * 1024;
 export const STORY_MAX_CHARACTERS = 2_000_000;
-export const STORY_EXTENSIONS = [".txt", ".md", ".doc", ".docx", ".pdf"];
+export const STORY_MIME_TYPES: Record<string, string> = {
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".doc": "application/msword",
+  ".docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
+export const STORY_EXTENSIONS = Object.keys(STORY_MIME_TYPES);
+export const STORY_FORMAT_ERROR =
+  "请选择 TXT、Markdown、Word、PDF 或 PNG、JPG、WebP、GIF 图片";
+export function isStoryImage(mime: string) {
+  return ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(mime);
+}
+export function isStoryImageName(name: string) {
+  return isStoryImage(
+    STORY_MIME_TYPES[name.slice(name.lastIndexOf(".")).toLowerCase()] ?? "",
+  );
+}
 export type StoryDiscussion = {
   nodeId: string;
   sessionId: string;

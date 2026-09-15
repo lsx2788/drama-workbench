@@ -23,6 +23,8 @@ import {
   STORY_EXTENSIONS,
   STORY_MAX_BYTES,
   STORY_MAX_CHARACTERS,
+  STORY_MIME_TYPES,
+  STORY_FORMAT_ERROR,
 } from "../shared/story-import";
 
 const base = {
@@ -110,10 +112,7 @@ export function importStory(s: Store, input: unknown, projectId?: string) {
   const extension =
     d.source === "file" ? path.extname(d.name).toLowerCase() : ".txt";
   if (!STORY_EXTENSIONS.includes(extension))
-    throw new DomainError(
-      "UNSUPPORTED_STORY",
-      "请选择 TXT、Markdown、Word 或 PDF 文件",
-    );
+    throw new DomainError("UNSUPPORTED_STORY", STORY_FORMAT_ERROR);
   const bytes = d.source === "text" ? Buffer.from(d.text, "utf8") : d.bytes;
   if (!bytes.length || bytes.length > STORY_MAX_BYTES)
     throw new DomainError(
@@ -150,16 +149,7 @@ export function importStory(s: Store, input: unknown, projectId?: string) {
   const key = id(),
     fileKey = `story-${key}${extension}`;
   const filename = path.join(s.root, "files", fileKey);
-  const mime =
-    extension === ".txt"
-      ? "text/plain"
-      : extension === ".md"
-        ? "text/markdown"
-        : extension === ".pdf"
-          ? "application/pdf"
-          : extension === ".doc"
-            ? "application/msword"
-            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  const mime = STORY_MIME_TYPES[extension];
   // Exclusive creation avoids overwriting any previously stored source.
   let written = false;
   try {

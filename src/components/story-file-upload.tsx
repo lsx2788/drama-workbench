@@ -1,7 +1,12 @@
 "use client";
 import { useRef, useState } from "react";
-import { FileText, Upload, X } from "lucide-react";
-import { STORY_EXTENSIONS, STORY_MAX_BYTES } from "@/shared/story-import";
+import { FileText, ImageIcon, Upload, X } from "lucide-react";
+import {
+  STORY_EXTENSIONS,
+  STORY_MAX_BYTES,
+  STORY_FORMAT_ERROR,
+  isStoryImageName,
+} from "@/shared/story-import";
 
 export function StoryFileUpload({
   file,
@@ -23,7 +28,7 @@ export function StoryFileUpload({
     const next = files[0];
     const extension = next.name.slice(next.name.lastIndexOf(".")).toLowerCase();
     if (!STORY_EXTENSIONS.includes(extension))
-      return onError("请选择 TXT、Markdown、Word 或 PDF 文件");
+      return onError(STORY_FORMAT_ERROR);
     if (!next.size || next.size > STORY_MAX_BYTES)
       return onError("故事文件不能为空，且不能超过 20 MB");
     onError("");
@@ -71,7 +76,11 @@ export function StoryFileUpload({
       />
       {file ? (
         <div className="story-upload-selected">
-          <FileText size={27} strokeWidth={1.5} aria-hidden="true" />
+          {isStoryImageName(file.name) ? (
+            <ImageIcon size={27} strokeWidth={1.5} aria-hidden="true" />
+          ) : (
+            <FileText size={27} strokeWidth={1.5} aria-hidden="true" />
+          )}
           <div className="story-upload-file-info" role="status">
             <strong>{file.name}</strong>
             <small>
@@ -114,7 +123,8 @@ export function StoryFileUpload({
         >
           <Upload size={25} strokeWidth={1.5} aria-hidden="true" />
           <strong>点击上传文件，或拖拽到这里</strong>
-          <small>TXT / Markdown / Word / PDF · 最大 20 MB</small>
+          <small>文档或图片 · 最大 20 MB</small>
+          <small>TXT / Markdown / Word / PDF / PNG / JPG / WebP / GIF</small>
         </button>
       )}
       {file && <p className="story-upload-hint">也可以拖入其他文件替换</p>}

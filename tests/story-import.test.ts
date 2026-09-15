@@ -291,4 +291,45 @@ test("multipart APIs import, list, read and download both paths with project iso
   const catalog = await request(["story-preferences"]);
   assert.equal(catalog.status, 200);
   assert.equal((await catalog.json()).data.length, 5);
+  const imageBytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jK3cAAAAASUVORK5CYII=",
+    "base64",
+  );
+  for (const [name, mime] of [
+    ["参考.PNG", "image/png"],
+    ["参考.jpg", "image/jpeg"],
+    ["参考.jpeg", "image/jpeg"],
+    ["参考.webp", "image/webp"],
+    ["参考.gif", "image/gif"],
+  ]) {
+    // Storage treats uploads as opaque source bytes, without decoding or converting them.
+    const imageUpload = new FormData();
+    imageUpload.set("source", "file");
+    imageUpload.set("file", new File([imageBytes], name));
+    imageUpload.set("importKey", randomUUID());
+    const savedImage = await request(base, imageUpload);
+    assert.equal(savedImage.status, 200);
+    const image = (await savedImage.json()).data.story;
+    assert.equal(image.mime, mime);
+    assert.equal(image.original_name, name);
+    assert.equal(image.content, undefined);
+    assert.deepEqual(
+      Buffer.from(
+        await (await request([...base, image.id, "download"])).arrayBuffer(),
+      ),
+      imageBytes,
+    );
+    assert.equal(
+      (
+        await request([
+          "projects",
+          randomUUID(),
+          "stories",
+          image.id,
+          "download",
+        ])
+      ).status,
+      404,
+    );
+  }
 });

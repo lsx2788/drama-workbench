@@ -75,3 +75,5 @@ curl http://127.0.0.1:3000/api/v1/projects
 所有写入应使用 Content-Type: application/json（上传除外）。配置 WORKBENCH_TOKEN 后需要 Authorization: Bearer。第一版网页无令牌登录页，默认限本机，不可直接用于公网多用户。
 
 故事讨论首次消息包含 `故事原文路径：<download_url>`。该路径返回已落盘的原始字节，粘贴内容对应 UTF-8 `.txt` 文件；消息不嵌入故事正文。聊天界面将原文路径显示为文件名，点击弹窗预览，不改变保存的消息；独立浏览地址仍为 `/?project=<projectId>&story=<storyId>`。原文浏览仅在用户打开页面后读取文件，导入与元信息接口仍不解码、不解析故事。
+
+故事文件导入支持 PNG、JPG/JPEG、WebP、GIF 图片（仍为单文件，最大 20 MB）。以原始字节保存，元信息返回对应 image MIME；原始下载接口与讨论中的文件路径保持一致，不 OCR、不解析图片。

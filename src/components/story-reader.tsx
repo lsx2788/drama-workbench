@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Download, FileText } from "lucide-react";
 import { api, str, type RecordData } from "@/client/api";
 import { decodeStoryText, isStoryText } from "@/client/story-text";
+import { isStoryImage } from "@/shared/story-import";
 
 export function StoryReader({
   p,
@@ -17,12 +18,15 @@ export function StoryReader({
   const [bytes, setBytes] = useState<ArrayBuffer>();
   const [error, setError] = useState("");
   const [encoding, setEncoding] = useState("utf-8");
+  const [imageUrl, setImageUrl] = useState("");
   useEffect(() => {
     const controller = new AbortController();
+    let objectUrl = "";
     setDetail(undefined);
     setBytes(undefined);
     setError("");
     setEncoding("utf-8");
+    setImageUrl("");
     async function load() {
       const record = await api<RecordData>(
         `/projects/${p}/stories/${storyId}`,
@@ -30,19 +34,27 @@ export function StoryReader({
       );
       if (controller.signal.aborted) return;
       setDetail(record);
-      if (!isStoryText(str(record, "mime"))) return;
+      const mime = str(record, "mime");
+      if (!isStoryText(mime) && !isStoryImage(mime)) return;
       const response = await fetch(str(record, "download_url"), {
         signal: controller.signal,
       });
       if (!response.ok) throw new Error("原文读取失败，请稍后重试。");
       const content = await response.arrayBuffer();
-      if (!controller.signal.aborted) setBytes(content);
+      if (controller.signal.aborted) return;
+      if (isStoryImage(mime)) {
+        objectUrl = URL.createObjectURL(new Blob([content], { type: mime }));
+        setImageUrl(objectUrl);
+      } else setBytes(content);
     }
     load().catch((e) => {
       if (!controller.signal.aborted)
         setError(e instanceof Error ? e.message : "原文读取失败");
     });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [p, storyId]);
   const decoded = bytes ? decodeStoryText(bytes, encoding) : undefined;
   return (
@@ -100,9 +112,21 @@ export function StoryReader({
         </p>
       ) : !detail ? (
         <p className="muted">正在读取原文…</p>
+      ) : isStoryImage(str(detail, "mime")) ? (
+        imageUrl ? (
+          <div className="story-reader-image">
+            <img
+              src={imageUrl}
+              alt={str(detail, "original_name")}
+              onError={() => setError("图片暂时无法显示，可下载原文件查看。")}
+            />
+          </div>
+        ) : (
+          <p className="muted">正在读取图片…</p>
+        )
       ) : !isStoryText(str(detail, "mime")) ? (
         <p className="muted">
-          此文件保留原始格式，可下载浏览；网页暂支持 TXT 和 Markdown 原文。
+          此文件保留原始格式，可下载浏览；网页支持文本和图片预览。
         </p>
       ) : !decoded ? (
         <p className="muted">正在读取原文…</p>
