@@ -1046,6 +1046,51 @@ footer {
   gap: 10px;
   margin-top: 23px;
 }
+.story-import-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.story-input-options {
+  display: flex;
+  gap: 8px;
+}
+.story-input-options button[aria-pressed="true"] {
+  background: #e5efdf;
+  border-color: #6c805c;
+  color: #354c2e;
+}
+.story-file-selection,
+.story-source-text {
+  overflow-wrap: anywhere;
+}
+.story-source-text {
+  line-height: 1.85;
+}
+.story-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+.story-save-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #edf3e8;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.story-download {
+  display: inline-block;
+  margin: 8px 0;
+  color: #48623c;
+}
 .error {
   color: #ac4835;
   font-size: 12px;

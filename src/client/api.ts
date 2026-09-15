@@ -9,6 +9,7 @@ export interface Workspace {
     pendingReviews: RecordData[];
   };
   documents: RecordData[];
+  stories: RecordData[];
   workflows: RecordData[];
   sections: RecordData[];
   seasons: RecordData[];

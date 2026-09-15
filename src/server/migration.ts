@@ -117,4 +117,12 @@ CREATE TABLE IF NOT EXISTS section_seasons (
  section_id TEXT PRIMARY KEY REFERENCES workflow_sections(id), season_id TEXT NOT NULL REFERENCES workflow_seasons(id)
 );
 INSERT OR IGNORE INTO schema_migrations VALUES(4,datetime('now'));
+CREATE TABLE IF NOT EXISTS story_sources (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), title TEXT NOT NULL,
+ source_kind TEXT NOT NULL CHECK(source_kind IN ('text','file')), original_name TEXT NOT NULL,
+ file_key TEXT NOT NULL UNIQUE, mime TEXT NOT NULL, size INTEGER NOT NULL CHECK(size>0), sha256 TEXT NOT NULL,
+ import_key TEXT NOT NULL UNIQUE, request_hash TEXT NOT NULL, created_at TEXT NOT NULL, created_by TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS stories_project ON story_sources(project_id);
+INSERT OR IGNORE INTO schema_migrations VALUES(5,datetime('now'));
 `;

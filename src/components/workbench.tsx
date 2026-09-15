@@ -17,6 +17,7 @@ export function Workbench() {
     [directoryOpen, setDirectoryOpen] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [form, setForm] = useState<{
     kind: FormKind;
     defaults?: Record<string, string>;
@@ -154,6 +155,12 @@ export function Workbench() {
               <button onClick={() => setError("")}>关闭</button>
             </div>
           )}
+          {notice && (
+            <div className="story-save-notice" role="status">
+              <span>{notice}</span>
+              <button onClick={() => setNotice("")}>关闭</button>
+            </div>
+          )}
           {loading ? (
             <Empty>正在读取项目…</Empty>
           ) : !p ? (
@@ -182,7 +189,12 @@ export function Workbench() {
               fail={fail}
             />
           ) : (
-            <StoryLibrary key={p} w={w} p={p} />
+            <StoryLibrary
+              key={p}
+              w={w}
+              p={p}
+              onImport={() => create("story")}
+            />
           )}
         </div>
       </main>
@@ -195,12 +207,17 @@ export function Workbench() {
           onClose={() => setForm(null)}
           onSaved={async (result) => {
             const saved = result as RecordData;
-            setForm(null);
             if (form.kind === "project") {
               await loadProjects();
               setP(str(saved, "id"));
+              setDirectoryOpen(false);
+              setNotice(
+                "故事已保存。可在总控节点或「故事资产库 → 故事文稿」查看和下载。",
+              );
             } else {
               await refresh();
+              if (form.kind === "story")
+                setNotice("故事已保存，可随时查看和下载原文。");
               if (form.kind === "session") {
                 setNodeId(
                   form.defaults?.nodeId ??
@@ -212,6 +229,7 @@ export function Workbench() {
                 setChat({ sessionId: str(saved, "id"), quoteId: "" });
               }
             }
+            setForm(null);
           }}
         />
       )}

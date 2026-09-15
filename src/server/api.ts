@@ -42,6 +42,12 @@ import { workspace } from "./read-service";
 import { createSection, appendUnit } from "./section-service";
 import { createSeason } from "./season-service";
 import { createProjectWithCoordinator } from "./project-bootstrap";
+import {
+  importStoryRequest,
+  listStories,
+  storyDetail,
+  storyFile,
+} from "./story-service";
 
 type Creator = (s: Store, p: string, input: unknown) => unknown;
 const creators: Record<string, Creator> = {
@@ -85,6 +91,13 @@ async function route(request: Request, parts: string[]) {
   if (parts.length > 5) return missing();
   const s = getStore(),
     method = request.method;
+  if (
+    parts.length === 2 &&
+    parts[0] === "projects" &&
+    parts[1] === "import-story" &&
+    method === "POST"
+  )
+    return importStoryRequest(s, request);
   if (parts.length === 1 && parts[0] === "projects") {
     if (method === "GET") {
       const query = z
@@ -100,6 +113,21 @@ async function route(request: Request, parts: string[]) {
   const [, p, resource, key, action] = parts;
   projectExists(s, p);
   if (method === "GET") {
+    if (resource === "stories" && !key) return listStories(s, p);
+    if (resource === "stories" && key && !action) return storyDetail(s, p, key);
+    if (resource === "stories" && key && action === "download") {
+      const { row, bytes } = storyFile(s, p, key);
+      return new Response(bytes, {
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": String(bytes.length),
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(String(row.original_name))}`,
+          "X-Content-Type-Options": "nosniff",
+          "Cache-Control": "private, no-store",
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+      });
+    }
     if (resource === "workspace" && parts.length === 3) return workspace(s, p);
     if (resource === "overview" && parts.length === 3) return overview(s, p);
     if (resource === "assets" && !key) {
@@ -145,6 +173,8 @@ async function route(request: Request, parts: string[]) {
     }
   }
   if (method === "POST") {
+    if (resource === "stories" && !key)
+      return importStoryRequest(s, request, p);
     if (resource && creators[resource] && !key)
       return creators[resource](s, p, await request.json());
     if (resource === "workflows" && action === "activate")

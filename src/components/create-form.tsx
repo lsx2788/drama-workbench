@@ -5,22 +5,39 @@ import { Dialog, Field } from "./ui";
 
 import { fields, titles, endpoints, type FormKind } from "./form-config";
 import { ReferencePicker } from "./reference-picker";
+import { StoryImport } from "./story-import";
 export type { FormKind } from "./form-config";
-export function CreateForm({
-  kind,
-  workspace,
-  projectId,
-  onClose,
-  onSaved,
-  defaults = {},
-}: {
+type CreateFormProps = {
   kind: FormKind;
   workspace?: Workspace;
   projectId: string;
   onClose: () => void;
   onSaved: (data: unknown) => void | Promise<void>;
   defaults?: Record<string, string>;
-}) {
+};
+export function CreateForm(props: CreateFormProps) {
+  if (props.kind === "project" || props.kind === "story")
+    return (
+      <StoryImport
+        projectId={props.kind === "story" ? props.projectId : undefined}
+        onClose={props.onClose}
+        onSaved={(result) =>
+          props.onSaved(
+            props.kind === "project" ? result.project : result.story,
+          )
+        }
+      />
+    );
+  return <RecordForm {...props} />;
+}
+function RecordForm({
+  kind,
+  workspace,
+  projectId,
+  onClose,
+  onSaved,
+  defaults = {},
+}: CreateFormProps) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState(defaults.workflowId);

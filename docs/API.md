@@ -20,6 +20,16 @@ API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectI
 - POST `/api/v1/projects/:p/workflows/:id/activate`：正式发布，旧流程归档；进行中的旧节点必须先处理。
 - PATCH `/api/v1/projects/:p/nodes/:id`：`{status}`；依赖/未完成事项会阻止提前完成。
 
+## 原始故事
+
+- POST `/api/v1/projects/import-story`：创建项目并保存故事。字段 `source=text|file`、`title?`、`importKey`（UUID）；文本方式用 JSON 传 `text`（避免 multipart 文本字段改写换行），文件方式用 multipart 传 `file`。返回 `{project,story}`，新项目只有总控及空会话。
+- POST `/api/v1/projects/:p/stories`：同样的表单字段，将故事追加到已有项目，不覆盖其他来源。返回 `{project,story}`。
+- GET `/api/v1/projects/:p/stories`：来源元信息列表；workspace 的 `stories` 同样不携带完整正文。
+- GET `/api/v1/projects/:p/stories/:id`：来源详情、`download_url`、`content`、`preview_message`。UTF-8 或带 BOM 的 UTF-16 文本可预览；不能解码的文本及 Word/PDF 返回 `content:null` 并保留可下载原文件。
+- GET `/api/v1/projects/:p/stories/:id/download`：下载原始字节，强制附件响应，按项目校验归属。
+
+支持 `.txt/.md/.doc/.docx/.pdf`，文件 1 B～20 MB，粘贴正文最多 200 万字符且不能全为空白。原文不 trim、不改写，原始文件不进入 Git。`importKey` 同参数重试返回已有结果；同键不同参数返回 409。保存失败不留下半成品项目；接口不调用 AI，不自动解析 Word/PDF。
+
 ## AI、会话与重点
 
 - POST `.../:p/agents`：`{nodeId,name,purpose,instructions?,provider?,model?,tools?:string[]}`。不存在岗位表。

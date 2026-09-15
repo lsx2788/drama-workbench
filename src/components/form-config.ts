@@ -1,5 +1,6 @@
 import { str, type Workspace } from "@/client/api";
 export type FormKind =
+  | "story"
   | "project"
   | "workflow"
   | "node"
@@ -23,6 +24,8 @@ export function fields(kind: FormKind, w?: Workspace): InputField[] {
     w?.nodes.map((r) => ({ value: str(r, "id"), label: str(r, "name") })) ?? [];
   const common = [{ key: "name", label: "名称" }];
   switch (kind) {
+    case "story":
+      return [];
     case "project":
       return [
         ...common,
@@ -307,6 +310,7 @@ export function fields(kind: FormKind, w?: Workspace): InputField[] {
   }
 }
 export const titles: Record<FormKind, string> = {
+  story: "导入故事",
   project: "创建项目",
   workflow: "新建流程草案",
   node: "添加流程节点",
@@ -318,6 +322,7 @@ export const titles: Record<FormKind, string> = {
   highlight: "记录核心重点",
 };
 export const endpoints: Record<FormKind, string> = {
+  story: "stories",
   project: "projects",
   workflow: "workflows",
   node: "nodes",

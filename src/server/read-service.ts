@@ -2,11 +2,13 @@ import type { Store } from "./db";
 import { projectExists } from "./common";
 import { searchAssets } from "./asset-service";
 import { overview } from "./project-service";
+import { listStories } from "./story-service";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
   return {
     overview: overview(s, p),
+    stories: listStories(s, p),
     documents: s.all(
       "SELECT * FROM documents WHERE project_id=? ORDER BY created_at DESC",
       p,

@@ -11,6 +11,7 @@ import {
 import { storyRecords, type StoryRecord } from "@/client/story-records";
 import { Badge, Dialog, Empty, Panel, date } from "./ui";
 import { AssetFile } from "./asset-file";
+import { StorySource } from "./story-source";
 import { Folder, ArrowLeft, ChevronRight } from "lucide-react";
 import { libraryCategories } from "@/client/library-categories";
 const attributeLabels: Record<string, string> = {
@@ -115,7 +116,15 @@ function AssetRecord({
     </>
   );
 }
-export function StoryLibrary({ w, p }: { w: Workspace; p: string }) {
+export function StoryLibrary({
+  w,
+  p,
+  onImport,
+}: {
+  w: Workspace;
+  p: string;
+  onImport: () => void;
+}) {
   const [query, setQuery] = useState(""),
     [category, setCategory] = useState<string | null>(null),
     [selected, setSelected] = useState<StoryRecord | null>(null);
@@ -138,7 +147,11 @@ export function StoryLibrary({ w, p }: { w: Workspace; p: string }) {
               : "按类别整理故事资料，打开文件夹查看内容。"}
           </p>
         </div>
-        {category && <span className="muted">{matches.length} 条记录</span>}
+        {category === "故事文稿" ? (
+          <button onClick={onImport}>导入故事</button>
+        ) : (
+          category && <span className="muted">{matches.length} 条记录</span>
+        )}
       </div>
       {!category ? (
         <div className="library-directory">
@@ -239,7 +252,9 @@ export function StoryLibrary({ w, p }: { w: Workspace; p: string }) {
       )}
       {selected && (
         <Dialog title={selected.name} onClose={() => setSelected(null)}>
-          {selected.type === "asset" ? (
+          {selected.type === "story" ? (
+            <StorySource p={p} storyId={selected.id} />
+          ) : selected.type === "asset" ? (
             <AssetRecord record={selected} p={p} w={w} />
           ) : (
             <>

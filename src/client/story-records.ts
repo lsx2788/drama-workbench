@@ -10,7 +10,14 @@ export interface StoryRecord {
   node: string;
   source: RecordData;
   type:
-    "asset" | "document" | "highlight" | "session" | "item" | "run" | "project";
+    | "story"
+    | "asset"
+    | "document"
+    | "highlight"
+    | "session"
+    | "item"
+    | "run"
+    | "project";
 }
 export function storyRecords(w: Workspace): StoryRecord[] {
   const nodeName = (id: unknown) => {
@@ -28,6 +35,13 @@ export function storyRecords(w: Workspace): StoryRecord[] {
     status: "",
   });
   return [
+    ...w.stories.map((r) => ({
+      ...base(r),
+      type: "story" as const,
+      name: str(r, "title"),
+      category: "故事文稿",
+      description: `原始故事 · ${r.source_kind === "text" ? "粘贴文本" : "上传文件"} · ${str(r, "original_name")}`,
+    })),
     {
       ...base(w.overview.project),
       type: "project",

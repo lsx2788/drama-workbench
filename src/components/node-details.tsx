@@ -2,6 +2,7 @@
 import { api, str, type RecordData } from "@/client/api";
 import { Badge, Panel, date } from "./ui";
 import { NodeChats } from "./node-chats";
+import { StorySources } from "./story-source";
 import type { ChatViewProps } from "./view-types";
 export function NodeDetails({
   current,
@@ -21,6 +22,13 @@ export function NodeDetails({
   }
   return (
     <div className="node-detail">
+      {current.node_type === "coordinator" && (
+        <StorySources
+          p={p}
+          stories={w.stories}
+          onImport={() => create("story")}
+        />
+      )}
       {current.node_type === "coordinator" && (
         <Panel title="项目基本信息">
           <h3>{str(w.overview.project, "name")}</h3>
