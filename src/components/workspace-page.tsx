@@ -77,7 +77,7 @@ export function WorkspacePage({
       } else fail(new Error("总控聊天尚未就绪"));
     },
   };
-  if (page.kind === "flow") return <FlowView w={w} onSelectNode={openNode} />;
+  if (page.kind === "flow") return <FlowView {...props} />;
   if (page.kind === "story")
     return <StoryReader p={p} storyId={page.targetId!} />;
   if (page.kind === "assets")

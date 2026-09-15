@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PromptDialog } from "./prompt-dialog";
 import { labels } from "@/client/api";
 export function Badge({ value }: { value: string }) {
   return <span className={`badge ${value}`}>{labels[value] ?? value}</span>;
@@ -63,23 +64,9 @@ export function Dialog({
   onClose: () => void;
 }) {
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="dialog"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="panel-heading">
-          <h2>{title}</h2>
-          <button type="button" onClick={onClose} aria-label="关闭">
-            ×
-          </button>
-        </div>
-        {children}
-      </section>
-    </div>
+    <PromptDialog title={title} onClose={onClose} closeLabel="关闭">
+      {children}
+    </PromptDialog>
   );
 }
 export function date(value: unknown) {

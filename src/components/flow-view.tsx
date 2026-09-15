@@ -1,7 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
-import { str, type Workspace } from "@/client/api";
+import { useState } from "react";
+import { str } from "@/client/api";
 import { unitProgress } from "@/client/production-map";
 import { ProductionFlow } from "./production-flow";
 import { WorkflowGraph } from "./workflow-graph";
@@ -9,24 +8,14 @@ import { Badge, Dialog, Panel } from "./ui";
 import { EpisodeContent } from "./episode-content";
 import { StoryKnowledge } from "./story-knowledge";
 import { PromptDialog } from "./prompt-dialog";
-export function FlowView({
-  w,
-  onSelectNode,
-}: {
-  w: Workspace;
-  onSelectNode: (id: string) => void;
-}) {
+import { FlowNodeDialog } from "./flow-node-dialog";
+import type { ChatViewProps } from "./view-types";
+export function FlowView(props: ChatViewProps) {
+  const { w } = props;
+  const [nodeId, setNodeId] = useState("");
   const [unitId, setUnitId] = useState(""),
     [seasonId, setSeasonId] = useState("");
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
-  const heading = useRef<HTMLHeadingElement>(null),
-    previousUnit = useRef(unitId);
-  useEffect(() => {
-    if (previousUnit.current === unitId) return;
-    previousUnit.current = unitId;
-    heading.current?.focus({ preventScroll: true });
-    heading.current?.scrollIntoView({ block: "start" });
-  }, [unitId]);
   const workflow = w.overview.workflow;
   const nodes = w.nodes.filter((n) => n.workflow_id === workflow?.id);
   const published = !!workflow && nodes.some((n) => n.node_type === "work");
@@ -37,75 +26,38 @@ export function FlowView({
     (s) => s.id === seasonId && s.workflow_id === workflow?.id,
   );
   const unitNodes = nodes.filter((n) => n.section_id === unit?.id);
-  const enterUnit = (id: string) => {
-    setUnitId(id);
+  const node = nodes.find((n) => n.id === nodeId);
+  const enterUnit = (id: string) => setUnitId(id);
+  const quoteToCoordinator = (id: string) => {
+    setNodeId("");
+    setUnitId("");
     setSeasonId("");
+    setKnowledgeOpen(false);
+    props.onQuote(id);
   };
   if (!published) return null;
   return (
     <>
       <div className="section-actions">
         <div>
-          <h2 className="flow-heading" ref={heading} tabIndex={-1}>
-            {unit ? str(unit, "name") : "制作流程"}
-          </h2>
-          <p>
-            {unit
-              ? str(
-                  w.seasons.find((s) => s.id === unit.season_id) ??
-                    w.overview.project,
-                  "name",
-                )
-              : str(w.overview.project, "description")}
-          </p>
+          <h2 className="flow-heading">制作流程</h2>
+          <p>{str(w.overview.project, "description")}</p>
         </div>
       </div>
-      {unit ? (
-        <>
-          <div className="unit-navigation">
-            <button
-              onClick={() => {
-                setUnitId("");
-              }}
-            >
-              <ArrowLeft size={16} /> 返回总流程
-            </button>
-            <span>
-              {unitNodes.length
-                ? `${unitProgress(unitNodes).completed} / ${unitNodes.length} 个步骤完成`
-                : "制作步骤待讨论"}
-            </span>
-          </div>
-          {!!unitNodes.length && (
-            <WorkflowGraph
-              nodes={unitNodes}
-              dependencies={w.dependencies}
-              selectedId=""
-              onSelect={onSelectNode}
-            />
-          )}
-          <EpisodeContent
-            key={str(unit, "id")}
-            p={str(w.overview.project, "id")}
-            unitId={str(unit, "id")}
-            w={w}
-            onSelect={enterUnit}
-          />
-        </>
-      ) : workflow ? (
+      {workflow && (
         <ProductionFlow
           key={str(workflow, "id")}
           w={w}
           workflowId={str(workflow, "id")}
           selectedId=""
           onOpen={(target) => {
-            if (target.kind === "node") onSelectNode(target.id);
+            if (target.kind === "node") setNodeId(target.id);
             else if (target.kind === "unit") enterUnit(target.id);
             else if (target.kind === "knowledge") setKnowledgeOpen(true);
             else setSeasonId(target.id);
           }}
         />
-      ) : null}
+      )}
       {season && (
         <Dialog title={str(season, "name")} onClose={() => setSeasonId("")}>
           <Panel title="本季内容">
@@ -138,6 +90,43 @@ export function FlowView({
             )}
           </Panel>
         </Dialog>
+      )}
+      {unit && (
+        <PromptDialog
+          title={str(unit, "name")}
+          onClose={() => setUnitId("")}
+          closeLabel="关闭剧集详情"
+        >
+          <p className="muted">
+            {unitNodes.length
+              ? `${unitProgress(unitNodes).completed} / ${unitNodes.length} 个步骤完成`
+              : "制作步骤待讨论"}
+          </p>
+          {!!unitNodes.length && (
+            <WorkflowGraph
+              nodes={unitNodes}
+              dependencies={w.dependencies}
+              selectedId=""
+              onSelect={setNodeId}
+            />
+          )}
+          <EpisodeContent
+            key={str(unit, "id")}
+            p={str(w.overview.project, "id")}
+            unitId={str(unit, "id")}
+            w={w}
+            onSelect={enterUnit}
+          />
+        </PromptDialog>
+      )}
+      {node && (
+        <FlowNodeDialog
+          key={str(node, "id")}
+          {...props}
+          current={node}
+          onClose={() => setNodeId("")}
+          onQuote={quoteToCoordinator}
+        />
       )}
       {knowledgeOpen && (
         <PromptDialog title="故事资料" onClose={() => setKnowledgeOpen(false)}>
