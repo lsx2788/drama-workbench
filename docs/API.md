@@ -85,3 +85,12 @@ curl http://127.0.0.1:3000/api/v1/projects
 原有两个导入地址同时支持 multipart `source=files`，多次追加同名 `file` 字段，其他字段为 `title?`、`importKey`。支持 1–20 个文件，单个最大 20 MB、整批最大 50 MB。返回 `{project,story,stories}`，`stories` 按提交顺序排列，`story` 为首项兼容字段。整批保存使用事务，失败不留下部分来源或空项目；相同批次键和内容重试返回相同记录，内容或顺序改变返回 409。单文件 `source=file` 收到多个 file 字段时拒绝，避免静默丢弃。
 
 POST `/api/v1/projects/:p/story-discussions`：`{storyIds:[UUID,...],agentId?,preferences?,ideas?}`。一次交接 1–20 个不同且属于本项目的来源，仅保存一条消息并按输入顺序关联全部附件。与原单文件 discussion 接口使用同一逻辑，已交接集合重试返回首次消息；集合或顺序不同返回 409，不覆盖历史。workspace.messages 新增 `attachments:[{id,title,original_name,download_url}]`；原 story_id/story_title/story_download_url 字段保留首附件作为兼容。UI 隐藏全部路径并显示独立文件名预览入口，存储消息仍携带全部路径。
+
+### AI 提示词
+
+- GET `/projects/:p/agents/:id/prompt`：返回 `{name,current,versions}`。current 为 `{agentId,version,instructions,createdAt,origin}`，versions 按版本倒序返回相同元信息但不含正文。origin 为 created / updated / baseline（开始留档时的现有配置）。
+- GET `/projects/:p/agents/:id/prompt?version=N`：返回指定只读历史版本，未知版本 404，非法查询 400。
+- PATCH `/projects/:p/agents/:id/prompt`：`{expectedVersion,instructions}`，提示词非空且最多 100000 字符，保留原始空格和换行。事务更新当前配置、增加版本并写审计；过期修改返回 409，相同内容不重复建版。返回新的 settings 结构。不可借此修改模型、工具或其他身份字段。
+- GET `/projects/:p/messages/:id/prompt`：`{messageId,snapshot,basis}`。已留档消息 snapshot 为对应版本，basis=submitted；旧消息为 null/unrecorded。模型执行器未接入，该引用不表示实际执行。
+
+workspace.messages 新增 `prompt_version`（未留档为 null），历史正文不随 workspace 批量返回。用户发送消息时，后端原子记录当前提示词版本，不接受前端伪造版本；提示词修改不改写旧消息关联。

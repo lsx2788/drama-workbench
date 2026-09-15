@@ -2428,3 +2428,115 @@ pre {
   flex-shrink: 0;
   border-radius: 4px;
 }
+
+/* Prompt settings stay local to an AI; history is opened only on demand. */
+.chat-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.chat-settings-actions button,
+.agent-card button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.prompt-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 0;
+  width: min(720px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: 88dvh;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.prompt-dialog::backdrop {
+  background: #15291f60;
+  backdrop-filter: blur(5px);
+}
+.prompt-dialog-content {
+  padding: 24px;
+}
+.prompt-dialog h2 {
+  font-size: 17px;
+}
+.prompt-dialog p,
+.prompt-dialog button {
+  font-size: 12px;
+}
+.prompt-dialog textarea {
+  min-height: 270px;
+  max-height: 45dvh;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.prompt-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.prompt-tabs button,
+.prompt-version-list button {
+  background: transparent;
+}
+.prompt-tabs button[aria-pressed="true"],
+.prompt-version-list button[aria-pressed="true"] {
+  background: #e4eee7;
+  border-color: #8ca899;
+  color: var(--green);
+}
+.prompt-version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 170px;
+  overflow-y: auto;
+}
+.prompt-version-list button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 10px;
+}
+.prompt-version-list span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.prompt-snapshot {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.8;
+  background: #f3f5f1;
+  padding: 16px;
+  border-radius: 10px;
+  max-height: 45dvh;
+  overflow-y: auto;
+}
+.prompt-conflict {
+  border: 1px solid #d4b270;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+}
+.prompt-saved {
+  color: var(--green);
+}
+@media (max-width: 480px) {
+  .prompt-dialog-content {
+    padding: 16px;
+  }
+  .chat-settings-actions {
+    gap: 6px;
+  }
+  .prompt-dialog textarea {
+    min-height: 230px;
+  }
+}

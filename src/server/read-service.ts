@@ -58,7 +58,7 @@ export function workspace(s: Store, p: string) {
     ),
     messages: s
       .all(
-        "SELECT m.*,a.name AS agent_name,a.node_id FROM messages m JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.created_at",
+        "SELECT m.*,a.name AS agent_name,a.node_id,pv.version AS prompt_version FROM messages m LEFT JOIN message_prompt_versions pv ON pv.message_id=m.id JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.created_at",
         p,
       )
       .map((message): Row & { attachments: Row[] } => {

@@ -1,3 +1,4 @@
+import { recordInitialPrompt } from "./agent-prompt-service";
 import type { Store } from "./db";
 import { id, now, requireRow, nodeInProject, assert, audit } from "./common";
 import {
@@ -41,21 +42,24 @@ function messageInProject(s: Store, p: string, key: string) {
 export function createAgent(s: Store, p: string, input: unknown) {
   const d = agentSchema.parse(input);
   nodeInProject(s, p, d.nodeId);
-  const key = id();
-  s.run(
-    "INSERT INTO agents VALUES(?,?,?,?,?,?,?,?,?,?)",
-    key,
-    d.nodeId,
-    d.name,
-    d.purpose,
-    d.instructions,
-    d.provider,
-    d.model,
-    1,
-    JSON.stringify(d.tools),
-    now(),
-  );
-  return agentInProject(s, p, key);
+  return s.transaction(() => {
+    const key = id();
+    s.run(
+      "INSERT INTO agents VALUES(?,?,?,?,?,?,?,?,?,?)",
+      key,
+      d.nodeId,
+      d.name,
+      d.purpose,
+      d.instructions,
+      d.provider,
+      d.model,
+      1,
+      JSON.stringify(d.tools),
+      now(),
+    );
+    recordInitialPrompt(s, key);
+    return agentInProject(s, p, key);
+  });
 }
 export function createSession(s: Store, p: string, input: unknown) {
   const d = sessionSchema.parse(input),
@@ -85,31 +89,40 @@ export function postHumanMessage(
   sessionId: string,
   input: unknown,
 ) {
-  const d = messageSchema.parse(input),
-    ss = sessionInProject(s, p, sessionId);
-  assert(
-    ss.node_type === "coordinator",
-    "当前个人模式只能向总控发送消息",
-    "HUMAN_CHILD_MESSAGE_DENIED",
-  );
-  assert(ss.status === "open", "会话已关闭");
-  if (d.quoteId) messageInProject(s, p, d.quoteId);
-  const key = id();
-  s.run(
-    "INSERT INTO messages VALUES(?,?,?,?,?,?,?)",
-    key,
-    sessionId,
-    "human",
-    "local-user",
-    d.content,
-    d.quoteId ?? null,
-    now(),
-  );
-  return {
-    message: s.one("SELECT * FROM messages WHERE id=?", key),
-    delivery: "stored",
-    execution: "not_configured",
-  };
+  return s.transaction(() => {
+    const d = messageSchema.parse(input),
+      ss = sessionInProject(s, p, sessionId);
+    assert(
+      ss.node_type === "coordinator",
+      "当前个人模式只能向总控发送消息",
+      "HUMAN_CHILD_MESSAGE_DENIED",
+    );
+    assert(ss.status === "open", "会话已关闭");
+    if (d.quoteId) messageInProject(s, p, d.quoteId);
+    const key = id();
+    s.run(
+      "INSERT INTO messages VALUES(?,?,?,?,?,?,?)",
+      key,
+      sessionId,
+      "human",
+      "local-user",
+      d.content,
+      d.quoteId ?? null,
+      now(),
+    );
+    const agent = agentInProject(s, p, String(ss.agent_id));
+    s.run(
+      "INSERT INTO message_prompt_versions VALUES(?,?,?)",
+      key,
+      String(agent.id),
+      Number(agent.config_version),
+    );
+    return {
+      message: s.one("SELECT * FROM messages WHERE id=?", key),
+      delivery: "stored",
+      execution: "not_configured",
+    };
+  });
 }
 export function createHighlight(s: Store, p: string, input: unknown) {
   const d = highlightSchema.parse(input);

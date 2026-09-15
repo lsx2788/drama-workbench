@@ -4,6 +4,7 @@ import { api, str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
 import { StoryPreview } from "./story-preview";
+import { AgentPromptSettings, MessagePrompt } from "./agent-prompt-settings";
 
 function messageAttachments(message: RecordData): RecordData[] {
   if (Array.isArray(message.attachments)) return message.attachments;
@@ -105,7 +106,14 @@ export function ChatPanel({
               : "协作讨论 · 只读"}
           </small>
         </div>
-        <Badge value={String(session?.status)} />
+        <div className="chat-settings-actions">
+          <AgentPromptSettings
+            p={p}
+            agentId={str(session, "agent_id")}
+            refresh={refresh}
+          />
+          <Badge value={String(session?.status)} />
+        </div>
       </div>
       <details className="session-meta">
         <summary>会话追溯信息</summary>
@@ -140,6 +148,11 @@ export function ChatPanel({
               ) : null}
               <StoryMessage p={p} message={m} stories={w.stories} />
               <div className="message-actions">
+                <MessagePrompt
+                  p={p}
+                  messageId={str(m, "id")}
+                  version={m.prompt_version}
+                />
                 <button
                   onClick={() => {
                     onQuote(str(m, "id"));

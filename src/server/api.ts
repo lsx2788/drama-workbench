@@ -1,3 +1,9 @@
+import {
+  promptSettings,
+  promptVersion,
+  updateAgentPrompt,
+  messagePrompt,
+} from "./agent-prompt-service";
 import { timingSafeEqual, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getStore, type Store } from "./db";
@@ -122,6 +128,17 @@ async function route(request: Request, parts: string[]) {
   const [, p, resource, key, action] = parts;
   projectExists(s, p);
   if (method === "GET") {
+    if (resource === "agents" && key && action === "prompt") {
+      const query = z
+        .object({ version: z.coerce.number().int().positive().optional() })
+        .strict()
+        .parse(Object.fromEntries(new URL(request.url).searchParams));
+      return query.version
+        ? promptVersion(s, p, key, query.version)
+        : promptSettings(s, p, key);
+    }
+    if (resource === "messages" && key && action === "prompt")
+      return messagePrompt(s, p, key);
     if (resource === "stories" && key && action === "preview") {
       const { row, bytes, mime } = storyImage(s, p, key);
       return new Response(bytes, {
@@ -194,6 +211,8 @@ async function route(request: Request, parts: string[]) {
       });
     }
   }
+  if (method === "PATCH" && resource === "agents" && key && action === "prompt")
+    return updateAgentPrompt(s, p, key, await request.json());
   if (method === "POST") {
     if (resource === "story-discussions" && !key) {
       const { storyIds, ...input } = z

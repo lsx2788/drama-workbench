@@ -4,6 +4,7 @@ import { Badge, Panel, date } from "./ui";
 import { NodeChats } from "./node-chats";
 import { StorySources } from "./story-source";
 import type { ChatViewProps } from "./view-types";
+import { AgentPromptSettings } from "./agent-prompt-settings";
 export function NodeDetails({
   current,
   ...props
@@ -136,6 +137,11 @@ export function NodeDetails({
               <p className="pre">
                 {str(a, "instructions") || "尚未配置提示词"}
               </p>
+              <AgentPromptSettings
+                p={p}
+                agentId={str(a, "id")}
+                refresh={refresh}
+              />
               <p className="mono">
                 {str(a, "provider")} · {str(a, "model") || "未配置模型"} ·{" "}
                 {str(a, "tools_json")}
