@@ -6,11 +6,14 @@ import {
   STORY_MAX_BYTES,
   STORY_MAX_CHARACTERS,
   createImportKey,
-  STORY_STYLES,
-  type StoryStyle,
   type StoryDiscussion,
 } from "@/shared/story-import";
 import { Dialog, Field } from "./ui";
+import { StoryPreferences } from "./story-preferences";
+import {
+  STORY_PREFERENCE_CATALOG,
+  type StoryPreference,
+} from "@/shared/story-preferences";
 
 export function StoryImport({
   projectId,
@@ -29,8 +32,7 @@ export function StoryImport({
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [style, setStyle] = useState<StoryStyle>("discuss");
-  const [customStyle, setCustomStyle] = useState("");
+  const [preferences, setPreferences] = useState<StoryPreference[]>([]);
   const [ideas, setIdeas] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -57,8 +59,13 @@ export function StoryImport({
               if (source === "text" && !text.trim())
                 throw new Error("请粘贴故事正文");
               if (source === "file" && !file) throw new Error("请选择故事文件");
-              if (style === "other" && !customStyle.trim())
-                throw new Error("请填写自定义风格");
+              for (const preference of preferences) {
+                const option = STORY_PREFERENCE_CATALOG.find(
+                  (c) => c.id === preference.category,
+                )?.options.find((o) => o.value === preference.option);
+                if (option?.detailLabel && !preference.detail.trim())
+                  throw new Error(`请${option.detailLabel}`);
+              }
               if (
                 file &&
                 source === "file" &&
@@ -68,8 +75,7 @@ export function StoryImport({
               const fingerprint = JSON.stringify([
                 source,
                 title,
-                style,
-                style === "other" ? customStyle : "",
+                preferences,
                 ideas,
                 source === "text"
                   ? text
@@ -81,8 +87,7 @@ export function StoryImport({
               form.set("source", source);
               form.set("title", title);
               form.set("importKey", attempt.current.key);
-              form.set("style", style);
-              form.set("customStyle", style === "other" ? customStyle : "");
+              form.set("preferences", JSON.stringify(preferences));
               form.set("ideas", ideas);
               if (source === "file") form.set("file", file!);
               // FormData normalizes text field line endings. JSON preserves the submitted text.
@@ -93,8 +98,7 @@ export function StoryImport({
                       title,
                       text,
                       importKey: attempt.current.key,
-                      style,
-                      customStyle: style === "other" ? customStyle : "",
+                      preferences,
                       ideas,
                     })
                   : form;
@@ -188,32 +192,7 @@ export function StoryImport({
               )}
             </Field>
           )}
-          <Field label="想做什么风格？">
-            <select
-              value={style}
-              onChange={(e) => setStyle(e.target.value as StoryStyle)}
-            >
-              {STORY_STYLES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <small className="muted">
-              先表达意向，之后可以和总控一起调整。
-            </small>
-          </Field>
-          {style === "other" && (
-            <Field label="自定义风格">
-              <input
-                value={customStyle}
-                maxLength={300}
-                required
-                onChange={(e) => setCustomStyle(e.target.value)}
-                placeholder="描述你希望的画面风格，也可以举参考作品"
-              />
-            </Field>
-          )}
+          <StoryPreferences value={preferences} onChange={setPreferences} />
           <Field label="我的想法（可选）">
             <textarea
               value={ideas}

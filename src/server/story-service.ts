@@ -140,8 +140,13 @@ export function importStory(s: Store, input: unknown, projectId?: string) {
   const sha = digest(bytes);
   const hashParts: unknown[] = [projectId ?? null, d.source, title, name, sha];
   // Preserve retry keys from imports created before optional preferences existed.
-  if (brief.style !== "discuss" || brief.customStyle || brief.ideas)
-    hashParts.push(brief);
+  if (d.preferences !== undefined) hashParts.push(brief);
+  else if ((d.style ?? "discuss") !== "discuss" || d.customStyle || brief.ideas)
+    hashParts.push({
+      style: d.style ?? "discuss",
+      customStyle: d.customStyle ?? "",
+      ideas: brief.ideas,
+    });
   const requestHash = digest(JSON.stringify(hashParts));
   const previous = s.one(
     "SELECT * FROM story_sources WHERE import_key=?",
@@ -227,6 +232,8 @@ export async function importStoryRequest(
     return importStory(s, await request.json(), projectId);
   const form = await request.formData();
   const fields = Object.fromEntries(form);
+  if (typeof fields.preferences === "string")
+    fields.preferences = JSON.parse(fields.preferences);
   if (fields.source === "file") {
     const file = fields.file;
     if (!(file instanceof File))

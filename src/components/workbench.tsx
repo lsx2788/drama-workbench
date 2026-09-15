@@ -229,11 +229,11 @@ export function Workbench() {
               await loadProjects();
               setP(str(saved, "id"));
               setDirectoryOpen(false);
-              setNotice("故事、风格意向和想法已保存，已准备好总控讨论。");
+              setNotice("故事、制作偏好和想法已保存，已准备好总控讨论。");
             } else {
               await refresh();
               if (form.kind === "story")
-                setNotice("故事、风格意向和想法已保存，已准备好总控讨论。");
+                setNotice("故事、制作偏好和想法已保存，已准备好总控讨论。");
               if (form.kind === "session") {
                 setNodeId(
                   form.defaults?.nodeId ??

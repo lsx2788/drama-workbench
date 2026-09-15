@@ -30,8 +30,7 @@ test("preferences are stored separately and handed to a coordinator once without
   const input = {
     source: "text",
     text: "原始故事独有正文，不应复制进聊天。",
-    style: "other",
-    customStyle: "黑白剪纸",
+    preferences: [{ category: "style", option: "other", detail: "黑白剪纸" }],
     ideas: "先做第一章。\n请保留原作结局。",
     importKey: randomUUID(),
   };
@@ -41,8 +40,7 @@ test("preferences are stored separately and handed to a coordinator once without
   const before = workspace(s, p);
   assert.equal(before.messages.length, 0);
   assert.deepEqual(result.story.brief, {
-    style: "other",
-    customStyle: "黑白剪纸",
+    preferences: [{ category: "style", option: "other", detail: "黑白剪纸" }],
     ideas: input.ideas,
   });
   assert.deepEqual(storyFile(s, p, key).bytes, Buffer.from(input.text));

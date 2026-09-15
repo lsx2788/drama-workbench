@@ -133,4 +133,13 @@ CREATE TABLE IF NOT EXISTS story_discussions (
  story_id TEXT PRIMARY KEY REFERENCES story_sources(id), message_id TEXT NOT NULL UNIQUE REFERENCES messages(id), created_at TEXT NOT NULL
 );
 INSERT OR IGNORE INTO schema_migrations VALUES(6,datetime('now'));
+CREATE TABLE IF NOT EXISTS story_intake_briefs (
+ story_id TEXT PRIMARY KEY REFERENCES story_sources(id), preferences_json TEXT NOT NULL,
+ ideas TEXT NOT NULL, created_at TEXT NOT NULL
+);
+-- Copy the former fixed-style records once; they are no longer written or read at runtime.
+INSERT OR IGNORE INTO story_intake_briefs (story_id,preferences_json,ideas,created_at)
+SELECT story_id,json_array(json_object('category','style','option',style,'detail',custom_style)),ideas,created_at
+FROM story_briefs WHERE NOT EXISTS(SELECT 1 FROM schema_migrations WHERE version=7);
+INSERT OR IGNORE INTO schema_migrations VALUES(7,datetime('now'));
 `;

@@ -22,7 +22,11 @@ API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectI
 
 ## 原始故事
 
-导入可附 `style`（`discuss` 默认、`live_action`、`anime_2d`、`animation_3d`、`ink`、`illustration`、`other`）、`customStyle`（选择 other 时必填，最多 300 字符）、`ideas`（可选，最多 5000 字符）。偏好与原始故事分表存储，详情返回 `brief:{style,customStyle,ideas}`；旧故事未填写时返回 null。它们是用户初步意向，不自动成为定稿。
+GET `/api/v1/story-preferences` 返回制作偏好库：画面风格、制作范围、改编要求、单集时长、画幅、发布平台，以及每类的选项和需补充的内容。页面与校验共用同一目录配置。
+
+导入可附 `preferences:[{category,option,detail}]` 和 `ideas`（可选，最多 5000 字符）。仅提交用户选中的类别；空数组表示全部留待讨论。每类只能出现一次，选项必须属于对应类别；需要补充内容时 `detail` 必填，否则为空串，最多 300 字符。文件上传的 preferences 字段用 JSON 字符串；文本请求直接传数组。
+
+偏好与原始故事分开保存，详情返回 `brief:{preferences,ideas}`。旧版 `style/customStyle` 字段仍可导入，但不能与 preferences 同传；已有风格和想法自动迁移，历史聊天不改写。偏好是初步意向，不自动成为定稿。
 
 - POST `/api/v1/projects/:p/stories/:id/discussion`：`{agentId?}`，独立于导入的讨论交接。只允许当前流程总控；有多个总控时必须指定。复用唯一空会话，否则建立该故事的讨论会话。保存一条带风格、想法和故事引用的用户消息，返回 `{nodeId,sessionId,messageId,delivery:"stored",execution:"not_configured"}`。同故事重复调用返回同次交接，不重复发消息。失败保留已导入的故事，不读取正文，不调用模型。
 

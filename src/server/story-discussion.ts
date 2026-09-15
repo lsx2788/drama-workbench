@@ -3,7 +3,8 @@ import type { Store } from "./db";
 import { assert, audit, now } from "./common";
 import { createSession, postHumanMessage } from "./collaboration-service";
 import { storyDetail } from "./story-service";
-import { storyStyleLabel, type StoryDiscussion } from "../shared/story-import";
+import { type StoryDiscussion } from "../shared/story-import";
+import { preferenceLabel } from "../shared/story-preferences";
 import { readStoryBrief } from "./story-brief";
 
 /** A separate, retryable handoff. Import remains storage-only even if this fails. */
@@ -55,7 +56,9 @@ export function startStoryDiscussion(
     const brief = readStoryBrief(s, storyId);
     const content = [
       `我已提交《${story.title}》，请先阅读并分析这个故事，再和我讨论制作方向。`,
-      `风格意向：${brief ? storyStyleLabel(brief.style, brief.customStyle) : "尚未填写，阅读后再讨论"}`,
+      brief?.preferences.length
+        ? `制作偏好：\n${brief.preferences.map(preferenceLabel).join("\n")}`
+        : "制作偏好尚未填写，阅读后再一起讨论。",
       `我的想法：\n${brief?.ideas.trim() ? brief.ideas : "暂无补充，先一起讨论。"}`,
       "请结合附带的故事原文分析。以上是初步意向，我们可以继续讨论调整。",
     ].join("\n\n");

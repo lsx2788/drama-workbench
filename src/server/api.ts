@@ -43,6 +43,7 @@ import { createSection, appendUnit } from "./section-service";
 import { createSeason } from "./season-service";
 import { createProjectWithCoordinator } from "./project-bootstrap";
 import { startStoryDiscussion } from "./story-discussion";
+import { STORY_PREFERENCE_CATALOG } from "../shared/story-preferences";
 import {
   importStoryRequest,
   listStories,
@@ -92,6 +93,12 @@ async function route(request: Request, parts: string[]) {
   if (parts.length > 5) return missing();
   const s = getStore(),
     method = request.method;
+  if (
+    parts.length === 1 &&
+    parts[0] === "story-preferences" &&
+    method === "GET"
+  )
+    return STORY_PREFERENCE_CATALOG;
   if (
     parts.length === 2 &&
     parts[0] === "projects" &&

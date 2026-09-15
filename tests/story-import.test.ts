@@ -242,15 +242,22 @@ test("multipart APIs import, list, read and download both paths with project iso
   upload.set("source", "file");
   upload.set("file", new File(["# 原故事\n\n内容"], "原文.md"));
   upload.set("importKey", randomUUID());
-  upload.set("style", "other");
-  upload.set("customStyle", "定格纸偶");
+  upload.set(
+    "preferences",
+    JSON.stringify([
+      { category: "style", option: "other", detail: "定格纸偶" },
+      { category: "scope", option: "first_episode", detail: "" },
+    ]),
+  );
   upload.set("ideas", "先做开头这一段");
   const second = await request(base, upload);
   assert.equal(second.status, 200);
   const uploaded = (await second.json()).data.story;
   assert.deepEqual(uploaded.brief, {
-    style: "other",
-    customStyle: "定格纸偶",
+    preferences: [
+      { category: "style", option: "other", detail: "定格纸偶" },
+      { category: "scope", option: "first_episode", detail: "" },
+    ],
     ideas: "先做开头这一段",
   });
   const handoff = await request([...base, uploaded.id, "discussion"], {});
@@ -281,4 +288,7 @@ test("multipart APIs import, list, read and download both paths with project iso
   missingFile.set("source", "file");
   missingFile.set("importKey", randomUUID());
   assert.equal((await request(base, missingFile)).status, 400);
+  const catalog = await request(["story-preferences"]);
+  assert.equal(catalog.status, 200);
+  assert.equal((await catalog.json()).data.length, 6);
 });
