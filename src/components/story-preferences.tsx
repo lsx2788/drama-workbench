@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import type {
   PreferenceCategory,
   StoryPreference,
@@ -38,15 +39,17 @@ export function StoryPreferences({
   return (
     <section ref={library} className="preference-library" aria-label="制作偏好">
       <div className="preference-heading">
-        <h3>
-          制作偏好 <small>可选</small>
-        </h3>
+        <h3>制作偏好</h3>
         <button
           type="button"
           className="preference-add"
+          aria-label="选择偏好"
+          title="选择偏好"
+          aria-haspopup="dialog"
+          aria-expanded={picking}
           onClick={() => setPicking(true)}
         >
-          ＋ 选择偏好
+          <Plus size={14} aria-hidden="true" />
         </button>
       </div>
       {value.map((selected, index) => {

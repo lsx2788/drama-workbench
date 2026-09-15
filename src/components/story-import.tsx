@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { FileUp, AlignLeft, Library } from "lucide-react";
 import { api, type RecordData } from "@/client/api";
 import {
   STORY_EXTENSIONS,
@@ -28,7 +29,7 @@ export function StoryImport({
     discussion: StoryDiscussion;
   }) => void | Promise<void>;
 }) {
-  const [source, setSource] = useState<"text" | "file">("text");
+  const [source, setSource] = useState<"text" | "file" | "library">("file");
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -74,7 +75,7 @@ export function StoryImport({
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          if (busy) return;
+          if (busy || source === "library") return;
           setError("");
           setBusy(true);
           try {
@@ -165,20 +166,41 @@ export function StoryImport({
           >
             <button
               type="button"
-              aria-pressed={source === "text"}
-              onClick={() => setSource("text")}
+              aria-pressed={source === "file"}
+              onClick={() => {
+                setSource("file");
+                setError("");
+              }}
             >
-              粘贴文本
+              <FileUp size={14} aria-hidden="true" /> 选择文件
             </button>
             <button
               type="button"
-              aria-pressed={source === "file"}
-              onClick={() => setSource("file")}
+              aria-pressed={source === "text"}
+              onClick={() => {
+                setSource("text");
+                setError("");
+              }}
             >
-              选择文件
+              <AlignLeft size={14} aria-hidden="true" /> 粘贴文本
+            </button>
+            <button
+              type="button"
+              aria-pressed={source === "library"}
+              onClick={() => {
+                setSource("library");
+                setError("");
+              }}
+            >
+              <Library size={14} aria-hidden="true" /> 剧本库
             </button>
           </div>
-          {source === "text" ? (
+          {source === "library" ? (
+            <div className="story-library-pending" role="status">
+              <Library size={25} strokeWidth={1.4} aria-hidden="true" />
+              <span>剧本库建设中</span>
+            </div>
+          ) : source === "text" ? (
             <Field label="故事正文">
               <textarea
                 value={text}
@@ -252,7 +274,7 @@ export function StoryImport({
           <button type="button" onClick={close} disabled={busy}>
             取消
           </button>
-          <button className="primary" disabled={busy}>
+          <button className="primary" disabled={busy || source === "library"}>
             {busy
               ? "正在准备…"
               : saved.current
