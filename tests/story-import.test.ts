@@ -313,6 +313,29 @@ test("multipart APIs import, list, read and download both paths with project iso
     assert.equal(image.mime, mime);
     assert.equal(image.original_name, name);
     assert.equal(image.content, undefined);
+    const preview = await request([...base, image.id, "preview"]);
+    assert.equal(preview.status, 200);
+    // Deliberately renamed PNGs still get their real display type.
+    assert.equal(preview.headers.get("content-type"), "image/png");
+    assert.match(preview.headers.get("content-disposition")!, /^inline/);
+    assert.equal(preview.headers.get("x-content-type-options"), "nosniff");
+    assert.deepEqual(Buffer.from(await preview.arrayBuffer()), imageBytes);
+    assert.equal(
+      (await (await request([...base, image.id])).json()).data.mime,
+      mime,
+    );
+    assert.equal(
+      (
+        await request([
+          "projects",
+          randomUUID(),
+          "stories",
+          image.id,
+          "preview",
+        ])
+      ).status,
+      404,
+    );
     assert.deepEqual(
       Buffer.from(
         await (await request([...base, image.id, "download"])).arrayBuffer(),
@@ -332,4 +355,11 @@ test("multipart APIs import, list, read and download both paths with project iso
       404,
     );
   }
+  assert.equal((await request([...base, uploaded.id, "preview"])).status, 415);
+  const disguised = new FormData();
+  disguised.set("source", "file");
+  disguised.set("file", new File(["<html>not an image</html>"], "broken.jpg"));
+  disguised.set("importKey", randomUUID());
+  const badImage = (await (await request(base, disguised)).json()).data.story;
+  assert.equal((await request([...base, badImage.id, "preview"])).status, 415);
 });

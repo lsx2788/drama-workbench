@@ -44,6 +44,7 @@ import { createSeason } from "./season-service";
 import { createProjectWithCoordinator } from "./project-bootstrap";
 import { startStoryDiscussion } from "./story-discussion";
 import { listStoryPreferences } from "./story-preference-catalog";
+import { storyImage } from "./story-image";
 import {
   importStoryRequest,
   listStories,
@@ -121,6 +122,19 @@ async function route(request: Request, parts: string[]) {
   const [, p, resource, key, action] = parts;
   projectExists(s, p);
   if (method === "GET") {
+    if (resource === "stories" && key && action === "preview") {
+      const { row, bytes, mime } = storyImage(s, p, key);
+      return new Response(bytes, {
+        headers: {
+          "Content-Type": mime,
+          "Content-Length": String(bytes.length),
+          "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(String(row.original_name))}`,
+          "X-Content-Type-Options": "nosniff",
+          "Cache-Control": "private, no-store",
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+      });
+    }
     if (resource === "stories" && !key) return listStories(s, p);
     if (resource === "stories" && key && !action) return storyDetail(s, p, key);
     if (resource === "stories" && key && action === "download") {

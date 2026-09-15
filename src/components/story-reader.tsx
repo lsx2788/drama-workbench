@@ -19,14 +19,15 @@ export function StoryReader({
   const [error, setError] = useState("");
   const [encoding, setEncoding] = useState("utf-8");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageLoaded, setImageLoaded] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    let objectUrl = "";
     setDetail(undefined);
     setBytes(undefined);
     setError("");
     setEncoding("utf-8");
     setImageUrl("");
+    setImageLoaded(false);
     async function load() {
       const record = await api<RecordData>(
         `/projects/${p}/stories/${storyId}`,
@@ -35,17 +36,18 @@ export function StoryReader({
       if (controller.signal.aborted) return;
       setDetail(record);
       const mime = str(record, "mime");
-      if (!isStoryText(mime) && !isStoryImage(mime)) return;
+      if (isStoryImage(mime)) {
+        setImageUrl(`/api/v1/projects/${p}/stories/${storyId}/preview`);
+        return;
+      }
+      if (!isStoryText(mime)) return;
       const response = await fetch(str(record, "download_url"), {
         signal: controller.signal,
       });
       if (!response.ok) throw new Error("原文读取失败，请稍后重试。");
       const content = await response.arrayBuffer();
       if (controller.signal.aborted) return;
-      if (isStoryImage(mime)) {
-        objectUrl = URL.createObjectURL(new Blob([content], { type: mime }));
-        setImageUrl(objectUrl);
-      } else setBytes(content);
+      setBytes(content);
     }
     load().catch((e) => {
       if (!controller.signal.aborted)
@@ -53,7 +55,6 @@ export function StoryReader({
     });
     return () => {
       controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [p, storyId]);
   const decoded = bytes ? decodeStoryText(bytes, encoding) : undefined;
@@ -114,13 +115,19 @@ export function StoryReader({
         <p className="muted">正在读取原文…</p>
       ) : isStoryImage(str(detail, "mime")) ? (
         imageUrl ? (
-          <div className="story-reader-image">
-            <img
-              src={imageUrl}
-              alt={str(detail, "original_name")}
-              onError={() => setError("图片暂时无法显示，可下载原文件查看。")}
-            />
-          </div>
+          <>
+            <p className="muted" role="status" hidden={imageLoaded}>
+              正在加载图片…
+            </p>
+            <div className="story-reader-image">
+              <img
+                src={imageUrl}
+                alt={str(detail, "original_name")}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setError("图片暂时无法显示，可下载原文件查看。")}
+              />
+            </div>
+          </>
         ) : (
           <p className="muted">正在读取图片…</p>
         )
