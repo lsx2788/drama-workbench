@@ -1,4 +1,5 @@
 import type { Store } from "./db";
+import { promptSettings } from "./agent-prompt-service";
 import { assertDeliveryReady } from "./workflow-structure";
 import { id, now, requireRow, nodeInProject, assert, audit } from "./common";
 import { agentInProject, sessionInProject } from "./collaboration-service";
@@ -112,6 +113,7 @@ export function contextForItem(s: Store, p: string, key: string) {
     item,
     node,
     agent,
+    prompt: agent ? promptSettings(s, p, String(agent.id)).current : null,
     highlights: s.all(
       "SELECT * FROM highlights WHERE node_id=? AND status='confirmed' ORDER BY created_at",
       String(item.node_id),
@@ -176,7 +178,11 @@ export function prepareRun(s: Store, p: string, input: unknown) {
       d.sessionId,
       d.idempotencyKey,
       "blocked",
-      JSON.stringify({ agent: context.agent, skills: context.skills }),
+      JSON.stringify({
+        agent: context.agent,
+        skills: context.skills,
+        prompt: context.prompt,
+      }),
       JSON.stringify(context),
       error,
       null,

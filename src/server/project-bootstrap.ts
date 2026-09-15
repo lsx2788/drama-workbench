@@ -1,7 +1,7 @@
 import type { Store } from "./db";
 import { createProject, createWorkflow, createNode } from "./project-service";
 import { createAgent, createSession } from "./collaboration-service";
-import { DEFAULT_COORDINATOR_INSTRUCTIONS } from "./coordinator-intake";
+import { DEFAULT_COORDINATOR_CONTENT } from "./system-ai-policy";
 
 /** A new workspace has a conversation entry, not a preselected production template. */
 export function createProjectWithCoordinator(s: Store, input: unknown) {
@@ -20,7 +20,7 @@ export function createProjectWithCoordinator(s: Store, input: unknown) {
       nodeId: node.id,
       name: "总控 AI",
       purpose: "与创作者讨论并协调当前项目",
-      instructions: DEFAULT_COORDINATOR_INSTRUCTIONS,
+      instructions: DEFAULT_COORDINATOR_CONTENT,
     });
     createSession(s, p, { agentId: agent.id, title: "项目讨论" });
     return project;

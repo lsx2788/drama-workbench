@@ -4,6 +4,7 @@ import { api } from "@/client/api";
 import type { PromptSettings, PromptVersion } from "@/shared/agent-prompt";
 import { PromptDialog } from "./prompt-dialog";
 import { date } from "./ui";
+import { PromptLayerView } from "./prompt-layer-view";
 
 export function PromptHistoryDialog({
   endpoint,
@@ -82,9 +83,7 @@ export function PromptHistoryDialog({
                 ? " · 开始版本管理时保存的配置，不代表旧消息当时的配置。"
                 : ""}
             </p>
-            <pre className="prompt-snapshot">
-              {snapshot.instructions || "此版本未配置提示词"}
-            </pre>
+            <PromptLayerView snapshot={snapshot} />
           </>
         ) : (
           <p className="muted" role="status">

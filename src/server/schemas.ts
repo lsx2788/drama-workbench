@@ -33,7 +33,19 @@ export const agentSchema = z
     instructions: optionalText,
     provider: z.string().max(100).default("unconfigured"),
     model: z.string().max(200).default(""),
-    tools: z.array(z.string().max(100)).max(30).default([]),
+    tools: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .max(100)
+          .refine(
+            (value) => !value.startsWith("system."),
+            "系统必备能力由平台配置",
+          ),
+      )
+      .max(30)
+      .default([]),
   })
   .strict();
 export const sessionSchema = z

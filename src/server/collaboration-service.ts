@@ -1,4 +1,8 @@
-import { recordInitialPrompt } from "./agent-prompt-service";
+import {
+  recordInitialPrompt,
+  promptSettings,
+  updateAgentPrompt,
+} from "./agent-prompt-service";
 import type { Store } from "./db";
 import { id, now, requireRow, nodeInProject, assert, audit } from "./common";
 import {
@@ -214,7 +218,18 @@ export function bindSkill(
     "该 AI 未获准使用此能力类别",
     "CAPABILITY_DENIED",
   );
-  s.run("INSERT OR IGNORE INTO agent_skills VALUES(?,?)", agentId, skillId);
+  const settings = promptSettings(s, p, agentId);
+  updateAgentPrompt(s, p, agentId, {
+    expectedVersion: settings.current.version,
+    instructions: settings.current.instructions,
+    optionalSkillIds: [
+      ...new Set([
+        ...(settings.current.layers?.optionalSkills.map((entry) => entry.id) ??
+          []),
+        skillId,
+      ]),
+    ],
+  });
   return s.all(
     "SELECT s.* FROM skills s JOIN agent_skills b ON b.skill_id=s.id WHERE b.agent_id=?",
     agentId,

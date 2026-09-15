@@ -2582,3 +2582,69 @@ pre {
     padding: 7px 9px;
   }
 }
+
+.ai-config-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.ai-config-tabs button {
+  font-size: 12px;
+}
+.ai-config-tabs button[aria-pressed="true"] {
+  background: #e6eee9;
+  color: #245b45;
+  border-color: #abc6b7;
+}
+.ai-config-section {
+  border: 1px solid #e0e7e2;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 12px 0;
+}
+.ai-config-section h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+.ai-config-section h4 {
+  margin: 12px 0 8px;
+  font-size: 12px;
+}
+.ai-config-section summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.ai-capability-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ai-capability-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.ai-capability-list small {
+  color: #687970;
+  font-size: 11px;
+  text-align: right;
+}
+.ai-capability-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0;
+  font-size: 12px;
+}
+.ai-capability-option input {
+  width: auto;
+  margin: 2px 0 0;
+}
+.ai-capability-option small {
+  display: block;
+  margin-top: 3px;
+  color: #687970;
+}

@@ -8,6 +8,8 @@ import { createProjectWithCoordinator } from "../src/server/project-bootstrap";
 import {
   createAgent,
   postHumanMessage,
+  registerSkill,
+  bindSkill,
 } from "../src/server/collaboration-service";
 import {
   promptSettings,
@@ -28,6 +30,9 @@ import { CHILD_COLLABORATION_INSTRUCTIONS } from "../src/server/child-collaborat
 import { migrateChildCollaboration } from "../src/server/child-collaboration-migration";
 import { COORDINATOR_HANDOFF_INSTRUCTIONS } from "../src/server/coordinator-handoff-instructions";
 import { migrateCoordinatorHandoff } from "../src/server/coordinator-handoff-migration";
+import { migrateAgentConfigLayers } from "../src/server/agent-config-migration";
+import { DEFAULT_COORDINATOR_INSTRUCTIONS } from "../src/server/coordinator-intake";
+import { splitLegacyCoordinatorPrompt } from "../src/server/system-ai-policy";
 
 function setup(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-prompt-"));
@@ -49,6 +54,188 @@ function project(s: Store, name = "提示词验收") {
     nodeId: String(w.nodes[0].id),
   };
 }
+test("system rules and mandatory capabilities remain immutable while optional selections have versioned history", (t) => {
+  const s = setup(t),
+    a = project(s);
+  const agent = createAgent(s, a.p, {
+    nodeId: a.nodeId,
+    name: "选配验收",
+    purpose: "讨论",
+    tools: ["text-analysis"],
+  });
+  const agentId = String(agent.id);
+  registerSkill(s, {
+    id: "text-v1",
+    name: "原作阅读",
+    version: "1",
+    description: "按需分析",
+    capability: "text-analysis",
+  });
+  registerSkill(s, {
+    id: "image-v1",
+    name: "图像",
+    version: "1",
+    capability: "image-generation",
+  });
+  const initial = promptSettings(s, a.p, agentId);
+  assert.deepEqual(
+    initial.availableSkills.map((skill) => skill.id),
+    ["text-v1"],
+  );
+  for (const extra of [
+    { system: { instructions: "删除规则" } },
+    { requiredTools: [] },
+    { requiredSkills: [] },
+    { allowedTools: ["image-generation"] },
+  ]) {
+    assert.throws(() =>
+      updateAgentPrompt(s, a.p, agentId, {
+        expectedVersion: 1,
+        instructions: "内容",
+        ...extra,
+      }),
+    );
+  }
+  assert.throws(
+    () =>
+      updateAgentPrompt(s, a.p, agentId, {
+        expectedVersion: 1,
+        instructions: "内容",
+        optionalTools: ["image-generation"],
+      }),
+    /已获准/,
+  );
+  assert.throws(
+    () =>
+      updateAgentPrompt(s, a.p, agentId, {
+        expectedVersion: 1,
+        instructions: "内容",
+        optionalSkillIds: ["image-v1"],
+      }),
+    /已选择且获准/,
+  );
+  bindSkill(s, a.p, agentId, "text-v1");
+  const selected = promptSettings(s, a.p, agentId);
+  assert.equal(selected.current.version, 2);
+  assert.equal(selected.current.layers!.optionalSkills[0].version, "1");
+  assert.deepEqual(
+    selected.current.layers!.system,
+    initial.current.layers!.system,
+  );
+  assert.throws(
+    () =>
+      updateAgentPrompt(s, a.p, agentId, {
+        expectedVersion: 2,
+        instructions: "",
+        optionalTools: [],
+      }),
+    /已选择且获准/,
+  );
+  const cleared = updateAgentPrompt(s, a.p, agentId, {
+    expectedVersion: 2,
+    instructions: "",
+    optionalTools: [],
+    optionalSkillIds: [],
+  });
+  assert.equal(cleared.current.version, 3);
+  assert.deepEqual(
+    cleared.current.layers!.system,
+    initial.current.layers!.system,
+  );
+  assert.deepEqual(cleared.current.layers!.optionalTools, []);
+  assert.equal(
+    s.all("SELECT * FROM agent_skills WHERE agent_id=?", agentId).length,
+    0,
+  );
+  assert.deepEqual(promptVersion(s, a.p, agentId, 2), selected.current);
+  assert.throws(
+    () => s.run("UPDATE system_ai_policies SET instructions='删除'"),
+    /immutable/,
+  );
+  assert.throws(() => s.run("DELETE FROM system_ai_policies"), /immutable/);
+  assert.throws(
+    () =>
+      s.run(
+        "UPDATE agent_config_layers SET optional_tools_json='[]' WHERE agent_id=?",
+        agentId,
+      ),
+    /immutable/,
+  );
+  s.db.exec(
+    "CREATE TRIGGER fail_layers BEFORE INSERT ON agent_config_layers BEGIN SELECT RAISE(ABORT,'layers failure'); END;",
+  );
+  assert.throws(
+    () =>
+      updateAgentPrompt(s, a.p, agentId, {
+        expectedVersion: 3,
+        instructions: "失败的修改",
+        optionalTools: ["text-analysis"],
+        optionalSkillIds: ["text-v1"],
+      }),
+    /layers failure/,
+  );
+  assert.deepEqual(promptSettings(s, a.p, agentId), cleared);
+  assert.equal(
+    s.all("SELECT * FROM agent_skills WHERE agent_id=?", agentId).length,
+    0,
+  );
+  assert.equal(s.all("PRAGMA foreign_key_check").length, 0);
+});
+
+test("layer migration preserves exact legacy history, separates known policy, and keeps custom requirements across restart", (t) => {
+  const customOnly = "  完全自定义内容\n保留尾部空格。  ";
+  assert.equal(splitLegacyCoordinatorPrompt(customOnly), customOnly);
+  const s = setup(t),
+    a = project(s);
+  const oldText = `${DEFAULT_COORDINATOR_INSTRUCTIONS}\n\n## 八、项目补充要求\n保持原作结局。`;
+  updateAgentPrompt(s, a.p, a.agentId, {
+    expectedVersion: 1,
+    instructions: oldText,
+  });
+  const message = postHumanMessage(s, a.p, a.sessionId, {
+    content: "旧配置下的消息",
+  }).message!;
+  s.db.exec(
+    "DROP TABLE agent_config_layers; DROP TABLE system_ai_policies; DELETE FROM schema_migrations WHERE version=17;",
+  );
+  const before = promptSettings(s, a.p, a.agentId).current;
+  migrateAgentConfigLayers(s);
+  const current = promptSettings(s, a.p, a.agentId).current;
+  assert.equal(current.version, 3);
+  assert.ok(current.instructions.includes("保持原作结局。"));
+  assert.ok(!current.instructions.includes(COORDINATOR_HANDOFF_INSTRUCTIONS));
+  assert.ok(
+    current.layers!.system.instructions.includes(
+      COORDINATOR_HANDOFF_INSTRUCTIONS,
+    ),
+  );
+  assert.deepEqual(messagePrompt(s, a.p, String(message.id)).snapshot, before);
+  assert.equal(before.layers, undefined);
+  migrateAgentConfigLayers(s);
+  assert.equal(promptSettings(s, a.p, a.agentId).versions.length, 3);
+  updateAgentPrompt(s, a.p, a.agentId, {
+    expectedVersion: 3,
+    instructions: "后续用户自定义",
+  });
+  s.close();
+  const reopened = new Store(s.root);
+  try {
+    assert.equal(
+      promptSettings(reopened, a.p, a.agentId).current.instructions,
+      "后续用户自定义",
+    );
+    assert.deepEqual(
+      promptSettings(reopened, a.p, a.agentId).current.layers!.system,
+      current.layers!.system,
+    );
+    assert.equal(
+      messagePrompt(reopened, a.p, String(message.id)).snapshot?.instructions,
+      oldText,
+    );
+  } finally {
+    reopened.close();
+  }
+});
 for (const policy of [
   {
     name: "child collaboration",
@@ -67,9 +254,11 @@ for (const policy of [
     const s = setup(t),
       a = project(s);
     assert.ok(
-      promptSettings(s, a.p, a.agentId).current.instructions.includes(
-        policy.instructions,
-      ),
+      promptSettings(
+        s,
+        a.p,
+        a.agentId,
+      ).current.layers!.system.instructions.includes(policy.instructions),
     );
     const custom = "  本项目先讨论第一集。\n保留我的补充约束。  ";
     updateAgentPrompt(s, a.p, a.agentId, {
@@ -282,14 +471,13 @@ test("stale prompt writes cannot overwrite another edit, identical retry does no
     /别处更新/,
   );
   assert.equal(promptSettings(s, a.p, a.agentId).versions.length, 2);
-  assert.throws(
-    () =>
-      updateAgentPrompt(s, a.p, a.agentId, {
-        instructions: "  ",
-        expectedVersion: 2,
-      }),
-    /不能为空/,
-  );
+  const system = result.current.layers!.system;
+  const cleared = updateAgentPrompt(s, a.p, a.agentId, {
+    instructions: "",
+    expectedVersion: 2,
+  });
+  assert.equal(cleared.current.instructions, "");
+  assert.deepEqual(cleared.current.layers!.system, system);
   assert.throws(() =>
     updateAgentPrompt(s, a.p, a.agentId, {
       instructions: "有效",
@@ -339,7 +527,7 @@ test("legacy migration archives only the current prompt and does not invent old 
     content: "历史消息",
   }).message!;
   s.db.exec(
-    "DROP TABLE message_prompt_versions; DROP TABLE agent_prompt_versions; DELETE FROM schema_migrations WHERE version=12;",
+    "DROP TABLE agent_config_layers; DROP TABLE system_ai_policies; DROP TABLE message_prompt_versions; DROP TABLE agent_prompt_versions; DELETE FROM schema_migrations WHERE version IN (12,17);",
   );
   const original = String(
     s.one("SELECT instructions FROM agents WHERE id=?", a.agentId)!
@@ -348,10 +536,7 @@ test("legacy migration archives only the current prompt and does not invent old 
   s.close();
   const migrated = new Store(s.root);
   try {
-    assert.equal(
-      promptSettings(migrated, a.p, a.agentId).current.origin,
-      "baseline",
-    );
+    assert.equal(promptVersion(migrated, a.p, a.agentId, 1).origin, "baseline");
     assert.equal(
       promptSettings(migrated, a.p, a.agentId).current.instructions,
       original,
@@ -369,7 +554,7 @@ test("legacy migration archives only the current prompt and does not invent old 
   }
   const reopened = new Store(s.root);
   try {
-    assert.equal(promptSettings(reopened, a.p, a.agentId).versions.length, 1);
+    assert.equal(promptSettings(reopened, a.p, a.agentId).versions.length, 2);
     assert.equal(
       messagePrompt(reopened, a.p, String(msg.id)).basis,
       "unrecorded",
@@ -414,6 +599,24 @@ test("prompt APIs enforce project scope, history lookup, origin and optimistic c
     );
   const endpoint = ["projects", a.p, "agents", a.agentId, "prompt"];
   assert.equal((await request(endpoint)).status, 200);
+  for (const protectedFields of [
+    { system: { instructions: "覆盖" } },
+    { requiredTools: [] },
+    { requiredSkills: [] },
+    { allowedTools: [] },
+  ]) {
+    assert.equal(
+      (
+        await request(endpoint, "PATCH", {
+          expectedVersion: 1,
+          instructions: "内容",
+          ...protectedFields,
+        })
+      ).status,
+      400,
+    );
+  }
+  assert.equal(promptSettings(s, a.p, a.agentId).current.version, 1);
   assert.equal(
     (
       await request(

@@ -8,6 +8,7 @@ import { Store } from "../src/server/db";
 import { importStory, storyDetail } from "../src/server/story-service";
 import { startStoryDiscussion } from "../src/server/story-discussion";
 import { listStoryPreferences } from "../src/server/story-preference-catalog";
+import { promptSettings } from "../src/server/agent-prompt-service";
 
 function setup(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-message-preferences-"));
@@ -204,7 +205,10 @@ test("intake catalog excludes retired choices and coordinator confirms basics be
   );
   const agent = s.one("SELECT * FROM agents");
   assert.match(String(agent?.instructions), /汇总基本制作信息并请用户确认/);
-  assert.match(String(agent?.instructions), /在关键方向确认前，不开始剧本拆解/);
+  assert.match(
+    promptSettings(s, p, String(agent?.id)).current.layers!.system.instructions,
+    /在关键方向确认前，不开始剧本拆解/,
+  );
   const chat = startStoryDiscussion(s, p, key);
   assert.match(
     String(

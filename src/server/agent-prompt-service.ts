@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { Store, Row } from "./db";
 import { audit, DomainError, now, requireRow } from "./common";
+import { configLayers, recordConfigLayers } from "./agent-config-layers";
+import type { SkillConfiguration } from "../shared/agent-prompt";
 import {
   AGENT_PROMPT_MAX_LENGTH,
   type PromptVersion,
@@ -32,6 +34,7 @@ export function recordInitialPrompt(s: Store, agentId: string) {
     now(),
     agentId,
   );
+  recordConfigLayers(s, agentId);
 }
 export function promptVersion(
   s: Store,
@@ -40,7 +43,7 @@ export function promptVersion(
   version: number,
 ): PromptVersion {
   scopedAgent(s, p, agentId);
-  return present(
+  const result = present(
     requireRow(
       s.one(
         "SELECT * FROM agent_prompt_versions WHERE agent_id=? AND version=?",
@@ -50,6 +53,8 @@ export function promptVersion(
       "提示词版本",
     ),
   );
+  const layers = configLayers(s, agentId, version);
+  return layers ? { ...result, layers } : result;
 }
 export function promptSettings(
   s: Store,
@@ -57,9 +62,19 @@ export function promptSettings(
   agentId: string,
 ): PromptSettings {
   const agent = scopedAgent(s, p, agentId);
+  const current = promptVersion(s, p, agentId, Number(agent.config_version));
   return {
     name: String(agent.name),
-    current: promptVersion(s, p, agentId, Number(agent.config_version)),
+    current,
+    availableSkills: (
+      s.all("SELECT * FROM skills ORDER BY name,id") as SkillConfiguration[]
+    ).filter(
+      (skill) =>
+        (current.layers?.allowedTools ?? []).includes(skill.capability) &&
+        !current.layers?.system.requiredSkills.some(
+          (required) => required.id === skill.id,
+        ),
+    ),
     versions: s
       .all(
         "SELECT agent_id,version,created_at,origin FROM agent_prompt_versions WHERE agent_id=? ORDER BY version DESC",
@@ -76,10 +91,9 @@ export function promptSettings(
 const updateSchema = z
   .object({
     expectedVersion: z.number().int().positive(),
-    instructions: z
-      .string()
-      .max(AGENT_PROMPT_MAX_LENGTH)
-      .refine((value) => !!value.trim(), "提示词不能为空"),
+    instructions: z.string().max(AGENT_PROMPT_MAX_LENGTH),
+    optionalTools: z.array(z.string().min(1).max(100)).max(30).optional(),
+    optionalSkillIds: z.array(z.string().min(1)).max(100).optional(),
   })
   .strict();
 export function updateAgentPrompt(
@@ -91,8 +105,59 @@ export function updateAgentPrompt(
   const d = updateSchema.parse(input);
   return s.transaction(() => {
     const agent = scopedAgent(s, p, agentId);
+    const layers = configLayers(s, agentId, Number(agent.config_version));
+    const tools =
+      d.optionalTools ??
+      layers?.optionalTools ??
+      (JSON.parse(String(agent.tools_json)) as string[]);
+    const skillIds =
+      d.optionalSkillIds ??
+      layers?.optionalSkills.map((skill) => skill.id) ??
+      [];
+    if (
+      new Set(tools).size !== tools.length ||
+      new Set(skillIds).size !== skillIds.length
+    )
+      throw new DomainError("INVALID_SELECTION", "能力或 Skill 不能重复选择");
+    if (
+      d.optionalTools &&
+      (!layers || tools.some((tool) => !layers.allowedTools.includes(tool)))
+    )
+      throw new DomainError(
+        "CAPABILITY_DENIED",
+        "只能选择此 AI 已获准的用户扩展能力，不能修改系统必备能力",
+      );
+    const skills = skillIds.map(
+      (id) =>
+        requireRow(
+          s.one("SELECT * FROM skills WHERE id=?", id),
+          "Skill",
+        ) as SkillConfiguration,
+    );
+    if (
+      layers &&
+      skills.some(
+        (skill) =>
+          !tools.includes(skill.capability) ||
+          layers.system.requiredSkills.some(
+            (required) => required.id === skill.id,
+          ),
+      )
+    )
+      throw new DomainError(
+        "CAPABILITY_DENIED",
+        "所选 Skill 需要已选择且获准的用户扩展能力；系统 Skill 不可修改",
+      );
+    const selectionChanged =
+      !!layers &&
+      (JSON.stringify([...tools].sort()) !==
+        JSON.stringify([...layers.optionalTools].sort()) ||
+        JSON.stringify([...skillIds].sort()) !==
+          JSON.stringify(
+            layers.optionalSkills.map((skill) => skill.id).sort(),
+          ));
     // Identical retries are safe even if their original expected version is old.
-    if (d.instructions === agent.instructions)
+    if (d.instructions === agent.instructions && !selectionChanged)
       return promptSettings(s, p, agentId);
     if (d.expectedVersion !== agent.config_version)
       throw new DomainError(
@@ -102,11 +167,17 @@ export function updateAgentPrompt(
       );
     const version = Number(agent.config_version) + 1;
     s.run(
-      "UPDATE agents SET instructions=?,config_version=? WHERE id=?",
+      "UPDATE agents SET instructions=?,config_version=?,tools_json=? WHERE id=?",
       d.instructions,
       version,
+      JSON.stringify(tools),
       agentId,
     );
+    if (layers) {
+      s.run("DELETE FROM agent_skills WHERE agent_id=?", agentId);
+      for (const skill of skills)
+        s.run("INSERT INTO agent_skills VALUES(?,?)", agentId, skill.id);
+    }
     s.run(
       "INSERT INTO agent_prompt_versions VALUES(?,?,?,?,?)",
       agentId,
@@ -115,6 +186,7 @@ export function updateAgentPrompt(
       now(),
       "updated",
     );
+    if (layers) recordConfigLayers(s, agentId, layers);
     audit(s, p, "agent.prompt_updated", agentId, {
       previousVersion: agent.config_version,
       version,
