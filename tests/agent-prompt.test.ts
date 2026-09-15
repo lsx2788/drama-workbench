@@ -24,6 +24,8 @@ import {
 import { createNode } from "../src/server/project-service";
 import { migrateCoordinatorFormat } from "../src/server/coordinator-format";
 import { STRUCTURED_COORDINATOR_INSTRUCTIONS } from "../src/server/coordinator-instructions";
+import { CHILD_COLLABORATION_INSTRUCTIONS } from "../src/server/child-collaboration-instructions";
+import { migrateChildCollaboration } from "../src/server/child-collaboration-migration";
 
 function setup(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-prompt-"));
@@ -45,6 +47,75 @@ function project(s: Store, name = "提示词验收") {
     nodeId: String(w.nodes[0].id),
   };
 }
+test("child collaboration convention upgrades coordinators once without changing existing child prompts or history", (t) => {
+  const s = setup(t),
+    a = project(s);
+  assert.ok(
+    promptSettings(s, a.p, a.agentId).current.instructions.includes(
+      CHILD_COLLABORATION_INSTRUCTIONS,
+    ),
+  );
+  const custom = "  本项目先讨论第一集。\n保留我的补充约束。  ";
+  updateAgentPrompt(s, a.p, a.agentId, {
+    expectedVersion: 1,
+    instructions: custom,
+  });
+  const message = postHumanMessage(s, a.p, a.sessionId, {
+    content: "协作规范升级前",
+  }).message!;
+  const node = createNode(s, a.p, {
+    workflowId: workspace(s, a.p).workflows[0].id,
+    name: "原作分析",
+    nodeType: "work",
+  })!;
+  const child = createAgent(s, a.p, {
+    nodeId: node.id,
+    name: "分析 AI",
+    purpose: "按需分析",
+    instructions: "保留该节点的专业要求",
+  });
+  const childBefore = promptSettings(s, a.p, String(child.id));
+  const oldVersion = promptVersion(s, a.p, a.agentId, 2);
+  s.run("DELETE FROM schema_migrations WHERE version=15");
+  migrateChildCollaboration(s);
+  const updated = promptSettings(s, a.p, a.agentId);
+  assert.equal(
+    updated.current.instructions,
+    `${custom}\n\n${CHILD_COLLABORATION_INSTRUCTIONS}`,
+  );
+  assert.equal(updated.current.version, 3);
+  assert.deepEqual(promptVersion(s, a.p, a.agentId, 2), oldVersion);
+  assert.equal(
+    messagePrompt(s, a.p, String(message.id)).snapshot?.instructions,
+    custom,
+  );
+  assert.deepEqual(promptSettings(s, a.p, String(child.id)), childBefore);
+  migrateChildCollaboration(s);
+  assert.deepEqual(promptSettings(s, a.p, a.agentId), updated);
+  updateAgentPrompt(s, a.p, a.agentId, {
+    expectedVersion: 3,
+    instructions: "用户后续调整协作规则",
+  });
+  s.close();
+  const reopened = new Store(s.root);
+  try {
+    assert.equal(
+      promptSettings(reopened, a.p, a.agentId).current.instructions,
+      "用户后续调整协作规则",
+    );
+    assert.equal(promptSettings(reopened, a.p, a.agentId).versions.length, 4);
+    assert.deepEqual(
+      promptSettings(reopened, a.p, String(child.id)),
+      childBefore,
+    );
+    assert.equal(
+      messagePrompt(reopened, a.p, String(message.id)).snapshot?.version,
+      2,
+    );
+  } finally {
+    reopened.close();
+  }
+});
 test("coordinator policy upgrades preserve custom text, old message versions and child AI, and run only once", (t) => {
   const s = setup(t),
     a = project(s);
