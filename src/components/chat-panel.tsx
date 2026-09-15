@@ -3,34 +3,41 @@ import { useState } from "react";
 import { api, str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
-import { StoryLink } from "./story-link";
+import { StoryPreview } from "./story-preview";
 
-function StoryMessage({ p, message }: { p: string; message: RecordData }) {
+function messageDisplay(message: RecordData) {
+  const content = str(message, "content"),
+    sourcePath = str(message, "story_download_url");
+  return sourcePath
+    ? content
+        .replace(`故事原文路径：${sourcePath}`, "")
+        .replaceAll(sourcePath, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim()
+    : content;
+}
+
+function StoryMessage({
+  p,
+  message,
+  stories,
+}: {
+  p: string;
+  message: RecordData;
+  stories: RecordData[];
+}) {
   const content = str(message, "content");
   const sourcePath = str(message, "story_download_url");
   const storyId = str(message, "story_id");
   if (!storyId || !sourcePath) return <p className="pre">{content}</p>;
-  const segments = content.split(sourcePath);
+  const display = messageDisplay(message);
+  const filename =
+    str(stories.find((s) => s.id === storyId) ?? {}, "original_name") ||
+    str(message, "story_title");
   return (
     <>
-      <p className="pre">
-        {segments.map((text, index) => (
-          <span key={index}>
-            {index > 0 && (
-              <StoryLink p={p} storyId={storyId}>
-                {sourcePath}
-              </StoryLink>
-            )}
-            {text}
-          </span>
-        ))}
-      </p>
-      {segments.length === 1 && (
-        <StoryLink p={p} storyId={storyId}>
-          <span>故事原文：{str(message, "story_title")}</span>
-          <small className="story-message-path">{sourcePath}</small>
-        </StoryLink>
-      )}
+      <p className="pre">{display}</p>
+      <StoryPreview p={p} storyId={storyId} filename={filename} />
     </>
   );
 }
@@ -99,13 +106,12 @@ export function ChatPanel({
               </div>
               {m.quote_id ? (
                 <blockquote>
-                  {str(
+                  {messageDisplay(
                     w.messages.find((x) => x.id === m.quote_id) ?? {},
-                    "content",
                   )}
                 </blockquote>
               ) : null}
-              <StoryMessage p={p} message={m} />
+              <StoryMessage p={p} message={m} stories={w.stories} />
               <div className="message-actions">
                 <button
                   onClick={() => {
@@ -158,7 +164,7 @@ export function ChatPanel({
         >
           {quoted && (
             <div className="quote-preview">
-              <span>引用：{str(quoted, "content").slice(0, 150)}</span>
+              <span>引用：{messageDisplay(quoted).slice(0, 150)}</span>
               <button type="button" onClick={() => onClearQuote()}>
                 取消引用
               </button>

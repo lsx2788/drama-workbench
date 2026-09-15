@@ -4,7 +4,15 @@ import { Download, FileText } from "lucide-react";
 import { api, str, type RecordData } from "@/client/api";
 import { decodeStoryText, isStoryText } from "@/client/story-text";
 
-export function StoryReader({ p, storyId }: { p: string; storyId: string }) {
+export function StoryReader({
+  p,
+  storyId,
+  compact = false,
+}: {
+  p: string;
+  storyId: string;
+  compact?: boolean;
+}) {
   const [detail, setDetail] = useState<RecordData>();
   const [bytes, setBytes] = useState<ArrayBuffer>();
   const [error, setError] = useState("");
@@ -41,10 +49,14 @@ export function StoryReader({ p, storyId }: { p: string; storyId: string }) {
     <article className="story-reader">
       <header className="story-reader-header">
         <div>
-          <span className="story-reader-eyebrow">
-            <FileText size={14} /> 故事原文
-          </span>
-          <h1>{detail ? str(detail, "title") : "原文浏览"}</h1>
+          {!compact && (
+            <>
+              <span className="story-reader-eyebrow">
+                <FileText size={14} /> 故事原文
+              </span>
+              <h1>{detail ? str(detail, "title") : "原文浏览"}</h1>
+            </>
+          )}
           {detail && (
             <p>
               {str(detail, "original_name")} ·{" "}
@@ -62,7 +74,7 @@ export function StoryReader({ p, storyId }: { p: string; storyId: string }) {
           </a>
         )}
       </header>
-      {detail && (
+      {detail && !compact && (
         <div className="story-reader-path">
           <span>原文路径</span>
           <code>{str(detail, "download_url")}</code>
