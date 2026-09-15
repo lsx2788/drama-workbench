@@ -1,9 +1,11 @@
 "use client";
-import {
-  type PreferenceCategory,
-  type StoryPreference,
+import { useId, useState } from "react";
+import type {
+  PreferenceCategory,
+  StoryPreference,
 } from "@/shared/story-preferences";
 import { Field } from "./ui";
+import { PreferencePicker } from "./preference-picker";
 
 export function StoryPreferences({
   catalog,
@@ -14,6 +16,8 @@ export function StoryPreferences({
   value: StoryPreference[];
   onChange: (next: StoryPreference[]) => void;
 }) {
+  const [picking, setPicking] = useState(false);
+  const groupId = useId();
   const update = (category: string, option: string, detail = "") =>
     onChange(
       value.map((p) =>
@@ -21,83 +25,84 @@ export function StoryPreferences({
       ),
     );
   return (
-    <section className="preference-library" aria-label="制作偏好库">
-      <h3>
-        制作偏好库 <small>可选</small>
-      </h3>
-      <p className="muted">
-        选择想补充的类别，在下方填写对应选项。未选择的内容留到聊天里讨论。
-      </p>
-      {catalog.map((category) => {
-        const selected = value.find((p) => p.category === category.id);
+    <section className="preference-library" aria-label="制作偏好">
+      <div className="preference-heading">
+        <h3>
+          制作偏好 <small>可选</small>
+        </h3>
+        <button
+          type="button"
+          className="preference-add"
+          onClick={() => setPicking(true)}
+        >
+          ＋ 选择偏好
+        </button>
+      </div>
+      {value.map((selected) => {
+        const category = catalog.find((c) => c.id === selected.category);
+        if (!category) return null;
         const option = category.options.find(
-          (o) => o.value === selected?.option,
+          (o) => o.value === selected.option,
         );
         return (
-          <div
-            className={`preference-category ${selected ? "selected" : ""}`}
-            key={category.id}
-          >
-            <button
-              type="button"
-              className="preference-toggle"
-              aria-expanded={!!selected}
-              aria-controls={`preference-${category.id}`}
-              onClick={() =>
-                onChange(
-                  selected
-                    ? value.filter((p) => p.category !== category.id)
-                    : [
-                        ...value,
-                        {
-                          category: category.id,
-                          option: category.options[0].value,
-                          detail: "",
-                        },
-                      ],
-                )
-              }
-            >
-              <span>
-                <strong>{category.label}</strong>
-                <small>{category.description}</small>
-              </span>
-              <span>{selected ? "取消选择 −" : "选择 ＋"}</span>
-            </button>
-            {selected && (
-              <div
-                id={`preference-${category.id}`}
-                className="preference-options"
+          <div className="preference-selection" key={category.id}>
+            <div className="preference-selection-heading">
+              <h4 id={`${groupId}-${category.id}`}>{category.label}</h4>
+              <button
+                type="button"
+                className="preference-remove"
+                aria-label={`移除${category.label}`}
+                onClick={() =>
+                  onChange(value.filter((p) => p.category !== category.id))
+                }
               >
-                <Field label={`${category.label}选项`}>
-                  <select
-                    value={selected.option}
-                    onChange={(e) => update(category.id, e.target.value)}
-                  >
-                    {category.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                {option?.detailLabel && (
-                  <Field label={option.detailLabel}>
-                    <input
-                      value={selected.detail}
-                      maxLength={300}
-                      required
-                      onChange={(e) =>
-                        update(category.id, selected.option, e.target.value)
-                      }
-                    />
-                  </Field>
-                )}
-              </div>
+                移除
+              </button>
+            </div>
+            <div
+              className="preference-choice-grid"
+              role="radiogroup"
+              aria-labelledby={`${groupId}-${category.id}`}
+            >
+              {category.options.map((choice) => (
+                <label className="preference-choice" key={choice.value}>
+                  <input
+                    type="radio"
+                    name={`${groupId}-${category.id}`}
+                    value={choice.value}
+                    checked={selected.option === choice.value}
+                    onChange={() => update(category.id, choice.value)}
+                  />
+                  <span>{choice.label}</span>
+                </label>
+              ))}
+            </div>
+            {option?.detailLabel && (
+              <Field label={option.detailLabel}>
+                <input
+                  value={selected.detail}
+                  maxLength={300}
+                  required
+                  onChange={(e) =>
+                    update(category.id, selected.option, e.target.value)
+                  }
+                />
+              </Field>
             )}
           </div>
         );
       })}
+      {picking && (
+        <PreferencePicker
+          catalog={catalog}
+          value={value}
+          onClose={() => setPicking(false)}
+          onApply={(next) => {
+            onChange(next);
+            setPicking(false);
+          }}
+        />
+      )}
     </section>
   );
 }

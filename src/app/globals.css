@@ -1088,56 +1088,170 @@ footer {
   color: #48623c;
 }
 .preference-library {
-  margin: 22px 0;
+  margin: 20px 0;
 }
-.preference-library h3 {
-  font-size: 15px;
-  margin-bottom: 6px;
-}
-.preference-library h3 small {
-  font-size: 11px;
-  font-weight: normal;
-  color: #76816e;
-}
-.preference-category {
-  border: 1px solid #dce3d6;
-  border-radius: 10px;
-  margin: 8px 0;
-  overflow: hidden;
-}
-.preference-category.selected {
-  border-color: #91a482;
-  background: #f4f7ef;
-}
-.preference-toggle {
+.preference-heading,
+.preference-selection-heading,
+.preference-picker-footer,
+.preference-picker-footer > div {
   display: flex;
-  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 0;
-  border-radius: 0;
-  padding: 12px;
-  text-align: left;
-  background: transparent;
 }
-.preference-toggle strong,
-.preference-toggle small {
+.preference-heading h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.preference-heading h3 small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: normal;
+  margin-left: 5px;
+}
+.preference-add {
+  color: var(--green);
+  font-size: 12px;
+  background: var(--soft);
+}
+.preference-selection {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.preference-selection-heading {
+  margin-bottom: 9px;
+}
+.preference-selection-heading h4 {
+  font-size: 13px;
+  margin: 0;
+}
+.preference-remove {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 3px 0 3px 10px;
+  font-size: 11px;
+}
+.preference-choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.preference-choice,
+.preference-category-card {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: white;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.preference-choice {
+  padding: 8px 11px;
+  font-size: 12px;
+  max-width: 100%;
+}
+.preference-choice input,
+.preference-category-card input {
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--green);
+}
+.preference-choice:has(input:checked),
+.preference-category-card:has(input:checked) {
+  border-color: var(--green);
+  background: #edf4ef;
+  color: var(--green);
+}
+.preference-choice:hover,
+.preference-category-card:hover {
+  border-color: #9aafa2;
+}
+.preference-choice:has(input:focus-visible),
+.preference-category-card:has(input:focus-visible) {
+  outline: 3px solid #afc8bc;
+  outline-offset: 2px;
+}
+.preference-choice:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.preference-selection .field {
+  margin-bottom: 0;
+}
+.preference-picker {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fcfdf9;
+  color: var(--ink);
+  box-shadow: 0 20px 100px #18271f40;
+}
+.preference-picker::backdrop {
+  background: #18271f66;
+  backdrop-filter: blur(3px);
+}
+.preference-picker-body {
+  padding: 24px;
+}
+.preference-picker h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.preference-picker .muted {
+  font-size: 12px;
+}
+.preference-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 20px 0 24px;
+}
+.preference-category-card {
+  padding: 16px 13px;
+  align-items: flex-start;
+}
+.preference-category-card input {
+  margin-top: 5px;
+}
+.preference-category-card strong,
+.preference-category-card small {
   display: block;
 }
-.preference-toggle small {
-  color: #76816e;
-  margin-top: 3px;
-  font-size: 11px;
+.preference-category-card strong {
+  font-size: 13px;
 }
-.preference-toggle > span:last-child {
-  flex-shrink: 0;
+.preference-category-card small {
   font-size: 11px;
-  color: #577044;
+  color: var(--muted);
+  margin-top: 4px;
 }
-.preference-options {
-  padding: 0 12px 4px;
-  border-top: 1px solid #dce3d6;
+.preference-picker-footer {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+@media (max-width: 480px) {
+  .preference-picker-body {
+    padding: 18px;
+  }
+  .preference-category-card {
+    padding: 12px 10px;
+    gap: 7px;
+  }
+  .preference-picker-footer > div {
+    gap: 8px;
+  }
 }
 .error {
   color: #ac4835;
