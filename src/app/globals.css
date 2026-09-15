@@ -1091,16 +1091,14 @@ footer {
   margin: 20px 0;
 }
 .preference-heading,
-.preference-selection-heading,
-.preference-picker-footer,
-.preference-picker-footer > div {
+.preference-selection-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 .preference-heading h3 {
-  font-size: 14px;
+  font-size: 13px;
   margin: 0;
 }
 .preference-heading h3 small {
@@ -1115,6 +1113,7 @@ footer {
   background: var(--soft);
 }
 .preference-selection {
+  animation: preference-reveal 220ms ease-out;
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
@@ -1123,7 +1122,7 @@ footer {
   margin-bottom: 9px;
 }
 .preference-selection-heading h4 {
-  font-size: 13px;
+  font-size: 12px;
   margin: 0;
 }
 .preference-remove {
@@ -1152,8 +1151,8 @@ footer {
     border-color 0.15s;
 }
 .preference-choice {
-  padding: 8px 11px;
-  font-size: 12px;
+  padding: 7px 10px;
+  font-size: 11px;
   max-width: 100%;
 }
 .preference-choice input,
@@ -1189,68 +1188,100 @@ footer {
   margin-bottom: 0;
 }
 .preference-picker {
-  width: min(560px, calc(100vw - 32px));
+  position: fixed;
+  inset: 14vh max(24px, calc((100vw - 1050px) / 2)) auto auto;
+  margin: 0;
+  width: 290px;
   max-height: calc(100dvh - 32px);
   padding: 0;
-  border: 1px solid var(--line);
+  border: 1px solid #ffffffbb;
   border-radius: 16px;
-  background: #fcfdf9;
+  background: #f9fcf3b8;
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
+  backdrop-filter: blur(14px) saturate(145%);
   color: var(--ink);
-  box-shadow: 0 20px 100px #18271f40;
+  box-shadow:
+    0 12px 45px #18271f24,
+    inset 0 1px 0 #ffffffcc;
 }
 .preference-picker::backdrop {
-  background: #18271f66;
-  backdrop-filter: blur(3px);
+  background: #18271f0a;
 }
 .preference-picker-body {
-  padding: 24px;
+  padding: 16px;
+}
+.preference-picker .panel-heading {
+  margin-bottom: 12px;
 }
 .preference-picker h2 {
-  font-size: 20px;
+  font-size: 13px;
   margin: 0;
+  font-weight: 600;
 }
-.preference-picker .muted {
-  font-size: 12px;
+.preference-picker .panel-heading button {
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff55;
+  font-size: 17px;
 }
 .preference-category-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 20px 0 24px;
+  gap: 8px;
 }
 .preference-category-card {
-  padding: 16px 13px;
-  align-items: flex-start;
+  padding: 10px;
+  background: #ffffff66;
+  border-color: #ffffffb0;
 }
 .preference-category-card input {
-  margin-top: 5px;
-}
-.preference-category-card strong,
-.preference-category-card small {
-  display: block;
+  width: 13px;
+  height: 13px;
 }
 .preference-category-card strong {
-  font-size: 13px;
-}
-.preference-category-card small {
   font-size: 11px;
-  color: var(--muted);
-  margin-top: 4px;
+  font-weight: 500;
 }
-.preference-picker-footer {
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
+.preference-category-card:has(input:checked) {
+  background: #dcebe2bb;
+  border-color: #729580;
 }
-@media (max-width: 480px) {
+@keyframes preference-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    background: #e4f0e8;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preference-selection {
+    animation: none;
+  }
+}
+@media (max-width: 600px) {
+  .preference-picker {
+    inset: auto 16px 16px;
+    width: auto;
+    max-height: 40dvh;
+  }
   .preference-picker-body {
-    padding: 18px;
+    padding: 14px;
+  }
+  .preference-category-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
   }
   .preference-category-card {
-    padding: 12px 10px;
-    gap: 7px;
-  }
-  .preference-picker-footer > div {
-    gap: 8px;
+    padding: 10px 7px;
+    gap: 6px;
   }
 }
 .error {

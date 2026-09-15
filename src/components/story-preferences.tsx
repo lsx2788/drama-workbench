@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type {
   PreferenceCategory,
   StoryPreference,
@@ -18,6 +18,17 @@ export function StoryPreferences({
 }) {
   const [picking, setPicking] = useState(false);
   const groupId = useId();
+  const library = useRef<HTMLElement>(null);
+  const lastSelection = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!picking) return;
+    (lastSelection.current ?? library.current)?.scrollIntoView({
+      block: "center",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+    });
+  }, [picking, value.length]);
   const update = (category: string, option: string, detail = "") =>
     onChange(
       value.map((p) =>
@@ -25,7 +36,7 @@ export function StoryPreferences({
       ),
     );
   return (
-    <section className="preference-library" aria-label="制作偏好">
+    <section ref={library} className="preference-library" aria-label="制作偏好">
       <div className="preference-heading">
         <h3>
           制作偏好 <small>可选</small>
@@ -38,14 +49,18 @@ export function StoryPreferences({
           ＋ 选择偏好
         </button>
       </div>
-      {value.map((selected) => {
+      {value.map((selected, index) => {
         const category = catalog.find((c) => c.id === selected.category);
         if (!category) return null;
         const option = category.options.find(
           (o) => o.value === selected.option,
         );
         return (
-          <div className="preference-selection" key={category.id}>
+          <div
+            ref={index === value.length - 1 ? lastSelection : null}
+            className="preference-selection"
+            key={category.id}
+          >
             <div className="preference-selection-heading">
               <h4 id={`${groupId}-${category.id}`}>{category.label}</h4>
               <button
@@ -97,10 +112,7 @@ export function StoryPreferences({
           catalog={catalog}
           value={value}
           onClose={() => setPicking(false)}
-          onApply={(next) => {
-            onChange(next);
-            setPicking(false);
-          }}
+          onChange={onChange}
         />
       )}
     </section>

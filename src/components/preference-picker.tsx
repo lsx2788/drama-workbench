@@ -1,26 +1,25 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import type {
   PreferenceCategory,
   StoryPreference,
 } from "@/shared/story-preferences";
 
-/** A modal selection page; cancelling leaves the import form untouched. */
+/** Controlled live selection; closing only dismisses the glass panel. */
 export function PreferencePicker({
   catalog,
   value,
   onClose,
-  onApply,
+  onChange,
 }: {
   catalog: PreferenceCategory[];
   value: StoryPreference[];
   onClose: () => void;
-  onApply: (next: StoryPreference[]) => void;
+  onChange: (next: StoryPreference[]) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const [selected, setSelected] = useState(() => value.map((p) => p.category));
   useEffect(() => {
     const element = dialog.current!;
     element.showModal();
@@ -41,60 +40,37 @@ export function PreferencePicker({
     >
       <div className="preference-picker-body">
         <div className="panel-heading">
-          <h2 id={titleId}>选择制作偏好</h2>
+          <h2 id={titleId}>制作偏好</h2>
           <button type="button" aria-label="关闭偏好选择" onClick={onClose}>
             ×
           </button>
         </div>
-        <p className="muted">先选想补充的类别，返回后再选择具体要求。</p>
         <div className="preference-category-grid">
           {catalog.map((category) => (
             <label className="preference-category-card" key={category.id}>
               <input
                 type="checkbox"
-                checked={selected.includes(category.id)}
+                checked={value.some((p) => p.category === category.id)}
                 onChange={(e) =>
-                  setSelected(
+                  onChange(
                     e.target.checked
-                      ? [...selected, category.id]
-                      : selected.filter((id) => id !== category.id),
+                      ? [
+                          ...value,
+                          {
+                            category: category.id,
+                            option: category.options[0].value,
+                            detail: "",
+                          },
+                        ]
+                      : value.filter((p) => p.category !== category.id),
                   )
                 }
               />
               <span>
                 <strong>{category.label}</strong>
-                <small>{category.description}</small>
               </span>
             </label>
           ))}
-        </div>
-        <div className="preference-picker-footer">
-          <small className="muted">已选 {selected.length} 项</small>
-          <div>
-            <button type="button" onClick={onClose}>
-              取消
-            </button>
-            <button
-              type="button"
-              className="primary"
-              onClick={() =>
-                onApply(
-                  catalog
-                    .filter((c) => selected.includes(c.id))
-                    .map(
-                      (c) =>
-                        value.find((p) => p.category === c.id) ?? {
-                          category: c.id,
-                          option: c.options[0].value,
-                          detail: "",
-                        },
-                    ),
-                )
-              }
-            >
-              完成选择
-            </button>
-          </div>
         </div>
       </div>
     </dialog>,
