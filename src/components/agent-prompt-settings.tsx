@@ -1,60 +1,15 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Settings2, X, Library } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Settings2, Library } from "lucide-react";
 import { api } from "@/client/api";
 import {
   AGENT_PROMPT_MAX_LENGTH,
   type PromptSettings,
   type PromptVersion,
 } from "@/shared/agent-prompt";
-import { date } from "./ui";
+import { PromptDialog } from "./prompt-dialog";
+import { PromptHistoryDialog } from "./prompt-history-dialog";
 import { LibraryPendingDialog } from "./library-pending-dialog";
-
-function PromptDialog({
-  title,
-  onClose,
-  busy = false,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  busy?: boolean;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      className="dialog prompt-dialog"
-      aria-label={title}
-      onCancel={(e) => {
-        e.preventDefault();
-        if (!busy) onClose();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
-    >
-      <div className="prompt-dialog-content">
-        <div className="panel-heading">
-          <h2>{title}</h2>
-          <button
-            type="button"
-            aria-label="关闭设置"
-            disabled={busy}
-            onClick={onClose}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </dialog>
-  );
-}
 
 export function AgentPromptSettings({
   p,
@@ -104,7 +59,6 @@ export function AgentPromptEditor({
   const [baseVersion, setBaseVersion] = useState(0);
   const [history, setHistory] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [selected, setSelected] = useState<PromptVersion | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -141,16 +95,13 @@ export function AgentPromptEditor({
       ) : (
         <>
           <div className="prompt-tabs" role="group" aria-label="提示词视图">
-            <button
-              type="button"
-              aria-pressed={!history}
-              onClick={() => setHistory(false)}
-            >
+            <span className="prompt-current-version">
               当前提示词 · v{settings.current.version}
-            </button>
+            </span>
             <button
               type="button"
-              aria-pressed={history}
+              aria-haspopup="dialog"
+              disabled={busy}
               onClick={() => setHistory(true)}
             >
               历史版本
@@ -165,155 +116,102 @@ export function AgentPromptEditor({
               <Library size={14} aria-hidden="true" /> 提示词库
             </button>
           </div>
-          {history ? (
-            <div className="prompt-history">
-              <div className="prompt-version-list" aria-label="提示词历史版本">
-                {settings.versions.map((version) => (
-                  <button
-                    type="button"
-                    key={version.version}
-                    disabled={busy}
-                    aria-pressed={selected?.version === version.version}
-                    onClick={async () => {
-                      setBusy(true);
-                      setError("");
-                      try {
-                        setSelected(
-                          await api<PromptVersion>(
-                            `${endpoint}?version=${version.version}`,
-                          ),
-                        );
-                      } catch (err) {
-                        setError(
-                          err instanceof Error ? err.message : "读取失败",
-                        );
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    <strong>v{version.version}</strong>
-                    <span>
-                      {date(version.createdAt)}
-                      {version.origin === "baseline" ? " · 首次留档" : ""}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              {selected ? (
-                <>
-                  <p className="muted">
-                    v{selected.version} · 只读
-                    {selected.origin === "baseline"
-                      ? " · 开始版本管理时保存的配置，不代表旧消息当时的配置。"
-                      : ""}
-                  </p>
-                  <pre className="prompt-snapshot">
-                    {selected.instructions || "此版本未配置提示词"}
-                  </pre>
-                </>
-              ) : (
-                <p className="muted">选择一个版本查看完整提示词。</p>
-              )}
-            </div>
-          ) : (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (busy || conflict || libraryOpen) return;
-                setBusy(true);
-                setError("");
-                setNotice("");
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (busy || conflict || libraryOpen || history) return;
+              setBusy(true);
+              setError("");
+              setNotice("");
+              try {
+                const data = await api<PromptSettings>(endpoint, {
+                  method: "PATCH",
+                  body: JSON.stringify({
+                    expectedVersion: baseVersion,
+                    instructions: draft,
+                  }),
+                });
+                setSettings(data);
+                setBaseVersion(data.current.version);
+                setDraft(data.current.instructions);
+                setNotice(
+                  `已保存 v${data.current.version}，之后提交的消息将关联这个版本。`,
+                );
                 try {
-                  const data = await api<PromptSettings>(endpoint, {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                      expectedVersion: baseVersion,
-                      instructions: draft,
-                    }),
-                  });
-                  setSettings(data);
-                  setBaseVersion(data.current.version);
-                  setDraft(data.current.instructions);
+                  await refresh();
+                } catch {
                   setNotice(
-                    `已保存 v${data.current.version}，之后提交的消息将关联这个版本。`,
+                    `v${data.current.version} 已保存，页面同步失败，刷新页面即可查看。`,
                   );
-                  try {
-                    await refresh();
-                  } catch {
-                    setNotice(
-                      `v${data.current.version} 已保存，页面同步失败，刷新页面即可查看。`,
-                    );
-                  }
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "保存失败");
-                  // Fetch the latest revision for comparison without discarding the local edit.
-                  try {
-                    setSettings(await api<PromptSettings>(endpoint));
-                  } catch {
-                    /* Keep the draft and original error for retry. */
-                  }
-                } finally {
-                  setBusy(false);
                 }
-              }}
-            >
-              <p className="muted">
-                仅修改当前项目的这个
-                AI。保存后用于后续消息，旧消息关联的版本保持不变。
-              </p>
-              <label className="field">
-                <span>提示词</span>
-                <textarea
-                  aria-label="AI 提示词"
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    setNotice("");
-                  }}
-                  maxLength={AGENT_PROMPT_MAX_LENGTH}
-                  rows={12}
-                  disabled={busy}
-                  spellCheck={false}
-                />
-              </label>
-              {conflict && (
-                <div className="prompt-conflict">
-                  <strong>
-                    最新版本已变为 v{settings.current.version}，你的编辑已保留
-                  </strong>
-                  <pre className="prompt-snapshot">
-                    {settings.current.instructions}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBaseVersion(settings.current.version);
-                      setError("");
-                    }}
-                  >
-                    保留我的编辑，基于此版本继续
-                  </button>
-                </div>
-              )}
-              <div className="form-footer">
-                <small className="muted">
-                  {draft.length.toLocaleString()} 字符
-                </small>
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "保存失败");
+                // Fetch the latest revision for comparison without discarding the local edit.
+                try {
+                  setSettings(await api<PromptSettings>(endpoint));
+                } catch {
+                  /* Keep the draft and original error for retry. */
+                }
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <p className="muted">
+              仅修改当前项目的这个
+              AI。保存后用于后续消息，旧消息关联的版本保持不变。
+            </p>
+            <label className="field">
+              <span>提示词</span>
+              <textarea
+                aria-label="AI 提示词"
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  setNotice("");
+                }}
+                maxLength={AGENT_PROMPT_MAX_LENGTH}
+                rows={12}
+                disabled={busy}
+                spellCheck={false}
+              />
+            </label>
+            {conflict && (
+              <div className="prompt-conflict">
+                <strong>
+                  最新版本已变为 v{settings.current.version}，你的编辑已保留
+                </strong>
+                <pre className="prompt-snapshot">
+                  {settings.current.instructions}
+                </pre>
                 <button
-                  className="primary"
-                  disabled={
-                    busy ||
-                    conflict ||
-                    !draft.trim() ||
-                    draft === settings.current.instructions
-                  }
+                  type="button"
+                  onClick={() => {
+                    setBaseVersion(settings.current.version);
+                    setError("");
+                  }}
                 >
-                  {busy ? "正在保存…" : "保存提示词"}
+                  保留我的编辑，基于此版本继续
                 </button>
               </div>
-            </form>
-          )}
+            )}
+            <div className="form-footer">
+              <small className="muted">
+                {draft.length.toLocaleString()} 字符
+              </small>
+              <button
+                className="primary"
+                disabled={
+                  busy ||
+                  conflict ||
+                  !draft.trim() ||
+                  draft === settings.current.instructions
+                }
+              >
+                {busy ? "正在保存…" : "保存提示词"}
+              </button>
+            </div>
+          </form>
           {error && (
             <p role="alert" className="error">
               {error}
@@ -325,6 +223,13 @@ export function AgentPromptEditor({
             </p>
           )}
         </>
+      )}
+      {history && settings && (
+        <PromptHistoryDialog
+          endpoint={endpoint}
+          settings={settings}
+          onClose={() => setHistory(false)}
+        />
       )}
       {libraryOpen && (
         <LibraryPendingDialog

@@ -2559,3 +2559,26 @@ pre {
     font-size: 11px;
   }
 }
+
+.prompt-current-version {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #e4eee7;
+  color: var(--green);
+  font-size: 12px;
+}
+.prompt-dialog-stacked {
+  width: min(640px, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+}
+.prompt-dialog-stacked .prompt-history {
+  min-height: 230px;
+}
+@media (max-width: 480px) {
+  .prompt-current-version {
+    font-size: 11px;
+    padding: 7px 9px;
+  }
+}
