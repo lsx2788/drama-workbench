@@ -9,6 +9,7 @@ import { migrateAgentPrompts } from "./agent-prompt-migration";
 import { migrateCoordinatorReading } from "./coordinator-reading";
 import { migrateCoordinatorFormat } from "./coordinator-format";
 import { migrateChildCollaboration } from "./child-collaboration-migration";
+import { migrateCoordinatorHandoff } from "./coordinator-handoff-migration";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -30,6 +31,7 @@ export class Store {
     migrateCoordinatorReading(this);
     migrateCoordinatorFormat(this);
     migrateChildCollaboration(this);
+    migrateCoordinatorHandoff(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];
