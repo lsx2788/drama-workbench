@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { FileUp, AlignLeft, Library } from "lucide-react";
 import { api, type RecordData } from "@/client/api";
 import {
-  STORY_EXTENSIONS,
   STORY_MAX_BYTES,
   STORY_MAX_CHARACTERS,
   createImportKey,
@@ -11,6 +10,8 @@ import {
 } from "@/shared/story-import";
 import { Dialog, Field } from "./ui";
 import { StoryPreferences } from "./story-preferences";
+import { StoryFileUpload } from "./story-file-upload";
+import { ScriptLibraryDialog } from "./script-library-dialog";
 import {
   type PreferenceCategory,
   type StoryPreference,
@@ -29,7 +30,8 @@ export function StoryImport({
     discussion: StoryDiscussion;
   }) => void | Promise<void>;
 }) {
-  const [source, setSource] = useState<"text" | "file" | "library">("file");
+  const [source, setSource] = useState<"text" | "file">("file");
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -75,7 +77,7 @@ export function StoryImport({
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          if (busy || source === "library") return;
+          if (busy || libraryOpen) return;
           setError("");
           setBusy(true);
           try {
@@ -172,7 +174,7 @@ export function StoryImport({
                 setError("");
               }}
             >
-              <FileUp size={14} aria-hidden="true" /> 选择文件
+              <FileUp size={14} aria-hidden="true" /> 上传文件
             </button>
             <button
               type="button"
@@ -186,21 +188,14 @@ export function StoryImport({
             </button>
             <button
               type="button"
-              aria-pressed={source === "library"}
-              onClick={() => {
-                setSource("library");
-                setError("");
-              }}
+              aria-haspopup="dialog"
+              aria-expanded={libraryOpen}
+              onClick={() => setLibraryOpen(true)}
             >
               <Library size={14} aria-hidden="true" /> 剧本库
             </button>
           </div>
-          {source === "library" ? (
-            <div className="story-library-pending" role="status">
-              <Library size={25} strokeWidth={1.4} aria-hidden="true" />
-              <span>剧本库建设中</span>
-            </div>
-          ) : source === "text" ? (
+          {source === "text" ? (
             <Field label="故事正文">
               <textarea
                 value={text}
@@ -215,21 +210,12 @@ export function StoryImport({
               </small>
             </Field>
           ) : (
-            <Field label="故事文件">
-              <input
-                type="file"
-                accept={STORY_EXTENSIONS.join(",")}
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-              <p className="muted">
-                支持 TXT、Markdown、Word、PDF，最大 20 MB。原文件直接保存。
-              </p>
-              {file && (
-                <p className="story-file-selection">
-                  已选择：{file.name} · {(file.size / 1024).toFixed(1)} KB
-                </p>
-              )}
-            </Field>
+            <StoryFileUpload
+              file={file}
+              disabled={busy || !!saved.current}
+              onChange={setFile}
+              onError={setError}
+            />
           )}
         </fieldset>
         <fieldset className="story-import-fields" disabled={busy}>
@@ -274,7 +260,7 @@ export function StoryImport({
           <button type="button" onClick={close} disabled={busy}>
             取消
           </button>
-          <button className="primary" disabled={busy || source === "library"}>
+          <button className="primary" disabled={busy}>
             {busy
               ? "正在准备…"
               : saved.current
@@ -283,6 +269,9 @@ export function StoryImport({
           </button>
         </div>
       </form>
+      {libraryOpen && (
+        <ScriptLibraryDialog onClose={() => setLibraryOpen(false)} />
+      )}
     </Dialog>
   );
 }

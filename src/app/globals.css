@@ -1094,8 +1094,129 @@ footer {
   border-radius: 10px;
   margin: 15px 0;
 }
-.story-file-selection {
+.script-library-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fcfdf9;
+  color: var(--ink);
+  box-shadow: 0 20px 80px #18271f33;
+}
+.script-library-dialog::backdrop {
+  background: #18271f38;
+  backdrop-filter: blur(3px);
+}
+.script-library-body {
+  padding: 22px;
+}
+.script-library-body h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.script-library-body .story-library-pending {
+  min-height: 220px;
+  background: transparent;
+  margin: 0;
+}
+.story-upload {
+  margin: 16px 0;
+  border: 1px dashed #c5d3c9;
+  border-radius: 12px;
+  background: #f1f5f080;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.story-upload.dragging {
+  border-color: var(--green);
+  background: #dfede3;
+  box-shadow: 0 0 0 3px #254e4212;
+}
+.story-upload[aria-disabled="true"] {
+  opacity: 0.65;
+}
+.story-upload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 155px;
+  padding: 22px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+}
+.story-upload-empty:hover {
+  background: #eaf1e980;
+}
+.story-upload-empty strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.story-upload-empty small,
+.story-upload-file-info small,
+.story-upload-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+.story-upload-selected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 16px 8px;
+}
+.story-upload-selected > svg {
+  flex-shrink: 0;
+  color: var(--green);
+}
+.story-upload-file-info {
+  min-width: 0;
+  flex: 1;
+}
+.story-upload-file-info strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
   overflow-wrap: anywhere;
+}
+.story-upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.story-upload-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 7px;
+  background: transparent;
+  border: 0;
+}
+.story-upload-actions button:hover {
+  background: #e0eae2;
+}
+.story-upload-hint {
+  margin: 0;
+  padding: 4px 16px 16px;
+}
+@media (max-width: 480px) {
+  .story-upload-selected {
+    gap: 8px;
+    padding: 16px 12px 8px;
+    flex-wrap: wrap;
+  }
+  .story-upload-file-info {
+    flex-basis: calc(100% - 40px);
+  }
+  .story-upload-actions {
+    margin-left: auto;
+  }
 }
 .story-source-row {
   display: flex;
