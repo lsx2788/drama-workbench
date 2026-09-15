@@ -1,5 +1,5 @@
 "use client";
-import { useId, useMemo } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { str, type RecordData } from "@/client/api";
 import {
   layoutWorkflow,
@@ -13,12 +13,17 @@ export function WorkflowGraph({
   dependencies,
   selectedId,
   onSelect,
+  overview = false,
 }: {
   nodes: RecordData[];
   dependencies: RecordData[];
   selectedId: string;
   onSelect: (id: string) => void;
+  overview?: boolean;
 }) {
+  const nodeWidth = overview ? 248 : NODE_WIDTH,
+    nodeHeight = overview ? 108 : NODE_HEIGHT;
+  const viewport = useRef<HTMLDivElement>(null);
   const graph = useMemo(
     () =>
       layoutWorkflow(
@@ -28,19 +33,33 @@ export function WorkflowGraph({
           to: str(d, "node_id"),
         })),
         "vertical",
+        { width: nodeWidth, height: nodeHeight },
       ),
-    [nodes, dependencies],
+    [nodes, dependencies, nodeWidth, nodeHeight],
   );
+  useEffect(() => {
+    const element = viewport.current;
+    if (element)
+      element.scrollLeft = Math.max(0, (graph.width - element.clientWidth) / 2);
+  }, [graph.width]);
   const marker = useId().replaceAll(":", "");
   const positions = new Map(graph.nodes.map((n) => [n.id, n]));
   return (
-    <section className="workflow-graph" aria-label="制作流程图">
+    <section
+      className={`workflow-graph ${overview ? "production-map" : ""}`}
+      aria-label={overview ? "全剧制作总流程图" : "制作流程图"}
+    >
       {graph.hasCycle && (
         <p role="alert" className="error">
           依赖中存在循环，请检查节点关系。
         </p>
       )}
-      <div className="graph-viewport">
+      <div
+        className="graph-viewport"
+        ref={viewport}
+        tabIndex={0}
+        aria-label="流程图，可左右滚动查看分支"
+      >
         {!nodes.length ? (
           <Empty>
             这个流程暂时没有节点。节点及其依赖生成后，会展示在这里。
@@ -90,16 +109,18 @@ export function WorkflowGraph({
                 {graph.edges.map((e) => {
                   const source = positions.get(e.from)!,
                     target = positions.get(e.to)!;
-                  const x = source.x + NODE_WIDTH / 2,
-                    y = source.y + NODE_HEIGHT;
-                  const endX = target.x + NODE_WIDTH / 2,
+                  const x = source.x + nodeWidth / 2,
+                    y = source.y + nodeHeight;
+                  const endX = target.x + nodeWidth / 2,
                     endY = target.y - 5;
                   const bend = Math.max(38, (endY - y) / 2),
                     active = e.from === selectedId || e.to === selectedId;
                   const edgePath =
                     endY - y > 150
                       ? `M ${x} ${y} L ${x} ${y + 24} L ${graph.width - 12} ${y + 24} L ${graph.width - 12} ${endY - 24} L ${endX} ${endY - 24} L ${endX} ${endY}`
-                      : `M ${x} ${y} C ${x} ${y + bend}, ${endX} ${endY - bend}, ${endX} ${endY}`;
+                      : overview
+                        ? `M ${x} ${y} V ${y + bend} H ${endX} V ${endY}`
+                        : `M ${x} ${y} C ${x} ${y + bend}, ${endX} ${endY - bend}, ${endX} ${endY}`;
                   return (
                     <path
                       key={`${e.from}:${e.to}`}
@@ -119,26 +140,39 @@ export function WorkflowGraph({
                 return (
                   <button
                     key={position.id}
-                    className={`graph-node ${position.id === selectedId ? "selected" : ""}`}
+                    className={`graph-node graph-kind-${str(node, "graph_kind") || "node"} ${position.id === selectedId ? "selected" : ""}`}
                     aria-label={`查看节点：${str(node, "name")}`}
                     aria-pressed={position.id === selectedId}
                     onClick={() => onSelect(position.id)}
                     style={{
                       left: position.x,
                       top: position.y,
-                      width: NODE_WIDTH,
-                      height: NODE_HEIGHT,
+                      width: nodeWidth,
+                      height: nodeHeight,
                     }}
                   >
                     <span className="graph-node-title">
                       <strong>{str(node, "name")}</strong>
                       <Badge value={str(node, "status")} />
                     </span>
+                    {overview && (
+                      <span className="graph-node-summary">
+                        {str(node, "summary")}
+                      </span>
+                    )}
                     <span className="graph-node-footer">
-                      {node.node_type === "coordinator"
-                        ? "总控协调"
-                        : "制作节点"}
-                      <span>查看详情 ↗</span>
+                      {node.graph_kind === "season"
+                        ? "季"
+                        : node.graph_kind === "unit"
+                          ? "分集 / 章节"
+                          : node.node_type === "coordinator"
+                            ? "总控协调"
+                            : "制作节点"}
+                      <span>
+                        {node.graph_kind === "unit"
+                          ? "进入本集 →"
+                          : "查看详情 ↗"}
+                      </span>
                     </span>
                   </button>
                 );

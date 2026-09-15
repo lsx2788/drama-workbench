@@ -1504,79 +1504,85 @@ pre {
   }
 }
 
-.production-phase {
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 18px;
+.production-map .graph-viewport {
+  background: #fff;
 }
-.production-phase > header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 4px 4px 18px;
-}
-.production-phase > header > span {
-  color: var(--green);
-  font-size: 12px;
-  background: #edf3e9;
-  border-radius: 6px;
-  padding: 5px 8px;
-}
-.production-phase h3 {
-  margin: 0;
-  font-size: 15px;
-}
-.production-phase header small {
-  color: var(--muted);
-  margin-left: auto;
-}
-.production-phase .workflow-graph {
-  margin: 0;
-  border: 0;
-  border-radius: 8px;
-}
-.phase-arrow {
-  display: flex;
-  justify-content: center;
-  color: #93a699;
-  padding: 12px;
-}
-.production-unit {
-  border: 1px solid var(--line);
+.production-map .graph-node {
+  border: 1.5px solid #a4b1a8;
   border-radius: 10px;
+  box-shadow: none;
+  padding: 12px 14px;
+}
+.production-map .graph-node-title strong {
+  white-space: normal;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.production-map .graph-kind-coordinator {
+  background: #f1f6ee;
+  border-color: #557262;
+}
+.production-map .graph-kind-season {
+  background: #f6f7f2;
+}
+.graph-node-summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-}
-.production-unit + .production-unit {
-  margin-top: 10px;
-}
-.production-unit > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 14px;
-}
-.production-unit > summary::-webkit-details-marker {
-  display: none;
-}
-.production-unit > summary strong {
-  flex: 1;
-  font-size: 14px;
-}
-.production-unit > summary span {
   color: var(--muted);
   font-size: 11px;
+  line-height: 1.5;
+  margin: 7px 0;
 }
-.production-unit[open] > summary > svg {
-  transform: rotate(90deg);
+.unit-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
 }
-.production-unit[open] > summary {
-  border-bottom: 1px solid var(--line);
-  background: #f7faf4;
+.flow-heading {
+  scroll-margin-top: 90px;
 }
-.unit-flow {
-  padding: 8px;
+.flow-heading:focus {
+  outline: none;
+}
+.unit-navigation button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.unit-navigation > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.season-units {
+  display: grid;
+  gap: 10px;
+}
+.season-units button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 16px;
+}
+.season-units button strong {
+  flex: 1;
+}
+.season-units button > span:last-child {
+  font-size: 12px;
+  color: var(--green);
+}
+.project-outline {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.project-outline summary {
+  cursor: pointer;
+  font-weight: 600;
 }

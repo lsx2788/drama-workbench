@@ -11,6 +11,7 @@ export interface Workspace {
   documents: RecordData[];
   workflows: RecordData[];
   sections: RecordData[];
+  seasons: RecordData[];
   nodes: RecordData[];
   dependencies: RecordData[];
   agents: RecordData[];

@@ -168,6 +168,7 @@ export function Workbench() {
             <Empty>正在读取故事资料…</Empty>
           ) : view === "flow" ? (
             <FlowView
+              key={p}
               {...chatActions}
               selectedNodeId={nodeId}
               onSelectNode={(id) => {

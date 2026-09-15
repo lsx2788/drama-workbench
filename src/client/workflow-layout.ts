@@ -20,7 +20,13 @@ export function layoutWorkflow(
   nodes: GraphNode[],
   dependencies: GraphEdge[],
   direction: "horizontal" | "vertical" = "horizontal",
+  dimensions: { width: number; height: number } = {
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT,
+  },
 ) {
+  const nodeWidth = dimensions.width,
+    nodeHeight = dimensions.height;
   const ids = new Set(nodes.map((n) => n.id));
   const edges = [
     ...new Map(
@@ -58,35 +64,38 @@ export function layoutWorkflow(
   }
   const rows = Math.max(1, ...[...columns.values()].map((c) => c.length));
   if (direction === "vertical") {
-    const width = PADDING * 2 + rows * NODE_WIDTH + (rows - 1) * ROW_GAP;
+    const width = PADDING * 2 + rows * nodeWidth + (rows - 1) * ROW_GAP;
     return {
-      nodes: [...columns].flatMap(([rank, column]) => {
-        const span = column.length * NODE_WIDTH + (column.length - 1) * ROW_GAP;
-        return column.map((n, index) => ({
-          id: n.id,
-          x: (width - span) / 2 + index * (NODE_WIDTH + ROW_GAP),
-          y: PADDING + rank * (NODE_HEIGHT + COLUMN_GAP),
-        }));
-      }),
+      nodes: [...columns]
+        .sort(([a], [b]) => a - b)
+        .flatMap(([rank, column]) => {
+          const span =
+            column.length * nodeWidth + (column.length - 1) * ROW_GAP;
+          return column.map((n, index) => ({
+            id: n.id,
+            x: (width - span) / 2 + index * (nodeWidth + ROW_GAP),
+            y: PADDING + rank * (nodeHeight + COLUMN_GAP),
+          }));
+        }),
       edges,
       hasCycle,
       width,
       height:
         PADDING * 2 +
-        NODE_HEIGHT +
-        Math.max(0, ...columns.keys()) * (NODE_HEIGHT + COLUMN_GAP),
+        nodeHeight +
+        Math.max(0, ...columns.keys()) * (nodeHeight + COLUMN_GAP),
     };
   }
-  const height = PADDING * 2 + rows * NODE_HEIGHT + (rows - 1) * ROW_GAP;
+  const height = PADDING * 2 + rows * nodeHeight + (rows - 1) * ROW_GAP;
   const placed: PlacedNode[] = [];
   for (const [rank, column] of columns) {
     const columnHeight =
-      column.length * NODE_HEIGHT + (column.length - 1) * ROW_GAP;
+      column.length * nodeHeight + (column.length - 1) * ROW_GAP;
     column.forEach((n, row) =>
       placed.push({
         id: n.id,
-        x: PADDING + rank * (NODE_WIDTH + COLUMN_GAP),
-        y: (height - columnHeight) / 2 + row * (NODE_HEIGHT + ROW_GAP),
+        x: PADDING + rank * (nodeWidth + COLUMN_GAP),
+        y: (height - columnHeight) / 2 + row * (nodeHeight + ROW_GAP),
       }),
     );
   }
@@ -97,7 +106,7 @@ export function layoutWorkflow(
     height,
     width:
       PADDING * 2 +
-      NODE_WIDTH +
-      Math.max(0, ...columns.keys()) * (NODE_WIDTH + COLUMN_GAP),
+      nodeWidth +
+      Math.max(0, ...columns.keys()) * (nodeWidth + COLUMN_GAP),
   };
 }

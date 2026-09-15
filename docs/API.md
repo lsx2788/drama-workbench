@@ -14,8 +14,9 @@ API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectI
 - POST `/api/v1/projects/:p/documents`：`{title,kind: outline|script|note,content,supersedesId?}`。
 - POST `/api/v1/projects/:p/workflows`：`{name}`，仅创建草案。
 - POST `/api/v1/projects/:p/nodes`：`{workflowId,name,objective?,nodeType?:work|coordinator,dependencies?:nodeId[]}`。
-- POST `/api/v1/projects/:p/sections`：`{workflowId,name,phase:preparation|unit|delivery,kind?:shared|episode|chapter}`，在草案中定义分组。节点创建可附 `sectionId`，必须属于同一流程。
-- POST `/api/v1/projects/:p/units`：`{workflowId,name,kind:episode|chapter,steps:[{key,name,objective?,dependencies?:key[],ai?:{name,purpose,instructions?}}]}`。按顺序声明步骤，依赖只引用本次已声明步骤；没有前置步骤的节点依赖共用前期出口，本集出口成为全剧汇总入口的前置。节点、事项和可选 AI/会话独立创建，整次失败回滚。已有同名分组或汇总已开始则拒绝扩展。支持草案及当前已发布流程，不复制已有聊天或制作完成状态。
+- POST `/api/v1/projects/:p/seasons`：`{workflowId,name,description?,unitIds?:sectionId[]}`，可选的季分组。允许先建空季，或把同流程下尚未归季的分集/章节归入新季；不移动节点或复制会话，不改变执行依赖。跨流程、重复归属或同名季拒绝，整次操作原子完成。
+- POST `/api/v1/projects/:p/sections`：`{workflowId,name,phase:preparation|unit|delivery,kind?:shared|episode|chapter,seasonId?}`，在草案中定义分组。只有分集/章节可带 `seasonId`。节点创建可附 `sectionId`，必须属于同一流程。
+- POST `/api/v1/projects/:p/units`：`{workflowId,name,kind:episode|chapter,seasonId?,steps:[{key,name,objective?,dependencies?:key[],ai?:{name,purpose,instructions?}}]}`。按顺序声明步骤，依赖只引用本次已声明步骤；没有前置步骤的节点依赖共用前期出口，本集出口成为全剧汇总入口的前置。节点、事项和可选 AI/会话独立创建，整次失败回滚。同一季内（或未归季单元中）同名分组、汇总已开始时拒绝扩展；不同季可分别有“第一集”。支持草案及当前已发布流程，不复制已有聊天或制作完成状态。
 - POST `/api/v1/projects/:p/workflows/:id/activate`：正式发布，旧流程归档；进行中的旧节点必须先处理。
 - PATCH `/api/v1/projects/:p/nodes/:id`：`{status}`；依赖/未完成事项会阻止提前完成。
 

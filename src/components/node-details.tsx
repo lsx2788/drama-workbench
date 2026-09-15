@@ -21,6 +21,25 @@ export function NodeDetails({
   }
   return (
     <div className="node-detail">
+      {current.node_type === "coordinator" && (
+        <Panel title="项目基本信息">
+          <h3>{str(w.overview.project, "name")}</h3>
+          <p className="pre">{str(w.overview.project, "description")}</p>
+          <p className="pre">{str(w.overview.project, "goal")}</p>
+          {w.documents
+            .filter(
+              (d) =>
+                d.kind === "outline" &&
+                !w.documents.some((other) => other.supersedes_id === d.id),
+            )
+            .map((d) => (
+              <details className="project-outline" key={str(d, "id")}>
+                <summary>{str(d, "title")}</summary>
+                <p className="pre">{str(d, "content")}</p>
+              </details>
+            ))}
+        </Panel>
+      )}
       <Panel
         title={str(current, "name")}
         action={<Badge value={str(current, "status")} />}

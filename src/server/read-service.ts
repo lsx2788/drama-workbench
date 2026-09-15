@@ -16,7 +16,11 @@ export function workspace(s: Store, p: string) {
       p,
     ),
     sections: s.all(
-      "SELECT g.* FROM workflow_sections g JOIN workflows w ON w.id=g.workflow_id WHERE w.project_id=? ORDER BY g.position",
+      "SELECT g.*,m.season_id FROM workflow_sections g JOIN workflows w ON w.id=g.workflow_id LEFT JOIN section_seasons m ON m.section_id=g.id WHERE w.project_id=? ORDER BY g.position",
+      p,
+    ),
+    seasons: s.all(
+      "SELECT g.* FROM workflow_seasons g JOIN workflows w ON w.id=g.workflow_id WHERE w.project_id=? ORDER BY g.position",
       p,
     ),
     nodes: s.all(

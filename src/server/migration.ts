@@ -108,4 +108,13 @@ CREATE TABLE IF NOT EXISTS node_sections (
  node_id TEXT PRIMARY KEY REFERENCES nodes(id), section_id TEXT NOT NULL REFERENCES workflow_sections(id)
 );
 INSERT OR IGNORE INTO schema_migrations VALUES(3,datetime('now'));
+CREATE TABLE IF NOT EXISTS workflow_seasons (
+ id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES workflows(id),
+ name TEXT NOT NULL, description TEXT NOT NULL, position INTEGER NOT NULL, created_at TEXT NOT NULL,
+ UNIQUE(workflow_id,name)
+);
+CREATE TABLE IF NOT EXISTS section_seasons (
+ section_id TEXT PRIMARY KEY REFERENCES workflow_sections(id), season_id TEXT NOT NULL REFERENCES workflow_seasons(id)
+);
+INSERT OR IGNORE INTO schema_migrations VALUES(4,datetime('now'));
 `;

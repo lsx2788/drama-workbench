@@ -41,9 +41,11 @@ import {
 import { nodeStateSchema } from "./schemas";
 import { workspace } from "./read-service";
 import { createSection, appendUnit } from "./section-service";
+import { createSeason } from "./season-service";
 
 type Creator = (s: Store, p: string, input: unknown) => unknown;
 const creators: Record<string, Creator> = {
+  seasons: createSeason,
   sections: createSection,
   units: appendUnit,
   documents: createDocument,

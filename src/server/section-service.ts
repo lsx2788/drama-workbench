@@ -1,9 +1,10 @@
 import { z } from "zod";
-import type { Store } from "./db";
+import type { Store, Row } from "./db";
 import { assert, audit, id, now, requireRow } from "./common";
 import { createNode } from "./project-service";
 import { createAgent, createSession } from "./collaboration-service";
 import { createItem } from "./work-service";
+import { attachSectionToSeason, seasonInWorkflow } from "./season-service";
 const short = z.string().trim().min(1).max(200);
 const sectionSchema = z
   .object({
@@ -11,6 +12,7 @@ const sectionSchema = z
     name: short,
     phase: z.enum(["preparation", "unit", "delivery"]),
     kind: z.enum(["shared", "episode", "chapter"]).default("shared"),
+    seasonId: z.string().uuid().optional(),
   })
   .strict();
 function workflow(s: Store, p: string, key: string) {
@@ -19,12 +21,14 @@ function workflow(s: Store, p: string, key: string) {
     "流程",
   );
 }
-function insertSection(s: Store, d: z.infer<typeof sectionSchema>) {
+function insertSection(s: Store, d: z.infer<typeof sectionSchema>): Row {
   assert(
     !s.one(
-      "SELECT id FROM workflow_sections WHERE workflow_id=? AND name=?",
+      "SELECT g.id FROM workflow_sections g LEFT JOIN section_seasons m ON m.section_id=g.id WHERE g.workflow_id=? AND g.name=? AND (g.phase<>'unit' OR ?<>'unit' OR m.season_id IS ?)",
       d.workflowId,
       d.name,
+      d.phase,
+      d.seasonId ?? null,
     ),
     "同名流程分组已存在",
   );
@@ -33,6 +37,10 @@ function insertSection(s: Store, d: z.infer<typeof sectionSchema>) {
     "分集/章节必须属于制作分组，共用分组属于前期或汇总",
   );
   const key = id();
+  if (d.seasonId) {
+    assert(d.phase === "unit", "只有分集/章节可以归属某一季");
+    seasonInWorkflow(s, d.workflowId, d.seasonId);
+  }
   const position = Number(
     s.one(
       "SELECT COALESCE(MAX(position),-1)+1 AS n FROM workflow_sections WHERE workflow_id=? AND phase=?",
@@ -50,7 +58,11 @@ function insertSection(s: Store, d: z.infer<typeof sectionSchema>) {
     position,
     now(),
   );
-  return requireRow(s.one("SELECT * FROM workflow_sections WHERE id=?", key));
+  if (d.seasonId) attachSectionToSeason(s, d.workflowId, key, d.seasonId);
+  return {
+    ...requireRow(s.one("SELECT * FROM workflow_sections WHERE id=?", key)),
+    season_id: d.seasonId ?? null,
+  };
 }
 export function createSection(s: Store, p: string, input: unknown) {
   const d = sectionSchema.parse(input);
@@ -65,6 +77,7 @@ const unitSchema = z
     workflowId: z.string().uuid(),
     name: short,
     kind: z.enum(["episode", "chapter"]),
+    seasonId: z.string().uuid().optional(),
     steps: z
       .array(
         z
@@ -159,6 +172,7 @@ export function appendUnit(s: Store, p: string, input: unknown) {
       name: d.name,
       phase: "unit",
       kind: d.kind,
+      seasonId: d.seasonId,
     });
     const nodes = new Map<string, string>(),
       items = new Map<string, string>();
