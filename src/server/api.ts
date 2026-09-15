@@ -42,15 +42,15 @@ import { workspace } from "./read-service";
 import { createSection, appendUnit } from "./section-service";
 import { createSeason } from "./season-service";
 import { createProjectWithCoordinator } from "./project-bootstrap";
-import { startStoryDiscussion } from "./story-discussion";
+import {
+  startStoryDiscussion,
+  startStoriesDiscussion,
+} from "./story-discussion";
 import { listStoryPreferences } from "./story-preference-catalog";
 import { storyImage } from "./story-image";
-import {
-  importStoryRequest,
-  listStories,
-  storyDetail,
-  storyFile,
-} from "./story-service";
+import { listStories, storyDetail, storyFile } from "./story-service";
+
+import { importStoryRequest } from "./story-import-request";
 
 type Creator = (s: Store, p: string, input: unknown) => unknown;
 const creators: Record<string, Creator> = {
@@ -195,6 +195,13 @@ async function route(request: Request, parts: string[]) {
     }
   }
   if (method === "POST") {
+    if (resource === "story-discussions" && !key) {
+      const { storyIds, ...input } = z
+        .object({ storyIds: z.array(z.uuid()).min(1).max(20) })
+        .passthrough()
+        .parse(await request.json());
+      return startStoriesDiscussion(s, p, storyIds, input);
+    }
     if (resource === "stories" && key && action === "discussion")
       return startStoryDiscussion(s, p, key, await request.json());
     if (resource === "stories" && !key)

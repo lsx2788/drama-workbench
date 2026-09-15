@@ -5,16 +5,29 @@ import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
 import { StoryPreview } from "./story-preview";
 
+function messageAttachments(message: RecordData): RecordData[] {
+  if (Array.isArray(message.attachments)) return message.attachments;
+  return message.story_id
+    ? [
+        {
+          id: message.story_id,
+          title: message.story_title,
+          download_url: message.story_download_url,
+        },
+      ]
+    : [];
+}
+
 function messageDisplay(message: RecordData) {
-  const content = str(message, "content"),
-    sourcePath = str(message, "story_download_url");
-  return sourcePath
-    ? content
+  let content = str(message, "content");
+  for (const attachment of messageAttachments(message)) {
+    const sourcePath = str(attachment, "download_url");
+    if (sourcePath)
+      content = content
         .replace(`故事原文路径：${sourcePath}`, "")
-        .replaceAll(sourcePath, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim()
-    : content;
+        .replaceAll(sourcePath, "");
+  }
+  return content.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function StoryMessage({
@@ -26,18 +39,32 @@ function StoryMessage({
   message: RecordData;
   stories: RecordData[];
 }) {
-  const content = str(message, "content");
-  const sourcePath = str(message, "story_download_url");
-  const storyId = str(message, "story_id");
-  if (!storyId || !sourcePath) return <p className="pre">{content}</p>;
-  const display = messageDisplay(message);
-  const filename =
-    str(stories.find((s) => s.id === storyId) ?? {}, "original_name") ||
-    str(message, "story_title");
+  const attachments = messageAttachments(message);
   return (
     <>
-      <p className="pre">{display}</p>
-      <StoryPreview p={p} storyId={storyId} filename={filename} />
+      <p className="pre">{messageDisplay(message)}</p>
+      {attachments.length > 0 && (
+        <div className="story-message-attachments">
+          {attachments.map((attachment) => {
+            const storyId = str(attachment, "id");
+            const filename =
+              str(attachment, "original_name") ||
+              str(
+                stories.find((s) => s.id === storyId) ?? {},
+                "original_name",
+              ) ||
+              str(attachment, "title");
+            return (
+              <StoryPreview
+                key={storyId}
+                p={p}
+                storyId={storyId}
+                filename={filename}
+              />
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }

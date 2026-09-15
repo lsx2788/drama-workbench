@@ -1,5 +1,5 @@
 import type { Store } from "./db";
-import { assert, audit, now } from "./common";
+import { assert, audit, now, DomainError } from "./common";
 import { createSession, postHumanMessage } from "./collaboration-service";
 import { storyDetail } from "./story-service";
 import { type StoryDiscussion } from "../shared/story-import";
@@ -17,14 +17,49 @@ export function startStoryDiscussion(
   storyId: string,
   input: unknown = {},
 ): StoryDiscussion {
+  return startStoriesDiscussion(s, p, [storyId], input);
+}
+
+export function startStoriesDiscussion(
+  s: Store,
+  p: string,
+  storyIds: string[],
+  input: unknown = {},
+): StoryDiscussion {
+  assert(
+    storyIds.length > 0 &&
+      storyIds.length <= 20 &&
+      new Set(storyIds).size === storyIds.length,
+    "请选择 1–20 个不同的故事文件",
+  );
   const d = storyDiscussionInput.parse(input);
-  const story = storyDetail(s, p, storyId);
+  const stories = storyIds.map((key) => storyDetail(s, p, key));
+  const story = stories[0];
   return s.transaction(() => {
-    const previous = s.one(
-      "SELECT m.session_id,m.id AS message_id,a.node_id FROM story_discussions d JOIN messages m ON m.id=d.message_id JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id WHERE d.story_id=?",
-      storyId,
+    const existing = storyIds.flatMap((key) =>
+      s.all(
+        "SELECT m.session_id,m.id AS message_id,a.node_id FROM story_discussions d JOIN messages m ON m.id=d.message_id JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id WHERE d.story_id=?",
+        key,
+      ),
     );
-    if (previous)
+    if (existing.length) {
+      const previous = existing[0];
+      const attached = s.all(
+        "SELECT story_id FROM story_discussions WHERE message_id=? ORDER BY position",
+        String(previous.message_id),
+      );
+      // Do not silently drop newly supplied attachments or combine distinct old handoffs.
+      if (
+        existing.length !== storyIds.length ||
+        existing.some((row) => row.message_id !== previous.message_id) ||
+        attached.length !== storyIds.length ||
+        attached.some((row, index) => row.story_id !== storyIds[index])
+      )
+        throw new DomainError(
+          "DISCUSSION_CONFLICT",
+          "这些文件已参与其他交接，请查看已有聊天",
+          409,
+        );
       return {
         nodeId: String(previous.node_id),
         sessionId: String(previous.session_id),
@@ -32,6 +67,7 @@ export function startStoryDiscussion(
         delivery: "stored",
         execution: "not_configured",
       };
+    }
     const catalog = listStoryPreferences(s);
     validateDiscussionPreferences(d.preferences, catalog);
     const agents = s
@@ -59,26 +95,33 @@ export function startStoryDiscussion(
             title: `故事讨论 · ${story.title}`.slice(0, 200),
           });
     const content = [
-      `我已提交《${story.title}》，请先阅读并分析这个故事，再和我讨论制作方向。`,
+      stories.length === 1
+        ? `我已提交《${story.title}》，请先阅读并分析这个故事，再和我讨论制作方向。`
+        : `我已提交 ${stories.length} 个故事文件，请先结合全部文件阅读并分析，再和我讨论制作方向。`,
       d.preferences.length
         ? `制作偏好：\n${d.preferences.map((preference) => preferenceLabel(preference, catalog)).join("\n")}`
         : "制作偏好尚未填写，阅读后再一起讨论。",
       `我的想法：\n${d.ideas.trim() ? d.ideas : "暂无补充，先一起讨论。"}`,
-      `故事原文路径：${story.download_url}`,
+      stories
+        .map((source) => `故事原文路径：${source.download_url}`)
+        .join("\n"),
       "请结合附带的故事原文分析。以上是初步意向，我们可以继续讨论调整。",
       "请先梳理已知条件，和我确认基本制作信息；未填写的内容请提出建议后再确认。在我确认关键制作方向前，先不要开始剧本拆解、分镜或资产制作。",
     ].join("\n\n");
     const posted = postHumanMessage(s, p, String(session.id), { content });
     const messageId = String(posted.message!.id);
-    s.run(
-      "INSERT INTO story_discussions VALUES(?,?,?)",
-      storyId,
-      messageId,
-      now(),
-    );
-    audit(s, p, "story.discussion_started", storyId, {
-      sessionId: session.id,
-      messageId,
+    stories.forEach((source, position) => {
+      s.run(
+        "INSERT INTO story_discussions(story_id,message_id,created_at,position) VALUES(?,?,?,?)",
+        String(source.id),
+        messageId,
+        now(),
+        position,
+      );
+      audit(s, p, "story.discussion_started", String(source.id), {
+        sessionId: session.id,
+        messageId,
+      });
     });
     return {
       nodeId: String(agent.node_id),

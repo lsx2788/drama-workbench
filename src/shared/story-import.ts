@@ -1,4 +1,6 @@
 export const STORY_MAX_BYTES = 20 * 1024 * 1024;
+export const STORY_MAX_FILES = 20;
+export const STORY_BATCH_MAX_BYTES = 50 * 1024 * 1024;
 export const STORY_MAX_CHARACTERS = 2_000_000;
 export const STORY_MIME_TYPES: Record<string, string> = {
   ".txt": "text/plain",

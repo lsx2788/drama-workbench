@@ -4,33 +4,51 @@ import { FileText, ImageIcon, Upload, X } from "lucide-react";
 import {
   STORY_EXTENSIONS,
   STORY_MAX_BYTES,
+  STORY_MAX_FILES,
+  STORY_BATCH_MAX_BYTES,
   STORY_FORMAT_ERROR,
   isStoryImageName,
 } from "@/shared/story-import";
 
 export function StoryFileUpload({
-  file,
+  files,
   disabled,
   onChange,
   onError,
 }: {
-  file: File | null;
+  files: File[];
   disabled: boolean;
-  onChange: (file: File | null) => void;
+  onChange: (files: File[]) => void;
   onError: (message: string) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
-  const select = (files: FileList) => {
-    if (disabled || !files.length) return;
-    if (files.length !== 1) return onError("每次只能上传一个故事文件");
-    const next = files[0];
-    const extension = next.name.slice(next.name.lastIndexOf(".")).toLowerCase();
-    if (!STORY_EXTENSIONS.includes(extension))
-      return onError(STORY_FORMAT_ERROR);
-    if (!next.size || next.size > STORY_MAX_BYTES)
-      return onError("故事文件不能为空，且不能超过 20 MB");
+  const select = (incoming: FileList) => {
+    if (disabled || !incoming.length) return;
+    const next = [...files];
+    for (const file of Array.from(incoming)) {
+      const extension = file.name
+        .slice(file.name.lastIndexOf("."))
+        .toLowerCase();
+      if (!STORY_EXTENSIONS.includes(extension))
+        return onError(`${file.name}：${STORY_FORMAT_ERROR}`);
+      if (!file.size || file.size > STORY_MAX_BYTES)
+        return onError(`${file.name}：文件不能为空，且不能超过 20 MB`);
+      if (
+        !next.some(
+          (existing) =>
+            existing.name === file.name &&
+            existing.size === file.size &&
+            existing.lastModified === file.lastModified,
+        )
+      )
+        next.push(file);
+    }
+    if (next.length > STORY_MAX_FILES)
+      return onError(`一次最多上传 ${STORY_MAX_FILES} 个文件`);
+    if (next.reduce((sum, file) => sum + file.size, 0) > STORY_BATCH_MAX_BYTES)
+      return onError("一次上传的文件总大小不能超过 50 MB");
     onError("");
     onChange(next);
   };
@@ -66,6 +84,7 @@ export function StoryFileUpload({
       <input
         ref={input}
         type="file"
+        multiple
         hidden
         disabled={disabled}
         accept={STORY_EXTENSIONS.join(",")}
@@ -74,46 +93,66 @@ export function StoryFileUpload({
           e.target.value = "";
         }}
       />
-      {file ? (
-        <div className="story-upload-selected">
-          {isStoryImageName(file.name) ? (
-            <ImageIcon size={27} strokeWidth={1.5} aria-hidden="true" />
-          ) : (
-            <FileText size={27} strokeWidth={1.5} aria-hidden="true" />
-          )}
-          <div className="story-upload-file-info" role="status">
-            <strong>{file.name}</strong>
-            <small>
-              {file.size < 1024
-                ? `${file.size} B`
-                : file.size < 1024 * 1024
-                  ? `${(file.size / 1024).toFixed(1)} KB`
-                  : `${(file.size / 1024 / 1024).toFixed(1)} MB`}
-            </small>
+      {files.length > 0 ? (
+        <>
+          <div className="story-upload-list">
+            {files.map((file, index) => (
+              <div
+                className="story-upload-selected"
+                key={`${file.name}-${file.size}-${file.lastModified}`}
+              >
+                {isStoryImageName(file.name) ? (
+                  <ImageIcon size={27} strokeWidth={1.5} aria-hidden="true" />
+                ) : (
+                  <FileText size={27} strokeWidth={1.5} aria-hidden="true" />
+                )}
+                <div className="story-upload-file-info" role="status">
+                  <strong>{file.name}</strong>
+                  <small>
+                    {file.size < 1024
+                      ? `${file.size} B`
+                      : file.size < 1024 * 1024
+                        ? `${(file.size / 1024).toFixed(1)} KB`
+                        : `${(file.size / 1024 / 1024).toFixed(1)} MB`}
+                  </small>
+                </div>
+                <div className="story-upload-actions">
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    aria-label={`移除 ${file.name}`}
+                    title="移除文件"
+                    onClick={() => {
+                      onChange(files.filter((_, current) => current !== index));
+                      onError("");
+                      if (input.current) input.current.value = "";
+                    }}
+                  >
+                    <X size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="story-upload-actions">
+          <div className="story-upload-footer">
+            <small role="status">
+              已选 {files.length} 个文件 ·{" "}
+              {(
+                files.reduce((sum, file) => sum + file.size, 0) /
+                1024 /
+                1024
+              ).toFixed(1)}{" "}
+              MB
+            </small>
             <button
               type="button"
               disabled={disabled}
               onClick={() => input.current?.click()}
             >
-              重新选择
-            </button>
-            <button
-              type="button"
-              disabled={disabled}
-              aria-label="移除文件"
-              title="移除文件"
-              onClick={() => {
-                onChange(null);
-                onError("");
-                if (input.current) input.current.value = "";
-              }}
-            >
-              <X size={15} aria-hidden="true" />
+              <Upload size={14} aria-hidden="true" /> 继续添加
             </button>
           </div>
-        </div>
+        </>
       ) : (
         <button
           type="button"
@@ -123,11 +162,14 @@ export function StoryFileUpload({
         >
           <Upload size={25} strokeWidth={1.5} aria-hidden="true" />
           <strong>点击上传文件，或拖拽到这里</strong>
-          <small>文档或图片 · 最大 20 MB</small>
+          <small>可多选文档或图片 · 单个最大 20 MB</small>
           <small>TXT / Markdown / Word / PDF / PNG / JPG / WebP / GIF</small>
         </button>
       )}
-      {file && <p className="story-upload-hint">也可以拖入其他文件替换</p>}
+      <p className="story-upload-hint">
+        最多 20 个文件，合计 50 MB
+        {files.length > 0 ? " · 拖入文件可继续添加" : ""}
+      </p>
     </div>
   );
 }

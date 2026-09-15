@@ -1,4 +1,4 @@
-import type { Store } from "./db";
+import type { Store, Row } from "./db";
 import { projectExists } from "./common";
 import { searchAssets } from "./asset-service";
 import { overview } from "./project-service";
@@ -6,6 +6,21 @@ import { listStories } from "./story-service";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
+  const attachments = new Map<string, Row[]>();
+  for (const row of s.all(
+    "SELECT d.message_id,st.id,st.title,st.original_name,st.project_id FROM story_discussions d JOIN story_sources st ON st.id=d.story_id WHERE st.project_id=? ORDER BY d.position",
+    p,
+  )) {
+    const key = String(row.message_id);
+    const rows = attachments.get(key) ?? [];
+    rows.push({
+      id: row.id,
+      title: row.title,
+      original_name: row.original_name,
+      download_url: `/api/v1/projects/${p}/stories/${row.id}/download`,
+    });
+    attachments.set(key, rows);
+  }
   return {
     overview: overview(s, p),
     stories: listStories(s, p),
@@ -41,10 +56,21 @@ export function workspace(s: Store, p: string) {
       "SELECT ss.*,a.name AS agent_name,a.node_id,n.node_type FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY ss.created_at",
       p,
     ),
-    messages: s.all(
-      "SELECT m.*,a.name AS agent_name,a.node_id,st.id AS story_id,st.title AS story_title,CASE WHEN st.id IS NOT NULL THEN '/api/v1/projects/' || st.project_id || '/stories/' || st.id || '/download' END AS story_download_url FROM messages m JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id LEFT JOIN story_discussions d ON d.message_id=m.id LEFT JOIN story_sources st ON st.id=d.story_id AND st.project_id=w.project_id WHERE w.project_id=? ORDER BY m.created_at",
-      p,
-    ),
+    messages: s
+      .all(
+        "SELECT m.*,a.name AS agent_name,a.node_id FROM messages m JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.created_at",
+        p,
+      )
+      .map((message): Row & { attachments: Row[] } => {
+        const sources = attachments.get(String(message.id)) ?? [];
+        return {
+          ...message,
+          attachments: sources,
+          story_id: sources[0]?.id ?? null,
+          story_title: sources[0]?.title ?? null,
+          story_download_url: sources[0]?.download_url ?? null,
+        };
+      }),
     highlights: s.all(
       "SELECT h.* FROM highlights h JOIN nodes n ON n.id=h.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY h.created_at DESC",
       p,

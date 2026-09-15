@@ -4,6 +4,8 @@ import { FileUp, AlignLeft, Library } from "lucide-react";
 import { api, type RecordData } from "@/client/api";
 import {
   STORY_MAX_BYTES,
+  STORY_MAX_FILES,
+  STORY_BATCH_MAX_BYTES,
   STORY_MAX_CHARACTERS,
   createImportKey,
   type StoryDiscussion,
@@ -34,7 +36,7 @@ export function StoryImport({
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [preferences, setPreferences] = useState<StoryPreference[]>([]);
   const [catalog, setCatalog] = useState<PreferenceCategory[]>([]);
   const [catalogError, setCatalogError] = useState("");
@@ -44,7 +46,11 @@ export function StoryImport({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
-  const saved = useRef<{ project: RecordData; story: RecordData } | null>(null);
+  const saved = useRef<{
+    project: RecordData;
+    story: RecordData;
+    stories?: RecordData[];
+  } | null>(null);
   useEffect(() => {
     let active = true;
     setCatalogLoading(true);
@@ -91,27 +97,39 @@ export function StoryImport({
             if (!saved.current) {
               if (source === "text" && !text.trim())
                 throw new Error("请粘贴故事正文");
-              if (source === "file" && !file) throw new Error("请选择故事文件");
+              if (source === "file" && !files.length)
+                throw new Error("请选择故事文件");
               if (
-                file &&
                 source === "file" &&
-                (!file.size || file.size > STORY_MAX_BYTES)
+                (files.length > STORY_MAX_FILES ||
+                  files.some(
+                    (file) => !file.size || file.size > STORY_MAX_BYTES,
+                  ) ||
+                  files.reduce((sum, file) => sum + file.size, 0) >
+                    STORY_BATCH_MAX_BYTES)
               )
-                throw new Error("故事文件不能为空，且不能超过 20 MB");
+                throw new Error(
+                  "最多 20 个文件，单个最大 20 MB，合计最大 50 MB，文件不能为空",
+                );
               const fingerprint = JSON.stringify([
                 source,
                 title,
                 source === "text"
                   ? text
-                  : [file?.name, file?.size, file?.lastModified],
+                  : files.map((file) => [
+                      file.name,
+                      file.size,
+                      file.lastModified,
+                    ]),
               ]);
               if (attempt.current?.fingerprint !== fingerprint)
                 attempt.current = { fingerprint, key: createImportKey() };
               const form = new FormData();
-              form.set("source", source);
+              form.set("source", source === "file" ? "files" : source);
               form.set("title", title);
               form.set("importKey", attempt.current.key);
-              if (source === "file") form.set("file", file!);
+              if (source === "file")
+                files.forEach((file) => form.append("file", file));
               // FormData normalizes text field line endings. JSON preserves the submitted text.
               const body =
                 source === "text"
@@ -131,10 +149,13 @@ export function StoryImport({
             }
             const stored = saved.current!;
             const discussion = await api<StoryDiscussion>(
-              `/projects/${stored.project.id}/stories/${stored.story.id}/discussion`,
+              `/projects/${stored.project.id}/story-discussions`,
               {
                 method: "POST",
                 body: JSON.stringify({
+                  storyIds: (stored.stories ?? [stored.story]).map(
+                    (story) => story.id,
+                  ),
                   preferences: preferences.filter((p) => p.option !== ""),
                   ideas,
                 }),
@@ -163,7 +184,9 @@ export function StoryImport({
               maxLength={200}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={
-                file ? file.name.replace(/\.[^.]+$/, "") : "例如：青禾剑录"
+                files.length
+                  ? files[0].name.replace(/\.[^.]+$/, "")
+                  : "例如：青禾剑录"
               }
             />
           </Field>
@@ -217,9 +240,9 @@ export function StoryImport({
             </Field>
           ) : (
             <StoryFileUpload
-              file={file}
+              files={files}
               disabled={busy || !!saved.current}
-              onChange={setFile}
+              onChange={setFiles}
               onError={setError}
             />
           )}

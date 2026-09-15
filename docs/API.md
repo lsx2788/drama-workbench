@@ -79,3 +79,9 @@ curl http://127.0.0.1:3000/api/v1/projects
 故事文件导入支持 PNG、JPG/JPEG、WebP、GIF 图片（仍为单文件，最大 20 MB）。以原始字节保存，元信息返回对应 image MIME；原始下载接口与讨论中的文件路径保持一致，不 OCR、不解析图片。
 
 `GET /projects/:p/stories/:id/preview`：图片预览，保持项目访问校验，返回原始图片字节和 `inline` 响应。仅在访问预览时核对 PNG/JPEG/WebP/GIF 签名，并设置实际 Content-Type；非图片或签名不支持返回 415。下载地址与保存内容不变。
+
+### 多文件故事导入
+
+原有两个导入地址同时支持 multipart `source=files`，多次追加同名 `file` 字段，其他字段为 `title?`、`importKey`。支持 1–20 个文件，单个最大 20 MB、整批最大 50 MB。返回 `{project,story,stories}`，`stories` 按提交顺序排列，`story` 为首项兼容字段。整批保存使用事务，失败不留下部分来源或空项目；相同批次键和内容重试返回相同记录，内容或顺序改变返回 409。单文件 `source=file` 收到多个 file 字段时拒绝，避免静默丢弃。
+
+POST `/api/v1/projects/:p/story-discussions`：`{storyIds:[UUID,...],agentId?,preferences?,ideas?}`。一次交接 1–20 个不同且属于本项目的来源，仅保存一条消息并按输入顺序关联全部附件。与原单文件 discussion 接口使用同一逻辑，已交接集合重试返回首次消息；集合或顺序不同返回 409，不覆盖历史。workspace.messages 新增 `attachments:[{id,title,original_name,download_url}]`；原 story_id/story_title/story_download_url 字段保留首附件作为兼容。UI 隐藏全部路径并显示独立文件名预览入口，存储消息仍携带全部路径。

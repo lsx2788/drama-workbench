@@ -1205,18 +1205,43 @@ footer {
   margin: 0;
   padding: 4px 16px 16px;
 }
-@media (max-width: 480px) {
-  .story-upload-selected {
-    gap: 8px;
-    padding: 16px 12px 8px;
-    flex-wrap: wrap;
-  }
-  .story-upload-file-info {
-    flex-basis: calc(100% - 40px);
-  }
-  .story-upload-actions {
-    margin-left: auto;
-  }
+.story-upload-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.story-upload-list .story-upload-selected {
+  padding: 12px;
+  gap: 10px;
+}
+.story-upload-selected + .story-upload-selected {
+  border-top: 1px solid var(--line);
+}
+.story-upload-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.story-upload-footer small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.story-upload-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.story-message-attachments {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
 }
 .story-source-row {
   display: flex;
