@@ -1,11 +1,6 @@
 export const STORY_MAX_BYTES = 20 * 1024 * 1024;
 export const STORY_MAX_CHARACTERS = 2_000_000;
 export const STORY_EXTENSIONS = [".txt", ".md", ".doc", ".docx", ".pdf"];
-export {
-  STORY_STYLES,
-  type StoryStyle,
-  storyStyleLabel,
-} from "./story-preferences";
 export type StoryDiscussion = {
   nodeId: string;
   sessionId: string;

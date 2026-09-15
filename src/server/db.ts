@@ -2,6 +2,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { migration } from "./migration";
+import { initializeStoryPreferences } from "./story-preference-catalog";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -16,6 +17,7 @@ export class Store {
       "PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;",
     );
     this.db.exec(migration);
+    initializeStoryPreferences(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];

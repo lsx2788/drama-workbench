@@ -1,11 +1,14 @@
-import { z } from "zod";
 import type { Store } from "./db";
 import { assert, audit, now } from "./common";
 import { createSession, postHumanMessage } from "./collaboration-service";
 import { storyDetail } from "./story-service";
 import { type StoryDiscussion } from "../shared/story-import";
 import { preferenceLabel } from "../shared/story-preferences";
-import { readStoryBrief } from "./story-brief";
+import { listStoryPreferences } from "./story-preference-catalog";
+import {
+  storyDiscussionInput,
+  validateDiscussionPreferences,
+} from "./story-discussion-input";
 
 /** A separate, retryable handoff. Import remains storage-only even if this fails. */
 export function startStoryDiscussion(
@@ -14,7 +17,7 @@ export function startStoryDiscussion(
   storyId: string,
   input: unknown = {},
 ): StoryDiscussion {
-  const d = z.object({ agentId: z.uuid().optional() }).strict().parse(input);
+  const d = storyDiscussionInput.parse(input);
   const story = storyDetail(s, p, storyId);
   return s.transaction(() => {
     const previous = s.one(
@@ -29,6 +32,8 @@ export function startStoryDiscussion(
         delivery: "stored",
         execution: "not_configured",
       };
+    const catalog = listStoryPreferences(s);
+    validateDiscussionPreferences(d.preferences, catalog);
     const agents = s
       .all(
         "SELECT a.* FROM agents a JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND w.status='active' AND n.node_type='coordinator'",
@@ -53,13 +58,12 @@ export function startStoryDiscussion(
             agentId: agent.id,
             title: `故事讨论 · ${story.title}`.slice(0, 200),
           });
-    const brief = readStoryBrief(s, storyId);
     const content = [
       `我已提交《${story.title}》，请先阅读并分析这个故事，再和我讨论制作方向。`,
-      brief?.preferences.length
-        ? `制作偏好：\n${brief.preferences.map(preferenceLabel).join("\n")}`
+      d.preferences.length
+        ? `制作偏好：\n${d.preferences.map((preference) => preferenceLabel(preference, catalog)).join("\n")}`
         : "制作偏好尚未填写，阅读后再一起讨论。",
-      `我的想法：\n${brief?.ideas.trim() ? brief.ideas : "暂无补充，先一起讨论。"}`,
+      `我的想法：\n${d.ideas.trim() ? d.ideas : "暂无补充，先一起讨论。"}`,
       "请结合附带的故事原文分析。以上是初步意向，我们可以继续讨论调整。",
     ].join("\n\n");
     const posted = postHumanMessage(s, p, String(session.id), { content });

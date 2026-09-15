@@ -22,13 +22,11 @@ API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectI
 
 ## 原始故事
 
-GET `/api/v1/story-preferences` 返回制作偏好库：画面风格、制作范围、改编要求、单集时长、画幅、发布平台，以及每类的选项和需补充的内容。页面与校验共用同一目录配置。
+GET `/api/v1/story-preferences` 从数据库返回启用的制作偏好类别及选项，按配置顺序展示。初始六类为画面风格、制作范围、改编要求、单集时长、画幅、发布平台。初始化种子仅运行一次，重启不会覆盖已调整的选项。前端通过接口获取，服务端按同一数据库目录校验。
 
-导入可附 `preferences:[{category,option,detail}]` 和 `ideas`（可选，最多 5000 字符）。仅提交用户选中的类别；空数组表示全部留待讨论。每类只能出现一次，选项必须属于对应类别；需要补充内容时 `detail` 必填，否则为空串，最多 300 字符。文件上传的 preferences 字段用 JSON 字符串；文本请求直接传数组。
+故事导入仅接受原文和来源字段，不接受 `preferences`、`ideas` 或旧版 `style/customStyle`。用户选择与补充想法只作为下一次总控聊天的输入，不建立独立偏好记录，故事详情不返回 `brief`。旧偏好表仅保留历史数据，运行时不再读写；旧聊天内容保持原样。后续结论由总控按职责调用文稿、重点等接口记录，不在导入或交接时自动写入项目设置。
 
-偏好与原始故事分开保存，详情返回 `brief:{preferences,ideas}`。旧版 `style/customStyle` 字段仍可导入，但不能与 preferences 同传；已有风格和想法自动迁移，历史聊天不改写。偏好是初步意向，不自动成为定稿。
-
-- POST `/api/v1/projects/:p/stories/:id/discussion`：`{agentId?}`，独立于导入的讨论交接。只允许当前流程总控；有多个总控时必须指定。复用唯一空会话，否则建立该故事的讨论会话。保存一条带风格、想法和故事引用的用户消息，返回 `{nodeId,sessionId,messageId,delivery:"stored",execution:"not_configured"}`。同故事重复调用返回同次交接，不重复发消息。失败保留已导入的故事，不读取正文，不调用模型。
+- POST `/api/v1/projects/:p/stories/:id/discussion`：`{agentId?,preferences?:[{category,option,detail}],ideas?}`，独立于导入的讨论交接。仅提交选中类别；省略或空数组表示留待讨论。每类只能出现一次，选项必须属于启用类别；需要补充时 `detail` 必填，否则为空串，最多 300 字符。`ideas` 最多 5000 字符。这些输入只格式化成消息正文，不另存结构化用户选择。只允许当前流程总控；有多个总控时必须指定。复用唯一空会话，否则建立该故事的讨论会话。保存一条带选择、想法和故事引用的用户消息，返回 `{nodeId,sessionId,messageId,delivery:"stored",execution:"not_configured"}`。同故事重试返回首次成功交接，不重复发消息或改写历史；之后的想法调整通过普通聊天继续。失败保留原始故事，未发送内容留在当前表单供重试（不持久化表单草稿）；不读取正文，不调用模型。
 
 - POST `/api/v1/projects/import-story`：创建项目并保存故事。字段 `source=text|file`、`title?`、`importKey`（UUID）；文本方式用 JSON 传 `text`（避免 multipart 文本字段改写换行），文件方式用 multipart 传 `file`。返回 `{project,story}`，新项目只有总控及空会话。
 - POST `/api/v1/projects/:p/stories`：同样的表单字段，将故事追加到已有项目，不覆盖其他来源。返回 `{project,story}`。

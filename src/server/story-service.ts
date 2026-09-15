@@ -20,19 +20,12 @@ import {
 } from "./common";
 import { createProjectWithCoordinator } from "./project-bootstrap";
 import {
-  storyBriefFields,
-  storyBriefSchema,
-  readStoryBrief,
-  saveStoryBrief,
-} from "./story-brief";
-import {
   STORY_EXTENSIONS,
   STORY_MAX_BYTES,
   STORY_MAX_CHARACTERS,
 } from "../shared/story-import";
 
 const base = {
-  ...storyBriefFields,
   title: z.string().trim().max(200).default(""),
   importKey: z.uuid(),
 };
@@ -107,14 +100,12 @@ export function storyDetail(
         "原始故事",
       ),
     ),
-    brief: readStoryBrief(s, key),
   };
 }
 
 /** Save bytes before committing references. A failed import never leaves an empty project. */
 export function importStory(s: Store, input: unknown, projectId?: string) {
   const d = importSchema.parse(input);
-  const brief = storyBriefSchema.parse(d);
   if (projectId) projectExists(s, projectId);
   const extension =
     d.source === "file" ? path.extname(d.name).toLowerCase() : ".txt";
@@ -139,14 +130,6 @@ export function importStory(s: Store, input: unknown, projectId?: string) {
   const name = d.source === "file" ? d.name : `${title}.txt`;
   const sha = digest(bytes);
   const hashParts: unknown[] = [projectId ?? null, d.source, title, name, sha];
-  // Preserve retry keys from imports created before optional preferences existed.
-  if (d.preferences !== undefined) hashParts.push(brief);
-  else if ((d.style ?? "discuss") !== "discuss" || d.customStyle || brief.ideas)
-    hashParts.push({
-      style: d.style ?? "discuss",
-      customStyle: d.customStyle ?? "",
-      ideas: brief.ideas,
-    });
   const requestHash = digest(JSON.stringify(hashParts));
   const previous = s.one(
     "SELECT * FROM story_sources WHERE import_key=?",
@@ -214,7 +197,6 @@ export function importStory(s: Store, input: unknown, projectId?: string) {
         originalName: name,
         sha256: sha,
       });
-      saveStoryBrief(s, key, brief);
       return { project, story: storyDetail(s, p, key) };
     });
   } catch (error) {
@@ -232,8 +214,6 @@ export async function importStoryRequest(
     return importStory(s, await request.json(), projectId);
   const form = await request.formData();
   const fields = Object.fromEntries(form);
-  if (typeof fields.preferences === "string")
-    fields.preferences = JSON.parse(fields.preferences);
   if (fields.source === "file") {
     const file = fields.file;
     if (!(file instanceof File))

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type RecordData } from "@/client/api";
 import {
   STORY_EXTENSIONS,
@@ -11,7 +11,7 @@ import {
 import { Dialog, Field } from "./ui";
 import { StoryPreferences } from "./story-preferences";
 import {
-  STORY_PREFERENCE_CATALOG,
+  type PreferenceCategory,
   type StoryPreference,
 } from "@/shared/story-preferences";
 
@@ -33,11 +33,34 @@ export function StoryImport({
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preferences, setPreferences] = useState<StoryPreference[]>([]);
+  const [catalog, setCatalog] = useState<PreferenceCategory[]>([]);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [ideas, setIdeas] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
   const saved = useRef<{ project: RecordData; story: RecordData } | null>(null);
+  useEffect(() => {
+    let active = true;
+    setCatalogLoading(true);
+    setCatalogError("");
+    api<PreferenceCategory[]>("/story-preferences")
+      .then((result) => {
+        if (active) setCatalog(result);
+      })
+      .catch((err) => {
+        if (active)
+          setCatalogError(err instanceof Error ? err.message : "选项加载失败");
+      })
+      .finally(() => {
+        if (active) setCatalogLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [catalogAttempt]);
   const close = () => {
     if (!busy) onClose();
   };
@@ -55,17 +78,17 @@ export function StoryImport({
           setError("");
           setBusy(true);
           try {
+            for (const preference of preferences) {
+              const option = catalog
+                .find((c) => c.id === preference.category)
+                ?.options.find((o) => o.value === preference.option);
+              if (option?.detailLabel && !preference.detail.trim())
+                throw new Error(`请${option.detailLabel}`);
+            }
             if (!saved.current) {
               if (source === "text" && !text.trim())
                 throw new Error("请粘贴故事正文");
               if (source === "file" && !file) throw new Error("请选择故事文件");
-              for (const preference of preferences) {
-                const option = STORY_PREFERENCE_CATALOG.find(
-                  (c) => c.id === preference.category,
-                )?.options.find((o) => o.value === preference.option);
-                if (option?.detailLabel && !preference.detail.trim())
-                  throw new Error(`请${option.detailLabel}`);
-              }
               if (
                 file &&
                 source === "file" &&
@@ -75,8 +98,6 @@ export function StoryImport({
               const fingerprint = JSON.stringify([
                 source,
                 title,
-                preferences,
-                ideas,
                 source === "text"
                   ? text
                   : [file?.name, file?.size, file?.lastModified],
@@ -87,8 +108,6 @@ export function StoryImport({
               form.set("source", source);
               form.set("title", title);
               form.set("importKey", attempt.current.key);
-              form.set("preferences", JSON.stringify(preferences));
-              form.set("ideas", ideas);
               if (source === "file") form.set("file", file!);
               // FormData normalizes text field line endings. JSON preserves the submitted text.
               const body =
@@ -98,8 +117,6 @@ export function StoryImport({
                       title,
                       text,
                       importKey: attempt.current.key,
-                      preferences,
-                      ideas,
                     })
                   : form;
               saved.current = await api(
@@ -112,13 +129,13 @@ export function StoryImport({
             const stored = saved.current!;
             const discussion = await api<StoryDiscussion>(
               `/projects/${stored.project.id}/stories/${stored.story.id}/discussion`,
-              { method: "POST", body: "{}" },
+              { method: "POST", body: JSON.stringify({ preferences, ideas }) },
             );
             await onSaved({ ...stored, discussion });
           } catch (err) {
             setError(
               (saved.current
-                ? "故事和想法已保存，进入总控聊天未完成。可重试，不会重复导入。 "
+                ? "故事已保存，聊天交接尚未完成。选择和想法仍保留在本窗口，可重试，不会重复导入。 "
                 : "") +
                 (err instanceof Error ? err.message : "保存失败，请重试"),
             );
@@ -192,7 +209,27 @@ export function StoryImport({
               )}
             </Field>
           )}
-          <StoryPreferences value={preferences} onChange={setPreferences} />
+        </fieldset>
+        <fieldset className="story-import-fields" disabled={busy}>
+          {catalogLoading ? (
+            <p className="muted">正在加载制作偏好库…</p>
+          ) : catalogError ? (
+            <p role="alert" className="error">
+              {catalogError}{" "}
+              <button
+                type="button"
+                onClick={() => setCatalogAttempt((n) => n + 1)}
+              >
+                重试加载选项
+              </button>
+            </p>
+          ) : (
+            <StoryPreferences
+              catalog={catalog}
+              value={preferences}
+              onChange={setPreferences}
+            />
+          )}
           <Field label="我的想法（可选）">
             <textarea
               value={ideas}
@@ -202,6 +239,9 @@ export function StoryImport({
               placeholder="例如：先做第一章，希望节奏紧凑，保留原作结局；也可以写参考作品或其他要求。"
             />
           </Field>
+          <p className="muted">
+            选择和想法会作为消息发给总控，具体制作要求在聊天中讨论确定。
+          </p>
         </fieldset>
         {error && (
           <p className="error" role="alert">

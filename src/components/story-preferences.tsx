@@ -1,14 +1,16 @@
 "use client";
 import {
-  STORY_PREFERENCE_CATALOG,
+  type PreferenceCategory,
   type StoryPreference,
 } from "@/shared/story-preferences";
 import { Field } from "./ui";
 
 export function StoryPreferences({
+  catalog,
   value,
   onChange,
 }: {
+  catalog: PreferenceCategory[];
   value: StoryPreference[];
   onChange: (next: StoryPreference[]) => void;
 }) {
@@ -26,7 +28,7 @@ export function StoryPreferences({
       <p className="muted">
         选择想补充的类别，在下方填写对应选项。未选择的内容留到聊天里讨论。
       </p>
-      {STORY_PREFERENCE_CATALOG.map((category) => {
+      {catalog.map((category) => {
         const selected = value.find((p) => p.category === category.id);
         const option = category.options.find(
           (o) => o.value === selected?.option,
@@ -49,7 +51,7 @@ export function StoryPreferences({
                         ...value,
                         {
                           category: category.id,
-                          option: "discuss",
+                          option: category.options[0].value,
                           detail: "",
                         },
                       ],

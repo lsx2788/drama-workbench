@@ -242,28 +242,27 @@ test("multipart APIs import, list, read and download both paths with project iso
   upload.set("source", "file");
   upload.set("file", new File(["# 原故事\n\n内容"], "原文.md"));
   upload.set("importKey", randomUUID());
-  upload.set(
-    "preferences",
-    JSON.stringify([
-      { category: "style", option: "other", detail: "定格纸偶" },
-      { category: "scope", option: "first_episode", detail: "" },
-    ]),
-  );
-  upload.set("ideas", "先做开头这一段");
   const second = await request(base, upload);
   assert.equal(second.status, 200);
   const uploaded = (await second.json()).data.story;
-  assert.deepEqual(uploaded.brief, {
+  assert.equal(uploaded.brief, undefined);
+  const handoff = await request([...base, uploaded.id, "discussion"], {
     preferences: [
       { category: "style", option: "other", detail: "定格纸偶" },
       { category: "scope", option: "first_episode", detail: "" },
     ],
     ideas: "先做开头这一段",
   });
-  const handoff = await request([...base, uploaded.id, "discussion"], {});
   assert.equal(handoff.status, 200);
   const discussion = (await handoff.json()).data;
   assert.equal(discussion.execution, "not_configured");
+  const message = getStore().one(
+    "SELECT content FROM messages WHERE id=?",
+    discussion.messageId,
+  );
+  assert.match(String(message?.content), /定格纸偶/);
+  assert.match(String(message?.content), /先做开头这一段/);
+  assert.equal(getStore().all("SELECT * FROM story_intake_briefs").length, 0);
   assert.deepEqual(
     (await (await request([...base, uploaded.id, "discussion"], {})).json())
       .data,
