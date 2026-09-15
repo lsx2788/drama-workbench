@@ -100,7 +100,7 @@ test("uncertain style remains a discussion; later imports keep prior discussions
     p,
   );
   const two = startStoryDiscussion(s, p, String(next.story.id), {
-    preferences: [{ category: "style", option: "discuss", detail: "" }],
+    preferences: [],
     ideas: "尚未决定",
   });
   assert.notEqual(one.sessionId, two.sessionId);
@@ -109,7 +109,7 @@ test("uncertain style remains a discussion; later imports keep prior discussions
     String(
       workspace(s, p).messages.find((m) => m.id === two.messageId)!.content,
     ),
-    /让 AI 阅读后再一起讨论/,
+    /制作偏好尚未填写/,
   );
   assert.deepEqual(
     storyFile(s, p, String(next.story.id)).bytes,

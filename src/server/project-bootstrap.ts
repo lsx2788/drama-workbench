@@ -6,6 +6,7 @@ import {
   activateWorkflow,
 } from "./project-service";
 import { createAgent, createSession } from "./collaboration-service";
+import { DEFAULT_COORDINATOR_INSTRUCTIONS } from "./coordinator-intake";
 
 /** A new workspace has a conversation entry, not a preselected production template. */
 export function createProjectWithCoordinator(s: Store, input: unknown) {
@@ -24,8 +25,7 @@ export function createProjectWithCoordinator(s: Store, input: unknown) {
       nodeId: node.id,
       name: "总控 AI",
       purpose: "与创作者讨论并协调当前项目",
-      instructions:
-        "先讨论故事与当前需要解决的问题。只在需求明确后调用接口补充相应流程，不预设完整模板；保留已有成果和会话，调整前说明影响。",
+      instructions: DEFAULT_COORDINATOR_INSTRUCTIONS,
     });
     createSession(s, p, { agentId: agent.id, title: "项目讨论" });
     activateWorkflow(s, p, String(workflow.id));

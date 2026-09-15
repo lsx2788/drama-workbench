@@ -289,5 +289,5 @@ test("multipart APIs import, list, read and download both paths with project iso
   assert.equal((await request(base, missingFile)).status, 400);
   const catalog = await request(["story-preferences"]);
   assert.equal(catalog.status, 200);
-  assert.equal((await catalog.json()).data.length, 6);
+  assert.equal((await catalog.json()).data.length, 5);
 });

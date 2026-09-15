@@ -132,7 +132,13 @@ export function StoryImport({
             const stored = saved.current!;
             const discussion = await api<StoryDiscussion>(
               `/projects/${stored.project.id}/stories/${stored.story.id}/discussion`,
-              { method: "POST", body: JSON.stringify({ preferences, ideas }) },
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  preferences: preferences.filter((p) => p.option !== ""),
+                  ideas,
+                }),
+              },
             );
             await onSaved({ ...stored, discussion });
           } catch (err) {

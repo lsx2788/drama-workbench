@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { migration } from "./migration";
 import { initializeStoryPreferences } from "./story-preference-catalog";
+import { migrateCoordinatorIntake } from "./coordinator-intake";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -18,6 +19,7 @@ export class Store {
     );
     this.db.exec(migration);
     initializeStoryPreferences(this);
+    migrateCoordinatorIntake(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];

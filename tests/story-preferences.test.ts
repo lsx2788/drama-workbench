@@ -105,7 +105,7 @@ test("invalid message choices fail atomically, while the imported story stays sa
 
 test("database catalog controls labels, ordering and validation without a code change or reseeding", (t) => {
   const { s, p, key } = setup(t);
-  assert.equal(listStoryPreferences(s).length, 6);
+  assert.equal(listStoryPreferences(s).length, 5);
   s.run(
     "INSERT INTO story_preference_categories VALUES('tone','叙事基调','偏好的叙事气氛',-1,1)",
   );
@@ -184,4 +184,84 @@ test("legacy briefs are preserved but never read as message input or story setti
     s.one("SELECT ideas FROM story_intake_briefs WHERE story_id=?", key)?.ideas,
     "历史偏好",
   );
+});
+
+test("intake catalog excludes retired choices and coordinator confirms basics before production", (t) => {
+  const { s, p, key } = setup(t);
+  const catalog = listStoryPreferences(s);
+  assert.equal(catalog.length, 5);
+  assert.ok(
+    catalog.every(
+      (category) =>
+        category.id !== "platform" &&
+        category.options.every((option) => option.value !== "discuss"),
+    ),
+  );
+  assert.throws(() =>
+    startStoryDiscussion(s, p, key, {
+      preferences: [{ category: "style", option: "discuss", detail: "" }],
+    }),
+  );
+  const agent = s.one("SELECT * FROM agents");
+  assert.match(String(agent?.instructions), /汇总基本制作信息并请用户确认/);
+  assert.match(String(agent?.instructions), /在关键方向确认前，不开始剧本拆解/);
+  const chat = startStoryDiscussion(s, p, key);
+  assert.match(
+    String(
+      s.one("SELECT content FROM messages WHERE id=?", chat.messageId)?.content,
+    ),
+    /确认基本制作信息/,
+  );
+  assert.equal(s.all("SELECT * FROM items").length, 0);
+  assert.equal(s.all("SELECT * FROM highlights").length, 0);
+});
+
+test("intake upgrade preserves custom instructions and old chat, applying only once", (t) => {
+  const { s, p, key } = setup(t);
+  const chat = startStoryDiscussion(s, p, key);
+  const original = s.one(
+    "SELECT content FROM messages WHERE id=?",
+    chat.messageId,
+  )?.content;
+  const agent = s.one("SELECT * FROM agents")!;
+  s.run(
+    "UPDATE agents SET instructions='保留原作结局',config_version=3 WHERE id=?",
+    String(agent.id),
+  );
+  s.run("UPDATE story_preference_categories SET enabled=1 WHERE id='platform'");
+  s.run("UPDATE story_preference_options SET enabled=1 WHERE value='discuss'");
+  s.run("DELETE FROM schema_migrations WHERE version=9");
+  const upgraded = new Store(s.root);
+  try {
+    const changed = upgraded.one(
+      "SELECT * FROM agents WHERE id=?",
+      String(agent.id),
+    )!;
+    assert.ok(String(changed.instructions).startsWith("保留原作结局"));
+    assert.match(String(changed.instructions), /汇总基本制作信息并请用户确认/);
+    assert.equal(changed.config_version, 4);
+    assert.ok(
+      listStoryPreferences(upgraded).every(
+        (category) =>
+          category.id !== "platform" &&
+          category.options.every((option) => option.value !== "discuss"),
+      ),
+    );
+    assert.equal(
+      upgraded.one("SELECT content FROM messages WHERE id=?", chat.messageId)
+        ?.content,
+      original,
+    );
+    const restarted = new Store(s.root);
+    try {
+      assert.deepEqual(
+        restarted.one("SELECT * FROM agents WHERE id=?", String(agent.id)),
+        changed,
+      );
+    } finally {
+      restarted.close();
+    }
+  } finally {
+    upgraded.close();
+  }
 });

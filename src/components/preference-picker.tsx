@@ -33,7 +33,7 @@ export function PreferencePicker({
                         ...value,
                         {
                           category: category.id,
-                          option: category.options[0].value,
+                          option: "",
                           detail: "",
                         },
                       ]
