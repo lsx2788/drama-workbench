@@ -6,6 +6,9 @@ import { unitProgress } from "@/client/production-map";
 import { ProductionFlow } from "./production-flow";
 import { WorkflowGraph } from "./workflow-graph";
 import { Badge, Dialog, Panel } from "./ui";
+import { EpisodeContent } from "./episode-content";
+import { StoryKnowledge } from "./story-knowledge";
+import { PromptDialog } from "./prompt-dialog";
 export function FlowView({
   w,
   onSelectNode,
@@ -15,6 +18,7 @@ export function FlowView({
 }) {
   const [unitId, setUnitId] = useState(""),
     [seasonId, setSeasonId] = useState("");
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null),
     previousUnit = useRef(unitId);
   useEffect(() => {
@@ -72,11 +76,20 @@ export function FlowView({
                 : "制作步骤待讨论"}
             </span>
           </div>
-          <WorkflowGraph
-            nodes={unitNodes}
-            dependencies={w.dependencies}
-            selectedId=""
-            onSelect={onSelectNode}
+          {!!unitNodes.length && (
+            <WorkflowGraph
+              nodes={unitNodes}
+              dependencies={w.dependencies}
+              selectedId=""
+              onSelect={onSelectNode}
+            />
+          )}
+          <EpisodeContent
+            key={str(unit, "id")}
+            p={str(w.overview.project, "id")}
+            unitId={str(unit, "id")}
+            w={w}
+            onSelect={enterUnit}
           />
         </>
       ) : workflow ? (
@@ -88,6 +101,7 @@ export function FlowView({
           onOpen={(target) => {
             if (target.kind === "node") onSelectNode(target.id);
             else if (target.kind === "unit") enterUnit(target.id);
+            else if (target.kind === "knowledge") setKnowledgeOpen(true);
             else setSeasonId(target.id);
           }}
         />
@@ -124,6 +138,11 @@ export function FlowView({
             )}
           </Panel>
         </Dialog>
+      )}
+      {knowledgeOpen && (
+        <PromptDialog title="故事资料" onClose={() => setKnowledgeOpen(false)}>
+          <StoryKnowledge w={w} p={str(w.overview.project, "id")} />
+        </PromptDialog>
       )}
     </>
   );

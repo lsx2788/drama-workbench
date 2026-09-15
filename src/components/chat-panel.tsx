@@ -135,7 +135,9 @@ export function ChatPanel({
             <article key={str(m, "id")} className={`message ${m.sender_type}`}>
               <div className="message-meta">
                 <strong>
-                  {m.sender_type === "human" ? "你" : str(m, "agent_name")}
+                  {m.sender_type === "human"
+                    ? "你"
+                    : str(m, "sender_name") || str(m, "agent_name")}
                 </strong>
                 <small>{date(m.created_at)}</small>
               </div>

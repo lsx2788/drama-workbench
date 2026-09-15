@@ -15,6 +15,8 @@ import { StorySource } from "./story-source";
 import { Folder, ArrowLeft, ChevronRight } from "lucide-react";
 import { libraryCategories } from "@/client/library-categories";
 import { AgentPromptEditor } from "./agent-prompt-settings";
+import { StoryKnowledge } from "./story-knowledge";
+import { PromptDialog } from "./prompt-dialog";
 const attributeLabels: Record<string, string> = {
   age: "年龄",
   gender: "性别",
@@ -131,6 +133,7 @@ export function StoryLibrary({
   const [query, setQuery] = useState(""),
     [category, setCategory] = useState<string | null>(null),
     [selected, setSelected] = useState<StoryRecord | null>(null);
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const records = useMemo(() => storyRecords(w), [w]);
   const matches = records.filter(
     (r) =>
@@ -158,12 +161,27 @@ export function StoryLibrary({
       </div>
       {!category ? (
         <div className="library-directory">
+          <button
+            className="library-folder"
+            onClick={() => setKnowledgeOpen(true)}
+          >
+            <Folder size={23} />
+            <span className="library-folder-copy">
+              <strong>故事资料</strong>
+              <small>原作概况、需求目标、改编框架与关系图</small>
+            </span>
+            <ChevronRight size={15} />
+          </button>
           {["创作资产", "项目记录"].map((group) => (
             <section key={group} aria-label={group}>
               <h3>{group}</h3>
               <div className="library-folders">
                 {libraryCategories
-                  .filter((c) => c.group === group)
+                  .filter(
+                    (c) =>
+                      c.group === group &&
+                      records.some((record) => record.category === c.name),
+                  )
                   .map((c) => (
                     <button
                       key={c.name}
@@ -252,6 +270,11 @@ export function StoryLibrary({
             <Empty>没有匹配的记录。</Empty>
           )}
         </>
+      )}
+      {knowledgeOpen && (
+        <PromptDialog title="故事资料" onClose={() => setKnowledgeOpen(false)}>
+          <StoryKnowledge w={w} p={p} />
+        </PromptDialog>
       )}
       {selected?.type === "prompt" && (
         <AgentPromptEditor

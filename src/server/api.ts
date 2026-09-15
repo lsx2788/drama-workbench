@@ -27,6 +27,7 @@ import {
   reviewVersion,
   lineage,
   getFile,
+  versionInProject,
 } from "./asset-service";
 import {
   createAgent,
@@ -57,6 +58,27 @@ import { storyImage } from "./story-image";
 import { listStories, storyDetail, storyFile } from "./story-service";
 
 import { importStoryRequest } from "./story-import-request";
+import {
+  startPreparation,
+  listPreparationRecords,
+  preparationRecord,
+  savePreparationRecord,
+  reviewPreparation,
+} from "./preparation-service";
+import {
+  createEpisodes,
+  listEpisodes,
+  episodeDetail,
+  reorderEpisodes,
+} from "./episode-service";
+import { readStoryRange } from "./story-range";
+import { delegateWriting, postAgentMessage } from "./writer-collaboration";
+import {
+  knowledge,
+  knowledgeProposal,
+  proposeKnowledge,
+  reviewKnowledge,
+} from "./knowledge-service";
 
 type Creator = (s: Store, p: string, input: unknown) => unknown;
 const creators: Record<string, Creator> = {
@@ -128,6 +150,33 @@ async function route(request: Request, parts: string[]) {
   const [, p, resource, key, action] = parts;
   projectExists(s, p);
   if (method === "GET") {
+    if (resource === "versions" && key && !action) {
+      const version = versionInProject(s, p, key);
+      const asset = assetDetail(s, p, String(version.asset_id));
+      return {
+        assetId: version.asset_id,
+        ...asset.versions.find((row) => row.id === key),
+      };
+    }
+    if (resource === "preparation-records" && !action)
+      return key ? preparationRecord(s, p, key) : listPreparationRecords(s, p);
+    if (resource === "episodes" && !action)
+      return key
+        ? episodeDetail(s, p, key)
+        : listEpisodes(
+            s,
+            p,
+            Object.fromEntries(new URL(request.url).searchParams),
+          );
+    if (resource === "knowledge" && !action)
+      return key ? knowledgeProposal(s, p, key) : knowledge(s, p);
+    if (resource === "stories" && key && action === "range")
+      return readStoryRange(
+        s,
+        p,
+        key,
+        Object.fromEntries(new URL(request.url).searchParams),
+      );
     if (resource === "agents" && key && action === "prompt") {
       const query = z
         .object({ version: z.coerce.number().int().positive().optional() })
@@ -214,6 +263,22 @@ async function route(request: Request, parts: string[]) {
   if (method === "PATCH" && resource === "agents" && key && action === "prompt")
     return updateAgentPrompt(s, p, key, await request.json());
   if (method === "POST") {
+    if (resource === "preparation" && !key)
+      return startPreparation(s, p, await request.json());
+    if (resource === "preparation-records" && !key)
+      return savePreparationRecord(s, p, await request.json());
+    if (resource === "preparation-records" && key && action === "review")
+      return reviewPreparation(s, p, key, await request.json());
+    if (resource === "episodes" && !key)
+      return createEpisodes(s, p, await request.json());
+    if (resource === "writer-delegations" && !key)
+      return delegateWriting(s, p, await request.json());
+    if (resource === "sessions" && key && action === "agent-messages")
+      return postAgentMessage(s, p, key, await request.json());
+    if (resource === "knowledge" && !key)
+      return proposeKnowledge(s, p, await request.json());
+    if (resource === "knowledge" && key && action === "review")
+      return reviewKnowledge(s, p, key, await request.json());
     if (resource === "story-discussions" && !key) {
       const { storyIds, ...input } = z
         .object({ storyIds: z.array(z.uuid()).min(1).max(20) })
@@ -259,6 +324,8 @@ async function route(request: Request, parts: string[]) {
     }
   }
   if (method === "PATCH") {
+    if (resource === "episodes" && key === "order" && !action)
+      return reorderEpisodes(s, p, await request.json());
     if (resource === "archive" && parts.length === 3) {
       const input = z
         .object({ archived: z.boolean() })

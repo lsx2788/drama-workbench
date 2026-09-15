@@ -64,6 +64,33 @@ function insertSection(s: Store, d: z.infer<typeof sectionSchema>): Row {
     now(),
   );
   if (d.seasonId) attachSectionToSeason(s, d.workflowId, key, d.seasonId);
+  if (
+    d.phase === "unit" &&
+    s.one(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='episode_entries'",
+    )
+  ) {
+    const projectId = String(
+      requireRow(
+        s.one("SELECT project_id FROM workflows WHERE id=?", d.workflowId),
+      ).project_id,
+    );
+    const serial = Number(
+      s.one(
+        "SELECT COALESCE(MAX(serial),0)+1 AS n FROM episode_entries WHERE project_id=?",
+        projectId,
+      )?.n,
+    );
+    s.run(
+      "INSERT INTO episode_entries VALUES(?,?,?,?,?,?)",
+      key,
+      projectId,
+      serial,
+      null,
+      "",
+      null,
+    );
+  }
   return {
     ...requireRow(s.one("SELECT * FROM workflow_sections WHERE id=?", key)),
     season_id: d.seasonId ?? null,

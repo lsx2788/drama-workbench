@@ -3,6 +3,7 @@ import { projectExists } from "./common";
 import { searchAssets } from "./asset-service";
 import { overview } from "./project-service";
 import { listStories } from "./story-service";
+import { listPreparationRecords } from "./preparation-service";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
@@ -22,6 +23,13 @@ export function workspace(s: Store, p: string) {
     attachments.set(key, rows);
   }
   return {
+    preparation:
+      s.one("SELECT * FROM preparation_setups WHERE project_id=?", p) ?? null,
+    preparationRecords: listPreparationRecords(s, p),
+    aiRelations: s.all(
+      "SELECT r.* FROM ai_relations r JOIN agents a ON a.id=r.child_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=?",
+      p,
+    ),
     overview: overview(s, p),
     stories: listStories(s, p),
     documents: s.all(
@@ -33,7 +41,7 @@ export function workspace(s: Store, p: string) {
       p,
     ),
     sections: s.all(
-      "SELECT g.*,m.season_id FROM workflow_sections g JOIN workflows w ON w.id=g.workflow_id LEFT JOIN section_seasons m ON m.section_id=g.id WHERE w.project_id=? ORDER BY g.position",
+      "SELECT g.*,m.season_id,CASE WHEN e.serial IS NOT NULL THEN printf('E%04d',e.serial) END AS code,e.summary AS episode_summary FROM workflow_sections g JOIN workflows w ON w.id=g.workflow_id LEFT JOIN section_seasons m ON m.section_id=g.id LEFT JOIN episode_entries e ON e.section_id=g.id WHERE w.project_id=? ORDER BY g.position",
       p,
     ),
     seasons: s.all(
@@ -58,7 +66,7 @@ export function workspace(s: Store, p: string) {
     ),
     messages: s
       .all(
-        "SELECT m.*,a.name AS agent_name,a.node_id,pv.version AS prompt_version FROM messages m LEFT JOIN message_prompt_versions pv ON pv.message_id=m.id JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.created_at",
+        "SELECT m.*,a.name AS agent_name,sender.name AS sender_name,a.node_id,pv.version AS prompt_version FROM messages m LEFT JOIN agents sender ON sender.id=m.sender_id AND m.sender_type='agent' LEFT JOIN message_prompt_versions pv ON pv.message_id=m.id JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.created_at",
         p,
       )
       .map((message): Row & { attachments: Row[] } => {

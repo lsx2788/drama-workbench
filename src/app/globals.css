@@ -1081,45 +1081,6 @@ footer {
   color: var(--green);
   background: #254e4205;
 }
-.story-library-pending {
-  min-height: 140px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 9px;
-  color: var(--muted);
-  font-size: 12px;
-  background: #f1f3ee80;
-  border-radius: 10px;
-  margin: 15px 0;
-}
-.script-library-dialog {
-  width: min(520px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #fcfdf9;
-  color: var(--ink);
-  box-shadow: 0 20px 80px #18271f33;
-}
-.script-library-dialog::backdrop {
-  background: #18271f38;
-  backdrop-filter: blur(3px);
-}
-.script-library-body {
-  padding: 22px;
-}
-.script-library-body h2 {
-  margin: 0;
-  font-size: 17px;
-}
-.script-library-body .story-library-pending {
-  min-height: 220px;
-  background: transparent;
-  margin: 0;
-}
 .story-upload {
   margin: 16px 0;
   border: 1px dashed #c5d3c9;
@@ -2544,12 +2505,7 @@ pre {
 .prompt-tabs {
   flex-wrap: wrap;
 }
-.prompt-library-entry {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
+
 @media (max-width: 480px) {
   .prompt-tabs {
     gap: 6px;
@@ -2647,4 +2603,77 @@ pre {
   display: block;
   margin-top: 3px;
   color: #687970;
+}
+
+.preparation-record-list {
+  display: grid;
+  gap: 8px;
+}
+.preparation-record-list > button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+.preparation-record-list > button > span {
+  font-size: 12px;
+}
+.episode-source {
+  padding: 12px 0;
+  border-bottom: 1px solid #e6ebe8;
+}
+.episode-neighbours {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 16px 0;
+  font-size: 12px;
+}
+.episode-index {
+  margin: 12px 0;
+  font-size: 13px;
+}
+.episode-index > div,
+.knowledge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.knowledge-network {
+  width: 100%;
+  height: auto;
+  min-height: 260px;
+  background: #f8faf8;
+  border-radius: 12px;
+}
+.knowledge-network line {
+  stroke: #a7b9af;
+  stroke-width: 1.5;
+}
+.knowledge-network circle {
+  fill: #edf5ef;
+  stroke: #6b967c;
+  stroke-width: 1.5;
+}
+.knowledge-network rect {
+  fill: #fff;
+  stroke: #d8e3dc;
+}
+.knowledge-network text {
+  text-anchor: middle;
+  font-size: 12px;
+  fill: #324a3c;
+  pointer-events: none;
+}
+.knowledge-network [role="button"] {
+  cursor: pointer;
+}
+.knowledge-network [role="button"]:focus {
+  outline: 2px solid #5a8b6b;
+}
+.story-knowledge .panel {
+  margin-bottom: 16px;
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Settings2, Library } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import { api } from "@/client/api";
 import {
   AGENT_PROMPT_MAX_LENGTH,
@@ -9,7 +9,6 @@ import {
 } from "@/shared/agent-prompt";
 import { PromptDialog } from "./prompt-dialog";
 import { PromptHistoryDialog } from "./prompt-history-dialog";
-import { LibraryPendingDialog } from "./library-pending-dialog";
 import { PromptLayerView, SystemCapabilities } from "./prompt-layer-view";
 
 export function AgentPromptSettings({
@@ -64,7 +63,6 @@ export function AgentPromptEditor({
   );
   const [baseVersion, setBaseVersion] = useState(0);
   const [history, setHistory] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -129,20 +127,11 @@ export function AgentPromptEditor({
             >
               历史版本
             </button>
-            <button
-              type="button"
-              className="prompt-library-entry"
-              aria-haspopup="dialog"
-              disabled={busy}
-              onClick={() => setLibraryOpen(true)}
-            >
-              <Library size={14} aria-hidden="true" /> 提示词库
-            </button>
           </div>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              if (busy || conflict || libraryOpen || history) return;
+              if (busy || conflict || history) return;
               setBusy(true);
               setError("");
               setNotice("");
@@ -364,12 +353,6 @@ export function AgentPromptEditor({
           endpoint={endpoint}
           settings={settings}
           onClose={() => setHistory(false)}
-        />
-      )}
-      {libraryOpen && (
-        <LibraryPendingDialog
-          title="提示词库"
-          onClose={() => setLibraryOpen(false)}
         />
       )}
     </PromptDialog>

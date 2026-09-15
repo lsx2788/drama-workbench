@@ -204,7 +204,10 @@ test("intake catalog excludes retired choices and coordinator confirms basics be
     }),
   );
   const agent = s.one("SELECT * FROM agents");
-  assert.match(String(agent?.instructions), /汇总基本制作信息并请用户确认/);
+  assert.match(
+    String(agent?.instructions),
+    /根据概况与用户已有意向，确认集数、每集时长、选取范围/,
+  );
   assert.match(
     promptSettings(s, p, String(agent?.id)).current.layers!.system.instructions,
     /在关键方向确认前，不开始剧本拆解/,

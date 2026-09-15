@@ -163,11 +163,13 @@ export function WorkflowGraph({
                     <span className="graph-node-footer">
                       {node.graph_kind === "season"
                         ? "季"
-                        : node.graph_kind === "unit"
-                          ? "分集 / 章节"
-                          : node.node_type === "coordinator"
-                            ? "总控协调"
-                            : "制作节点"}
+                        : node.graph_kind === "knowledge"
+                          ? "故事资料"
+                          : node.graph_kind === "unit"
+                            ? "分集 / 章节"
+                            : node.node_type === "coordinator"
+                              ? "总控协调"
+                              : "制作节点"}
                       <span>
                         {node.graph_kind === "unit"
                           ? "进入本集 →"

@@ -5,6 +5,7 @@ import { NodeChats } from "./node-chats";
 import { StorySources } from "./story-source";
 import type { ChatViewProps } from "./view-types";
 import { AgentPromptSettings } from "./agent-prompt-settings";
+import { PreparationRecords } from "./preparation-records";
 export function NodeDetails({
   current,
   ...props
@@ -23,6 +24,19 @@ export function NodeDetails({
   }
   return (
     <div className="node-detail">
+      <PreparationRecords
+        w={w}
+        p={p}
+        kind={
+          current.id === w.preparation?.analysis_node_id
+            ? "overview"
+            : current.id === w.preparation?.writing_node_id
+              ? "framework"
+              : current.node_type === "coordinator"
+                ? "requirements"
+                : "none"
+        }
+      />
       {current.node_type === "coordinator" && (
         <StorySources
           p={p}
@@ -142,10 +156,23 @@ export function NodeDetails({
                 agentId={str(a, "id")}
                 refresh={refresh}
               />
-              <p className="mono">
-                {str(a, "provider")} · {str(a, "model") || "未配置模型"} ·{" "}
-                {str(a, "tools_json")}
-              </p>
+              {(w.aiRelations ?? []).some(
+                (relation) => relation.child_id === a.id,
+              ) && (
+                <p className="muted">
+                  协作上级：
+                  {str(
+                    w.agents.find(
+                      (parent) =>
+                        parent.id ===
+                        (w.aiRelations ?? []).find(
+                          (relation) => relation.child_id === a.id,
+                        )?.parent_id,
+                    ) ?? {},
+                    "name",
+                  )}
+                </p>
+              )}
               <button
                 onClick={() =>
                   create("session", {
@@ -162,55 +189,57 @@ export function NodeDetails({
           <p className="muted">暂无参与 AI。总控确定参与者后，会显示在这里。</p>
         )}
       </Panel>
-      <Panel title="工作事项">
-        {w.items
-          .filter((i) => i.node_id === current.id)
-          .map((i) => (
-            <div className="item" key={str(i, "id")}>
-              <div className="row">
-                <strong>{str(i, "title")}</strong>
-                <Badge value={str(i, "status")} />
-              </div>
-              <p>{str(i, "acceptance") || str(i, "objective")}</p>
-              {i.block_reason ? (
-                <p className="muted">{str(i, "block_reason")}</p>
-              ) : null}
-              <div className="buttons">
-                {i.status === "review" && (
+      {w.items.some((item) => item.node_id === current.id) && (
+        <Panel title="工作事项">
+          {w.items
+            .filter((i) => i.node_id === current.id)
+            .map((i) => (
+              <div className="item" key={str(i, "id")}>
+                <div className="row">
+                  <strong>{str(i, "title")}</strong>
+                  <Badge value={str(i, "status")} />
+                </div>
+                <p>{str(i, "acceptance") || str(i, "objective")}</p>
+                {i.block_reason ? (
+                  <p className="muted">{str(i, "block_reason")}</p>
+                ) : null}
+                <div className="buttons">
+                  {i.status === "review" && (
+                    <button
+                      onClick={() =>
+                        change(
+                          `items/${i.id}`,
+                          {
+                            status: "completed",
+                            reason: "由本地负责人确认交付完成",
+                          },
+                          "PATCH",
+                        )
+                      }
+                    >
+                      确认完成
+                    </button>
+                  )}
                   <button
-                    onClick={() =>
-                      change(
-                        `items/${i.id}`,
-                        {
-                          status: "completed",
-                          reason: "由本地负责人确认交付完成",
-                        },
-                        "PATCH",
-                      )
-                    }
+                    onClick={async () => {
+                      try {
+                        const ctx = await api(
+                          `/projects/${p}/items/${i.id}/context`,
+                        );
+                        window.alert(JSON.stringify(ctx, null, 2));
+                      } catch (e) {
+                        fail(e);
+                      }
+                    }}
                   >
-                    确认完成
+                    查看输入
                   </button>
-                )}
-                <button
-                  onClick={async () => {
-                    try {
-                      const ctx = await api(
-                        `/projects/${p}/items/${i.id}/context`,
-                      );
-                      window.alert(JSON.stringify(ctx, null, 2));
-                    } catch (e) {
-                      fail(e);
-                    }
-                  }}
-                >
-                  查看输入
-                </button>
+                </div>
+                <small className="mono">{str(i, "id")}</small>
               </div>
-              <small className="mono">{str(i, "id")}</small>
-            </div>
-          ))}
-      </Panel>
+            ))}
+        </Panel>
+      )}
     </div>
   );
 }

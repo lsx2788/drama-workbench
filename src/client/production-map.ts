@@ -1,6 +1,9 @@
 import { str, type RecordData, type Workspace } from "./api";
 
-export type FlowTarget = { kind: "node" | "unit" | "season"; id: string };
+export type FlowTarget = {
+  kind: "node" | "unit" | "season" | "knowledge";
+  id: string;
+};
 export function unitProgress(nodes: RecordData[]) {
   const completed = nodes.filter((n) => n.status === "completed").length;
   const status = !nodes.length
@@ -17,7 +20,10 @@ export function unitProgress(nodes: RecordData[]) {
 
 /** Read-only overview projection. Membership arrows are not execution gates. */
 export function productionMap(
-  w: Pick<Workspace, "nodes" | "sections" | "seasons" | "dependencies">,
+  w: Pick<
+    Workspace,
+    "nodes" | "sections" | "seasons" | "dependencies" | "preparation"
+  >,
   workflowId: string,
 ) {
   const sourceNodes = w.nodes.filter((n) => n.workflow_id === workflowId);
@@ -71,7 +77,7 @@ export function productionMap(
     targets.set(key, { kind: "unit", id: unitId });
     nodes.push({
       id: key,
-      name: unit.name,
+      name: unit.code ? `${unit.code} · ${unit.name}` : unit.name,
       status: progress.status,
       graph_kind: "unit",
       summary: progress.total
@@ -132,6 +138,18 @@ export function productionMap(
     }
   }
   const coordinator = sourceNodes.find((n) => n.node_type === "coordinator");
+  if (coordinator && w.preparation?.workflow_id === workflowId) {
+    const key = `knowledge:${workflowId}`;
+    targets.set(key, { kind: "knowledge", id: workflowId });
+    nodes.push({
+      id: key,
+      name: "故事资料",
+      summary: "原作概况 · 人物与知识关系 · 公共资产引用",
+      status: "reference",
+      graph_kind: "knowledge",
+    });
+    link(str(coordinator, "id"), key, "navigation");
+  }
   if (
     coordinator &&
     ![...edges.values()].some((e) => e.node_id === coordinator.id)

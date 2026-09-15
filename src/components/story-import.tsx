@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { FileUp, AlignLeft, Library } from "lucide-react";
+import { FileUp, AlignLeft } from "lucide-react";
 import { api, type RecordData } from "@/client/api";
 import {
   STORY_MAX_BYTES,
@@ -13,7 +13,6 @@ import {
 import { Dialog, Field } from "./ui";
 import { StoryPreferences } from "./story-preferences";
 import { StoryFileUpload } from "./story-file-upload";
-import { ScriptLibraryDialog } from "./script-library-dialog";
 import {
   type PreferenceCategory,
   type StoryPreference,
@@ -33,7 +32,6 @@ export function StoryImport({
   }) => void | Promise<void>;
 }) {
   const [source, setSource] = useState<"text" | "file">("file");
-  const [libraryOpen, setLibraryOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -83,7 +81,7 @@ export function StoryImport({
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          if (busy || libraryOpen) return;
+          if (busy) return;
           setError("");
           setBusy(true);
           try {
@@ -215,14 +213,6 @@ export function StoryImport({
             >
               <AlignLeft size={14} aria-hidden="true" /> 粘贴文本
             </button>
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={libraryOpen}
-              onClick={() => setLibraryOpen(true)}
-            >
-              <Library size={14} aria-hidden="true" /> 剧本库
-            </button>
           </div>
           {source === "text" ? (
             <Field label="故事正文">
@@ -298,9 +288,6 @@ export function StoryImport({
           </button>
         </div>
       </form>
-      {libraryOpen && (
-        <ScriptLibraryDialog onClose={() => setLibraryOpen(false)} />
-      )}
     </Dialog>
   );
 }

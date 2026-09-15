@@ -55,12 +55,29 @@ export function recordConfigLayers(
     "AI",
   );
   const tools = JSON.parse(String(agent.tools_json)) as string[];
+  const profile = s.one(
+    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='node_ai_profiles'",
+  )
+    ? s.one(
+        "SELECT profile_id FROM node_ai_profiles WHERE node_id=?",
+        String(agent.node_id),
+      )?.profile_id
+    : undefined;
+  const policyId = previous?.system.id ?? String(profile ?? agent.node_type);
+  const policyVersion =
+    previous?.system.version ??
+    Number(
+      s.one(
+        "SELECT MAX(version) AS version FROM system_ai_policies WHERE id=?",
+        policyId,
+      )?.version,
+    );
   s.run(
     "INSERT INTO agent_config_layers VALUES(?,?,?,?,?,?,?)",
     agentId,
     Number(agent.config_version),
-    previous?.system.id ?? String(agent.node_type),
-    previous?.system.version ?? 1,
+    policyId,
+    policyVersion,
     JSON.stringify(tools),
     JSON.stringify(selectedSkills(s, agentId)),
     JSON.stringify(previous?.allowedTools ?? tools),

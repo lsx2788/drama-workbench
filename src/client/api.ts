@@ -1,5 +1,8 @@
 export type RecordData = Record<string, unknown>;
 export interface Workspace {
+  preparation?: RecordData | null;
+  preparationRecords?: RecordData[];
+  aiRelations?: RecordData[];
   overview: {
     project: RecordData;
     workflow: RecordData | null;
@@ -61,6 +64,8 @@ export const labels: Record<string, string> = {
   rejected: "已退回",
   proposed: "待确认",
   confirmed: "已确认",
+  changes_requested: "需调整",
+  reference: "共用资料",
   superseded: "已替代",
   coordinator: "总控",
   work: "专业节点",
