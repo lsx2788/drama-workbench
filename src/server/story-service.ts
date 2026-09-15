@@ -20,12 +20,19 @@ import {
 } from "./common";
 import { createProjectWithCoordinator } from "./project-bootstrap";
 import {
+  storyBriefFields,
+  storyBriefSchema,
+  readStoryBrief,
+  saveStoryBrief,
+} from "./story-brief";
+import {
   STORY_EXTENSIONS,
   STORY_MAX_BYTES,
   STORY_MAX_CHARACTERS,
 } from "../shared/story-import";
 
 const base = {
+  ...storyBriefFields,
   title: z.string().trim().max(200).default(""),
   importKey: z.uuid(),
 };
@@ -89,21 +96,25 @@ export function storyDetail(
   key: string,
 ): Row & { download_url: string } {
   projectExists(s, p);
-  return present(
-    requireRow(
-      s.one(
-        `SELECT ${columns} FROM story_sources WHERE project_id=? AND id=?`,
-        p,
-        key,
+  return {
+    ...present(
+      requireRow(
+        s.one(
+          `SELECT ${columns} FROM story_sources WHERE project_id=? AND id=?`,
+          p,
+          key,
+        ),
+        "原始故事",
       ),
-      "原始故事",
     ),
-  );
+    brief: readStoryBrief(s, key),
+  };
 }
 
 /** Save bytes before committing references. A failed import never leaves an empty project. */
 export function importStory(s: Store, input: unknown, projectId?: string) {
   const d = importSchema.parse(input);
+  const brief = storyBriefSchema.parse(d);
   if (projectId) projectExists(s, projectId);
   const extension =
     d.source === "file" ? path.extname(d.name).toLowerCase() : ".txt";
@@ -127,9 +138,11 @@ export function importStory(s: Store, input: unknown, projectId?: string) {
     "未命名故事";
   const name = d.source === "file" ? d.name : `${title}.txt`;
   const sha = digest(bytes);
-  const requestHash = digest(
-    JSON.stringify([projectId ?? null, d.source, title, name, sha]),
-  );
+  const hashParts: unknown[] = [projectId ?? null, d.source, title, name, sha];
+  // Preserve retry keys from imports created before optional preferences existed.
+  if (brief.style !== "discuss" || brief.customStyle || brief.ideas)
+    hashParts.push(brief);
+  const requestHash = digest(JSON.stringify(hashParts));
   const previous = s.one(
     "SELECT * FROM story_sources WHERE import_key=?",
     d.importKey,
@@ -196,6 +209,7 @@ export function importStory(s: Store, input: unknown, projectId?: string) {
         originalName: name,
         sha256: sha,
       });
+      saveStoryBrief(s, key, brief);
       return { project, story: storyDetail(s, p, key) };
     });
   } catch (error) {

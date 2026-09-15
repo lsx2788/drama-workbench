@@ -125,4 +125,12 @@ CREATE TABLE IF NOT EXISTS story_sources (
 );
 CREATE INDEX IF NOT EXISTS stories_project ON story_sources(project_id);
 INSERT OR IGNORE INTO schema_migrations VALUES(5,datetime('now'));
+CREATE TABLE IF NOT EXISTS story_briefs (
+ story_id TEXT PRIMARY KEY REFERENCES story_sources(id), style TEXT NOT NULL,
+ custom_style TEXT NOT NULL, ideas TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS story_discussions (
+ story_id TEXT PRIMARY KEY REFERENCES story_sources(id), message_id TEXT NOT NULL UNIQUE REFERENCES messages(id), created_at TEXT NOT NULL
+);
+INSERT OR IGNORE INTO schema_migrations VALUES(6,datetime('now'));
 `;

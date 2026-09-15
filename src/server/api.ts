@@ -42,6 +42,7 @@ import { workspace } from "./read-service";
 import { createSection, appendUnit } from "./section-service";
 import { createSeason } from "./season-service";
 import { createProjectWithCoordinator } from "./project-bootstrap";
+import { startStoryDiscussion } from "./story-discussion";
 import {
   importStoryRequest,
   listStories,
@@ -173,6 +174,8 @@ async function route(request: Request, parts: string[]) {
     }
   }
   if (method === "POST") {
+    if (resource === "stories" && key && action === "discussion")
+      return startStoryDiscussion(s, p, key, await request.json());
     if (resource === "stories" && !key)
       return importStoryRequest(s, request, p);
     if (resource && creators[resource] && !key)

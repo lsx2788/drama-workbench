@@ -7,6 +7,7 @@ import { FlowView } from "./flow-view";
 import { StoryLibrary } from "./story-library";
 import { CreateForm, type FormKind } from "./create-form";
 import { Empty } from "./ui";
+import type { StoryDiscussion } from "@/shared/story-import";
 export function Workbench() {
   const [projects, setProjects] = useState<RecordData[]>([]),
     [p, setP] = useState(""),
@@ -23,6 +24,9 @@ export function Workbench() {
     defaults?: Record<string, string>;
   } | null>(null);
   const activeProject = useRef(p);
+  const pendingDiscussion = useRef<
+    (StoryDiscussion & { projectId: string }) | null
+  >(null);
   activeProject.current = p;
   const fail = (e: unknown) =>
     setError(e instanceof Error ? e.message : "操作失败");
@@ -38,6 +42,14 @@ export function Workbench() {
     const data = await api<Workspace>(`/projects/${p}/workspace`);
     if (activeProject.current === p) setW(data);
   }, [p]);
+  useEffect(() => {
+    const pending = pendingDiscussion.current;
+    if (!pending || w?.overview.project.id !== pending.projectId) return;
+    pendingDiscussion.current = null;
+    setView("flow");
+    setNodeId(pending.nodeId);
+    setChat({ sessionId: pending.sessionId, quoteId: "" });
+  }, [w]);
   useEffect(() => {
     loadProjects()
       .catch(fail)
@@ -207,17 +219,21 @@ export function Workbench() {
           onClose={() => setForm(null)}
           onSaved={async (result) => {
             const saved = result as RecordData;
+            if (form.kind === "project" || form.kind === "story") {
+              pendingDiscussion.current = {
+                ...(saved.discussion as StoryDiscussion),
+                projectId: form.kind === "project" ? str(saved, "id") : p,
+              };
+            }
             if (form.kind === "project") {
               await loadProjects();
               setP(str(saved, "id"));
               setDirectoryOpen(false);
-              setNotice(
-                "故事已保存。可在总控节点或「故事资产库 → 故事文稿」查看和下载。",
-              );
+              setNotice("故事、风格意向和想法已保存，已准备好总控讨论。");
             } else {
               await refresh();
               if (form.kind === "story")
-                setNotice("故事已保存，可随时查看和下载原文。");
+                setNotice("故事、风格意向和想法已保存，已准备好总控讨论。");
               if (form.kind === "session") {
                 setNodeId(
                   form.defaults?.nodeId ??

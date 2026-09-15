@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, str, type RecordData } from "@/client/api";
+import { storyStyleLabel } from "@/shared/story-import";
 import { Dialog, Panel, date } from "./ui";
 
 export function StorySource({ p, storyId }: { p: string; storyId: string }) {
@@ -28,6 +29,7 @@ export function StorySource({ p, storyId }: { p: string; storyId: string }) {
       </p>
     );
   if (!detail) return <p className="muted">正在读取保存记录…</p>;
+  const brief = detail.brief as RecordData | null;
   return (
     <>
       <p className="muted">
@@ -44,6 +46,17 @@ export function StorySource({ p, storyId }: { p: string; storyId: string }) {
         <dt>文件大小</dt>
         <dd>{Number(detail.size).toLocaleString()} 字节</dd>
       </dl>
+      {brief && (
+        <>
+          <p>
+            风格意向：
+            {storyStyleLabel(str(brief, "style"), str(brief, "customStyle"))}
+          </p>
+          {brief.ideas ? (
+            <p className="pre">我的想法：{str(brief, "ideas")}</p>
+          ) : null}
+        </>
+      )}
     </>
   );
 }

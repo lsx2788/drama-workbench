@@ -51,6 +51,11 @@ export function ChatPanel({
         </p>
         <p>前继会话：{(session?.predecessor_id as string) || "无"}</p>
       </details>
+      {session.node_type === "coordinator" && (
+        <p className="muted" role="status">
+          消息已保存。总控 AI 执行器尚未接入，分析还未开始。
+        </p>
+      )}
       <div className="messages">
         {messages.length ? (
           messages.map((m) => (
@@ -70,6 +75,15 @@ export function ChatPanel({
                 </blockquote>
               ) : null}
               <p className="pre">{str(m, "content")}</p>
+              {m.story_id ? (
+                <a
+                  className="story-download"
+                  href={str(m, "story_download_url")}
+                  download
+                >
+                  故事原文：{str(m, "story_title")}
+                </a>
+              ) : null}
               <div className="message-actions">
                 <button
                   onClick={() => {

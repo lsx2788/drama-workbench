@@ -42,7 +42,7 @@ export function workspace(s: Store, p: string) {
       p,
     ),
     messages: s.all(
-      "SELECT m.*,a.name AS agent_name,a.node_id FROM messages m JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.created_at",
+      "SELECT m.*,a.name AS agent_name,a.node_id,st.id AS story_id,st.title AS story_title,CASE WHEN st.id IS NOT NULL THEN '/api/v1/projects/' || st.project_id || '/stories/' || st.id || '/download' END AS story_download_url FROM messages m JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id LEFT JOIN story_discussions d ON d.message_id=m.id LEFT JOIN story_sources st ON st.id=d.story_id AND st.project_id=w.project_id WHERE w.project_id=? ORDER BY m.created_at",
       p,
     ),
     highlights: s.all(

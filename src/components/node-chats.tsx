@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { str } from "@/client/api";
 import { Panel, Badge, date } from "./ui";
 import { ChatPanel } from "./chat-panel";
@@ -12,6 +13,10 @@ export function NodeChats({
   const agents = w.agents.filter((a) => a.node_id === nodeId);
   const sessions = w.sessions.filter((s) => s.node_id === nodeId);
   const active = sessions.find((s) => s.id === sessionId);
+  const chatPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (sessionId) chatPanel.current?.scrollIntoView({ block: "start" });
+  }, [sessionId]);
   return (
     <Panel
       title={`节点聊天 · ${sessions.length}`}
@@ -68,7 +73,7 @@ export function NodeChats({
         </p>
       )}
       {active && (
-        <div className="node-chat-open">
+        <div className="node-chat-open" ref={chatPanel}>
           <div className="node-chat-toolbar">
             <span>当前聊天</span>
             <button onClick={() => onSelect("")}>收起聊天</button>

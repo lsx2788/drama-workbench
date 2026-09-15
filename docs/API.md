@@ -22,6 +22,10 @@ API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectI
 
 ## 原始故事
 
+导入可附 `style`（`discuss` 默认、`live_action`、`anime_2d`、`animation_3d`、`ink`、`illustration`、`other`）、`customStyle`（选择 other 时必填，最多 300 字符）、`ideas`（可选，最多 5000 字符）。偏好与原始故事分表存储，详情返回 `brief:{style,customStyle,ideas}`；旧故事未填写时返回 null。它们是用户初步意向，不自动成为定稿。
+
+- POST `/api/v1/projects/:p/stories/:id/discussion`：`{agentId?}`，独立于导入的讨论交接。只允许当前流程总控；有多个总控时必须指定。复用唯一空会话，否则建立该故事的讨论会话。保存一条带风格、想法和故事引用的用户消息，返回 `{nodeId,sessionId,messageId,delivery:"stored",execution:"not_configured"}`。同故事重复调用返回同次交接，不重复发消息。失败保留已导入的故事，不读取正文，不调用模型。
+
 - POST `/api/v1/projects/import-story`：创建项目并保存故事。字段 `source=text|file`、`title?`、`importKey`（UUID）；文本方式用 JSON 传 `text`（避免 multipart 文本字段改写换行），文件方式用 multipart 传 `file`。返回 `{project,story}`，新项目只有总控及空会话。
 - POST `/api/v1/projects/:p/stories`：同样的表单字段，将故事追加到已有项目，不覆盖其他来源。返回 `{project,story}`。
 - GET `/api/v1/projects/:p/stories`：来源元信息列表；workspace 的 `stories` 同样不携带完整正文。

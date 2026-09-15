@@ -22,9 +22,10 @@ export function CreateForm(props: CreateFormProps) {
         projectId={props.kind === "story" ? props.projectId : undefined}
         onClose={props.onClose}
         onSaved={(result) =>
-          props.onSaved(
-            props.kind === "project" ? result.project : result.story,
-          )
+          props.onSaved({
+            ...(props.kind === "project" ? result.project : result.story),
+            discussion: result.discussion,
+          })
         }
       />
     );

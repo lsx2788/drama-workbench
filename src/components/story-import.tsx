@@ -6,6 +6,9 @@ import {
   STORY_MAX_BYTES,
   STORY_MAX_CHARACTERS,
   createImportKey,
+  STORY_STYLES,
+  type StoryStyle,
+  type StoryDiscussion,
 } from "@/shared/story-import";
 import { Dialog, Field } from "./ui";
 
@@ -19,12 +22,16 @@ export function StoryImport({
   onSaved: (result: {
     project: RecordData;
     story: RecordData;
+    discussion: StoryDiscussion;
   }) => void | Promise<void>;
 }) {
   const [source, setSource] = useState<"text" | "file">("text");
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [style, setStyle] = useState<StoryStyle>("discuss");
+  const [customStyle, setCustomStyle] = useState("");
+  const [ideas, setIdeas] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
@@ -50,6 +57,8 @@ export function StoryImport({
               if (source === "text" && !text.trim())
                 throw new Error("请粘贴故事正文");
               if (source === "file" && !file) throw new Error("请选择故事文件");
+              if (style === "other" && !customStyle.trim())
+                throw new Error("请填写自定义风格");
               if (
                 file &&
                 source === "file" &&
@@ -59,6 +68,9 @@ export function StoryImport({
               const fingerprint = JSON.stringify([
                 source,
                 title,
+                style,
+                style === "other" ? customStyle : "",
+                ideas,
                 source === "text"
                   ? text
                   : [file?.name, file?.size, file?.lastModified],
@@ -69,6 +81,9 @@ export function StoryImport({
               form.set("source", source);
               form.set("title", title);
               form.set("importKey", attempt.current.key);
+              form.set("style", style);
+              form.set("customStyle", style === "other" ? customStyle : "");
+              form.set("ideas", ideas);
               if (source === "file") form.set("file", file!);
               // FormData normalizes text field line endings. JSON preserves the submitted text.
               const body =
@@ -78,6 +93,9 @@ export function StoryImport({
                       title,
                       text,
                       importKey: attempt.current.key,
+                      style,
+                      customStyle: style === "other" ? customStyle : "",
+                      ideas,
                     })
                   : form;
               saved.current = await api(
@@ -87,10 +105,17 @@ export function StoryImport({
                 { method: "POST", body },
               );
             }
-            await onSaved(saved.current!);
+            const stored = saved.current!;
+            const discussion = await api<StoryDiscussion>(
+              `/projects/${stored.project.id}/stories/${stored.story.id}/discussion`,
+              { method: "POST", body: "{}" },
+            );
+            await onSaved({ ...stored, discussion });
           } catch (err) {
             setError(
-              (saved.current ? "故事已保存，页面刷新失败。请点击重试。 " : "") +
+              (saved.current
+                ? "故事和想法已保存，进入总控聊天未完成。可重试，不会重复导入。 "
+                : "") +
                 (err instanceof Error ? err.message : "保存失败，请重试"),
             );
           } finally {
@@ -163,6 +188,41 @@ export function StoryImport({
               )}
             </Field>
           )}
+          <Field label="想做什么风格？">
+            <select
+              value={style}
+              onChange={(e) => setStyle(e.target.value as StoryStyle)}
+            >
+              {STORY_STYLES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <small className="muted">
+              先表达意向，之后可以和总控一起调整。
+            </small>
+          </Field>
+          {style === "other" && (
+            <Field label="自定义风格">
+              <input
+                value={customStyle}
+                maxLength={300}
+                required
+                onChange={(e) => setCustomStyle(e.target.value)}
+                placeholder="描述你希望的画面风格，也可以举参考作品"
+              />
+            </Field>
+          )}
+          <Field label="我的想法（可选）">
+            <textarea
+              value={ideas}
+              rows={3}
+              maxLength={5000}
+              onChange={(e) => setIdeas(e.target.value)}
+              placeholder="例如：先做第一章，希望节奏紧凑，保留原作结局；也可以写参考作品或其他要求。"
+            />
+          </Field>
         </fieldset>
         {error && (
           <p className="error" role="alert">
@@ -175,12 +235,10 @@ export function StoryImport({
           </button>
           <button className="primary" disabled={busy}>
             {busy
-              ? "正在保存…"
+              ? "正在准备…"
               : saved.current
-                ? "重试进入项目"
-                : projectId
-                  ? "保存故事"
-                  : "保存故事并创建项目"}
+                ? "重试进入总控聊天"
+                : "保存并与总控讨论"}
           </button>
         </div>
       </form>
