@@ -1,69 +1,92 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Clapperboard, FolderOpen, Plus, X } from "lucide-react";
 import { api, str, type Workspace, type RecordData } from "@/client/api";
-import { ProjectTree, type ProjectView } from "./project-tree";
-import { FlowView } from "./flow-view";
-import { StoryLibrary } from "./story-library";
+import {
+  pageTitles,
+  tabReducer,
+  type WorkspacePage as Page,
+  type ProjectView,
+} from "@/client/workspace-tabs";
+import { ProjectTree } from "./project-tree";
+import { WorkspaceTabs } from "./workspace-tabs";
+import { WorkspacePage } from "./workspace-page";
 import { CreateForm, type FormKind } from "./create-form";
 import { Empty } from "./ui";
 import type { StoryDiscussion } from "@/shared/story-import";
+
 export function Workbench() {
-  const [projects, setProjects] = useState<RecordData[]>([]),
-    [p, setP] = useState(""),
-    [w, setW] = useState<Workspace>(),
-    [view, setView] = useState<ProjectView>("flow"),
-    [nodeId, setNodeId] = useState(""),
-    [chat, setChat] = useState({ sessionId: "", quoteId: "" }),
-    [directoryOpen, setDirectoryOpen] = useState(false),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState("");
+  const [projects, setProjects] = useState<RecordData[]>([]);
+  const [selectedProject, setSelectedProject] = useState("");
+  const [workspaces, setWorkspaces] = useState<Record<string, Workspace>>({});
+  const [tabs, dispatch] = useReducer(tabReducer, { pages: [], activeId: "" });
+  const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState<{
     kind: FormKind;
+    projectId: string;
     defaults?: Record<string, string>;
   } | null>(null);
-  const activeProject = useRef(p);
-  const pendingDiscussion = useRef<
-    (StoryDiscussion & { projectId: string }) | null
-  >(null);
-  activeProject.current = p;
-  const fail = (e: unknown) =>
-    setError(e instanceof Error ? e.message : "操作失败");
+  const requests = useRef(new Map<string, Promise<void>>());
+  const active = tabs.pages.find((page) => page.id === tabs.activeId);
+  const p = active?.projectId ?? selectedProject;
+  const project = projects.find((row) => row.id === p);
+  const fail = useCallback(
+    (e: unknown) => setError(e instanceof Error ? e.message : "操作失败"),
+    [],
+  );
+  const open = useCallback((page: Omit<Page, "id">) => {
+    dispatch({ type: "open", page });
+    setSelectedProject(page.projectId);
+    setDirectoryOpen(false);
+    setNotice("");
+  }, []);
+  const navigate = useCallback(
+    (projectId: string, kind: ProjectView) => {
+      open({ projectId, kind, title: pageTitles[kind] });
+    },
+    [open],
+  );
   const loadProjects = useCallback(async () => {
     const rows = await api<RecordData[]>("/projects");
     setProjects(rows);
-    setP((previous) =>
-      rows.some((r) => r.id === previous) ? previous : str(rows[0] ?? {}, "id"),
-    );
+    return rows;
   }, []);
-  const refresh = useCallback(async () => {
-    if (!p) return;
-    const data = await api<Workspace>(`/projects/${p}/workspace`);
-    if (activeProject.current === p) setW(data);
-  }, [p]);
+  const refresh = useCallback((projectId: string) => {
+    const request = api<Workspace>(`/projects/${projectId}/workspace`)
+      .then((data) => {
+        if (requests.current.get(projectId) === request)
+          setWorkspaces((previous) => ({ ...previous, [projectId]: data }));
+      })
+      .finally(() => {
+        if (requests.current.get(projectId) === request)
+          requests.current.delete(projectId);
+      });
+    requests.current.set(projectId, request);
+    return request;
+  }, []);
   useEffect(() => {
-    const pending = pendingDiscussion.current;
-    if (!pending || w?.overview.project.id !== pending.projectId) return;
-    pendingDiscussion.current = null;
-    setView("flow");
-    setNodeId(pending.nodeId);
-    setChat({ sessionId: pending.sessionId, quoteId: "" });
-  }, [w]);
-  useEffect(() => {
+    let current = true;
     loadProjects()
+      .then((rows) => {
+        if (current && rows[0]) navigate(str(rows[0], "id"), "coordinator");
+      })
       .catch(fail)
-      .finally(() => setLoading(false));
-  }, [loadProjects]);
+      .finally(() => {
+        if (current) setLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [loadProjects, navigate, fail]);
   useEffect(() => {
-    setW(undefined);
-    setNodeId("");
-    setChat({ sessionId: "", quoteId: "" });
-    setForm(null);
-    setError("");
-    setView("flow");
-    refresh().catch(fail);
-  }, [refresh]);
+    for (const page of tabs.pages) {
+      if (!workspaces[page.projectId] && !requests.current.has(page.projectId))
+        refresh(page.projectId).catch(fail);
+    }
+  }, [tabs.pages, workspaces, refresh, fail]);
   useEffect(() => {
     if (!directoryOpen) return;
     const dismiss = (e: KeyboardEvent) => {
@@ -72,32 +95,11 @@ export function Workbench() {
     document.addEventListener("keydown", dismiss);
     return () => document.removeEventListener("keydown", dismiss);
   }, [directoryOpen]);
-  const create = (kind: FormKind, defaults?: Record<string, string>) =>
-    setForm({ kind, defaults });
-  const project = projects.find((r) => r.id === p);
-  const chatActions = {
-    sessionId: chat.sessionId,
-    quoteId: chat.quoteId,
-    onSelect: (sessionId: string) => setChat({ sessionId, quoteId: "" }),
-    onClearQuote: () => setChat((c) => ({ ...c, quoteId: "" })),
-    onQuote: (quoteId: string) => {
-      const workflow =
-        w?.overview.workflow ?? w?.workflows.find((f) => f.status === "draft");
-      const coordinator = w?.sessions.find(
-        (s) =>
-          s.node_type === "coordinator" &&
-          w.nodes.some(
-            (n) => n.id === s.node_id && n.workflow_id === workflow?.id,
-          ),
-      );
-      if (!coordinator) {
-        fail(new Error("总控聊天尚未就绪"));
-        return;
-      }
-      setNodeId(str(coordinator, "node_id"));
-      setChat({ sessionId: str(coordinator, "id"), quoteId });
-    },
-  };
+  const create = (
+    kind: FormKind,
+    projectId = p,
+    defaults?: Record<string, string>,
+  ) => setForm({ kind, projectId, defaults });
   return (
     <div className="app-shell">
       {directoryOpen && (
@@ -130,23 +132,19 @@ export function Workbench() {
         <ProjectTree
           projects={projects}
           projectId={p}
-          view={view}
-          onProject={(id) => {
-            setP(id);
-            setView("flow");
-            setNodeId("");
-          }}
-          onNavigate={(next) => {
-            setView(next);
-            setNodeId("");
-            setDirectoryOpen(false);
-          }}
+          view={
+            active?.kind === "assets" || active?.kind === "flow"
+              ? active.kind
+              : "coordinator"
+          }
+          onProject={setSelectedProject}
+          onNavigate={navigate}
         />
         <button className="new-project" onClick={() => create("project")}>
           <Plus size={16} /> 创建项目
         </button>
       </aside>
-      <main>
+      <main className="workspace-main">
         <header className="topbar">
           <button
             className="directory-toggle"
@@ -160,90 +158,99 @@ export function Workbench() {
             <strong>{project ? str(project, "name") : "我的项目"}</strong>
           </div>
         </header>
-        <div className="content">
-          {error && (
-            <div role="alert" className="error-banner">
-              <span>{error}</span>
-              <button onClick={() => setError("")}>关闭</button>
-            </div>
-          )}
-          {notice && (
-            <div className="story-save-notice" role="status">
-              <span>{notice}</span>
-              <button onClick={() => setNotice("")}>关闭</button>
-            </div>
-          )}
+        <WorkspaceTabs
+          pages={tabs.pages}
+          activeId={tabs.activeId}
+          projects={projects}
+          onSelect={(id) => {
+            setNotice("");
+            dispatch({ type: "select", id });
+          }}
+          onClose={(id) => dispatch({ type: "close", id })}
+        />
+        {error && (
+          <div role="alert" className="error-banner workspace-notice">
+            <span>{error}</span>
+            <button onClick={() => setError("")}>关闭</button>
+          </div>
+        )}
+        {notice && (
+          <div className="story-save-notice workspace-notice" role="status">
+            <span>{notice}</span>
+            <button onClick={() => setNotice("")}>关闭</button>
+          </div>
+        )}
+        <div className="workspace-panels">
           {loading ? (
             <Empty>正在读取项目…</Empty>
-          ) : !p ? (
-            <section className="welcome">
+          ) : !projects.length ? (
+            <section className="welcome content">
               <h1>从一个故事开始。</h1>
-              <p>项目里只有制作流程和故事资产库。</p>
+              <p>保存故事，与总控一起确定制作方向。</p>
               <button className="primary" onClick={() => create("project")}>
                 创建第一个项目
               </button>
             </section>
-          ) : !w || w.overview.project.id !== p ? (
-            <Empty>正在读取故事资料…</Empty>
-          ) : view === "flow" ? (
-            <FlowView
-              key={p}
-              {...chatActions}
-              selectedNodeId={nodeId}
-              onSelectNode={(id) => {
-                setNodeId(id);
-                setChat({ sessionId: "", quoteId: "" });
-              }}
-              w={w}
-              p={p}
-              create={create}
-              refresh={refresh}
-              fail={fail}
-            />
-          ) : (
-            <StoryLibrary
-              key={p}
-              w={w}
-              p={p}
-              onImport={() => create("story")}
-            />
-          )}
+          ) : null}
+          {tabs.pages.map((page) => (
+            <section
+              key={page.id}
+              className="workspace-panel content"
+              role="tabpanel"
+              id={`page-${page.id}`}
+              aria-labelledby={`tab-${page.id}`}
+              hidden={page.id !== tabs.activeId}
+            >
+              {workspaces[page.projectId] ? (
+                <WorkspacePage
+                  page={page}
+                  w={workspaces[page.projectId]}
+                  create={(kind, defaults) =>
+                    create(kind, page.projectId, defaults)
+                  }
+                  refresh={() => refresh(page.projectId)}
+                  fail={fail}
+                  open={open}
+                  clearQuote={() =>
+                    dispatch({ type: "clearQuote", id: page.id })
+                  }
+                />
+              ) : (
+                <Empty>正在读取故事资料…</Empty>
+              )}
+            </section>
+          ))}
         </div>
       </main>
       {form && (
         <CreateForm
           kind={form.kind}
           defaults={form.defaults}
-          workspace={w}
-          projectId={p}
+          workspace={workspaces[form.projectId]}
+          projectId={form.projectId}
           onClose={() => setForm(null)}
           onSaved={async (result) => {
             const saved = result as RecordData;
+            const projectId =
+              form.kind === "project" ? str(saved, "id") : form.projectId;
+            if (form.kind === "project") await loadProjects();
+            await refresh(projectId);
             if (form.kind === "project" || form.kind === "story") {
-              pendingDiscussion.current = {
-                ...(saved.discussion as StoryDiscussion),
-                projectId: form.kind === "project" ? str(saved, "id") : p,
-              };
-            }
-            if (form.kind === "project") {
-              await loadProjects();
-              setP(str(saved, "id"));
-              setDirectoryOpen(false);
+              const discussion = saved.discussion as StoryDiscussion;
+              open({
+                projectId,
+                kind: "coordinator",
+                title: "总控聊天",
+                targetId: discussion.sessionId,
+              });
               setNotice("故事已保存，选择和想法已写入总控聊天。");
-            } else {
-              await refresh();
-              if (form.kind === "story")
-                setNotice("故事已保存，选择和想法已写入总控聊天。");
-              if (form.kind === "session") {
-                setNodeId(
-                  form.defaults?.nodeId ??
-                    str(
-                      w?.agents.find((a) => a.id === saved.agent_id) ?? {},
-                      "node_id",
-                    ),
-                );
-                setChat({ sessionId: str(saved, "id"), quoteId: "" });
-              }
+            } else if (form.kind === "session") {
+              open({
+                projectId,
+                kind: "chat",
+                targetId: str(saved, "id"),
+                title: str(saved, "title"),
+              });
             }
             setForm(null);
           }}

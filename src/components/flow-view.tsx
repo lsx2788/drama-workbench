@@ -1,24 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { str } from "@/client/api";
+import { str, type Workspace } from "@/client/api";
 import { unitProgress } from "@/client/production-map";
 import { ProductionFlow } from "./production-flow";
 import { WorkflowGraph } from "./workflow-graph";
-import { NodeDetails } from "./node-details";
-import { ChatPanel } from "./chat-panel";
-import { NodeChats } from "./node-chats";
-import { Badge, Dialog, Empty, Panel } from "./ui";
-import type { ChatViewProps } from "./view-types";
+import { Badge, Dialog, Panel } from "./ui";
 export function FlowView({
-  selectedNodeId,
+  w,
   onSelectNode,
-  ...props
-}: ChatViewProps & {
-  selectedNodeId: string;
+}: {
+  w: Workspace;
   onSelectNode: (id: string) => void;
 }) {
-  const { w } = props;
   const [unitId, setUnitId] = useState(""),
     [seasonId, setSeasonId] = useState("");
   const heading = useRef<HTMLHeadingElement>(null),
@@ -30,17 +24,8 @@ export function FlowView({
     heading.current?.scrollIntoView({ block: "start" });
   }, [unitId]);
   const workflow = w.overview.workflow;
-  const contextIds = workflow
-    ? [workflow.id]
-    : w.workflows.filter((f) => f.status === "draft").map((f) => f.id);
-  const nodes = w.nodes.filter((n) => contextIds.includes(n.workflow_id));
+  const nodes = w.nodes.filter((n) => n.workflow_id === workflow?.id);
   const published = !!workflow && nodes.some((n) => n.node_type === "work");
-  const current = nodes.find((n) => n.id === selectedNodeId);
-  const activeChat =
-    current &&
-    w.sessions.find(
-      (s) => s.id === props.sessionId && s.node_id === current.id,
-    );
   const unit = w.sections.find(
     (s) => s.id === unitId && s.workflow_id === workflow?.id,
   );
@@ -51,8 +36,8 @@ export function FlowView({
   const enterUnit = (id: string) => {
     setUnitId(id);
     setSeasonId("");
-    onSelectNode("");
   };
+  if (!published) return null;
   return (
     <>
       <div className="section-actions">
@@ -71,41 +56,12 @@ export function FlowView({
           </p>
         </div>
       </div>
-      {!published ? (
-        <div className="intake-discussion">
-          <div className="intake-discussion-intro">
-            <h3>先与总控确认制作方向</h3>
-            <p>讨论完成并确认方案后，制作流程图会显示在这里。</p>
-          </div>
-          {nodes
-            .filter((n) => n.node_type === "coordinator")
-            .map((n) => (
-              <div key={str(n, "id")}>
-                <NodeChats
-                  {...props}
-                  nodeId={str(n, "id")}
-                  sessionId=""
-                  onSelect={(sessionId) => {
-                    onSelectNode(str(n, "id"));
-                    props.onSelect(sessionId);
-                  }}
-                />
-                <button
-                  className="intake-project-details"
-                  onClick={() => onSelectNode(str(n, "id"))}
-                >
-                  查看故事与项目资料
-                </button>
-              </div>
-            ))}
-        </div>
-      ) : unit ? (
+      {unit ? (
         <>
           <div className="unit-navigation">
             <button
               onClick={() => {
                 setUnitId("");
-                onSelectNode("");
               }}
             >
               <ArrowLeft size={16} /> 返回总流程
@@ -119,7 +75,7 @@ export function FlowView({
           <WorkflowGraph
             nodes={unitNodes}
             dependencies={w.dependencies}
-            selectedId={selectedNodeId}
+            selectedId=""
             onSelect={onSelectNode}
           />
         </>
@@ -128,17 +84,15 @@ export function FlowView({
           key={str(workflow, "id")}
           w={w}
           workflowId={str(workflow, "id")}
-          selectedId={selectedNodeId}
+          selectedId=""
           onOpen={(target) => {
             if (target.kind === "node") onSelectNode(target.id);
             else if (target.kind === "unit") enterUnit(target.id);
             else setSeasonId(target.id);
           }}
         />
-      ) : (
-        <Empty>暂无制作流程。总控根据讨论结果生成后，将展示在这里。</Empty>
-      )}
-      {season && !current && (
+      ) : null}
+      {season && (
         <Dialog title={str(season, "name")} onClose={() => setSeasonId("")}>
           <Panel title="本季内容">
             {season.description ? (
@@ -169,29 +123,6 @@ export function FlowView({
               </p>
             )}
           </Panel>
-        </Dialog>
-      )}
-      {current && (
-        <Dialog
-          title={
-            activeChat ? str(activeChat, "agent_name") : str(current, "name")
-          }
-          onClose={() => onSelectNode("")}
-        >
-          {activeChat ? (
-            <div className="focused-chat">
-              <div className="focused-chat-toolbar">
-                <button onClick={() => props.onSelect("")}>查看节点资料</button>
-              </div>
-              <ChatPanel
-                key={str(activeChat, "id")}
-                {...props}
-                session={activeChat}
-              />
-            </div>
-          ) : (
-            <NodeDetails current={current} {...props} />
-          )}
         </Dialog>
       )}
     </>
