@@ -22,6 +22,8 @@ import {
   migrateCoordinatorReading,
 } from "../src/server/coordinator-reading";
 import { createNode } from "../src/server/project-service";
+import { migrateCoordinatorFormat } from "../src/server/coordinator-format";
+import { STRUCTURED_COORDINATOR_INSTRUCTIONS } from "../src/server/coordinator-instructions";
 
 function setup(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-prompt-"));
@@ -43,7 +45,7 @@ function project(s: Store, name = "提示词验收") {
     nodeId: String(w.nodes[0].id),
   };
 }
-test("reading policy upgrade preserves custom text, old message versions and child AI, and runs only once", (t) => {
+test("coordinator policy upgrades preserve custom text, old message versions and child AI, and run only once", (t) => {
   const s = setup(t),
     a = project(s);
   const custom = "保留用户原作结局。先与我确认范围。";
@@ -85,9 +87,21 @@ test("reading policy upgrade preserves custom text, old message versions and chi
   assert.equal(promptSettings(s, a.p, String(child.id)).versions.length, 1);
   migrateCoordinatorReading(s);
   assert.deepEqual(promptSettings(s, a.p, a.agentId), updated);
+  s.run("DELETE FROM schema_migrations WHERE version=14");
+  migrateCoordinatorFormat(s);
+  const formatted = promptSettings(s, a.p, a.agentId);
+  assert.equal(
+    formatted.current.instructions,
+    `${STRUCTURED_COORDINATOR_INSTRUCTIONS}\n\n## 八、项目补充要求\n${custom}`,
+  );
+  assert.equal(formatted.current.version, 4);
+  assert.deepEqual(promptVersion(s, a.p, a.agentId, 3), updated.current);
+  assert.equal(promptSettings(s, a.p, String(child.id)).versions.length, 1);
+  migrateCoordinatorFormat(s);
+  assert.deepEqual(promptSettings(s, a.p, a.agentId), formatted);
   // Future user edits remain authoritative; startup must not keep injecting the policy.
   updateAgentPrompt(s, a.p, a.agentId, {
-    expectedVersion: 3,
+    expectedVersion: 4,
     instructions: "用户后续重新调整的规则",
   });
   s.close();
@@ -97,7 +111,7 @@ test("reading policy upgrade preserves custom text, old message versions and chi
       promptSettings(reopened, a.p, a.agentId).current.instructions,
       "用户后续重新调整的规则",
     );
-    assert.equal(promptSettings(reopened, a.p, a.agentId).versions.length, 4);
+    assert.equal(promptSettings(reopened, a.p, a.agentId).versions.length, 5);
     assert.equal(
       messagePrompt(reopened, a.p, String(before.id)).snapshot?.instructions,
       custom,
