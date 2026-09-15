@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Store } from "../src/server/db";
 import { seedGuide } from "../scripts/seed-guide";
-import { guideParts, guideText } from "../scripts/guide-data";
+import { guideParts, guideText, guidePeople } from "../scripts/guide-data";
 import { workspace } from "../src/server/read-service";
 import { listEpisodes, episodeDetail } from "../src/server/episode-service";
 import { readStoryRange } from "../src/server/story-range";
@@ -48,7 +48,7 @@ test("guide replaces only the registered old fixture and presents unchanged epis
     storyFile(s, p, String(w.stories[0].id)).bytes.toString("utf8"),
     guideText,
   );
-  assert.equal(knowledge(s, p).entities.length, 3);
+  assert.equal(knowledge(s, p).entities.length, guidePeople.length);
   const episodes = listEpisodes(s, p);
   assert.equal(episodes.length, 3);
   for (const [index, episode] of episodes.entries()) {
@@ -67,14 +67,17 @@ test("guide replaces only the registered old fixture and presents unchanged epis
       false,
     );
   }
-  assert.equal(
-    w.messages.filter((message) => message.sender_type === "agent").length,
-    1,
-  );
+  assert.ok(w.messages.some((message) => message.sender_type === "agent"));
   assert.ok(
     w.messages
       .filter((message) => message.sender_type === "agent")
-      .every((message) => String(message.content).includes("引导用例预置任务")),
+      .every((message) => String(message.content).includes("预置讨论")),
+  );
+  assert.equal(
+    knowledge(s, p).relations.filter(
+      (relation) => relation.from === "shen_yan" && relation.to === "father",
+    ).length,
+    3,
   );
   assert.deepEqual(s.all("PRAGMA foreign_key_check"), []);
 });

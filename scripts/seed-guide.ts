@@ -18,11 +18,23 @@ import {
   proposeKnowledge,
   reviewKnowledge,
 } from "../src/server/knowledge-service";
-import { delegateWriting } from "../src/server/writer-collaboration";
+import {
+  delegateWriting,
+  postAgentMessage,
+} from "../src/server/writer-collaboration";
 import { audit, id } from "../src/server/common";
-import { guideParts, guideText, guideNotice } from "./guide-data";
+import {
+  guideParts,
+  guideText,
+  guideNotice,
+  guideOverview,
+  guideRequirements,
+  guideFramework,
+  guidePeople,
+  guideRelations,
+} from "./guide-data";
 
-const guideKey = "qinghe-preparation-v1";
+const guideKey = "qinghe-preparation-v2";
 /** Explicit guide refresh, not startup seeding. Earlier guides remain recoverable. */
 export function seedGuide(s: Store) {
   const existing = s.one(
@@ -34,20 +46,20 @@ export function seedGuide(s: Store) {
     source: "text",
     title: "青禾剑录",
     text: guideText,
-    importKey: "bdfb4ccf-1545-4fba-897c-637ac0057e01",
+    importKey: "9b4e8d60-54bb-4b7b-a532-cb19a3d5a7d1",
   });
   const p = String(imported.project.id),
     storyId = String(imported.story.id);
   return s.transaction(() => {
     s.run(
       "UPDATE projects SET description=?,goal=? WHERE id=?",
-      "从故事原文到分集入口的流程引导。预置概况、需求与框架可点击查看；AI 尚未实际运行。",
-      "先看总控讨论，再打开制作流程。人物关系在故事资料中；分集只存原文，集内制作留待讨论。",
+      "青河赈粮失踪，押运人之子与誊录员循两本账和一把旧剑查明粮食去向。虚构故事示例，讨论与成果为预置内容。",
+      "制作三集、每集约两分钟的古装悬疑漫剧，保留从护亲到查证的变化。当前确定到三集原文归位。",
       p,
     );
     const coordinator = String(workspace(s, p).sessions[0].id);
     startStoryDiscussion(s, p, storyId, {
-      ideas: `${guideNotice}\n示例意向：古装悬疑漫剧，3 集，每集约 90 秒，保留青年与中年沈砚两个时间层。`,
+      ideas: `${guideNotice}\n我想做 3 集古装悬疑漫剧，每集约 2 分钟，画风写实一点。保留青年和中年两个时间层，不要把江绾改成只等男主救的人。`,
     });
     const setup = startPreparation(s, p, { coordinatorSessionId: coordinator });
     const w = workspace(s, p);
@@ -70,84 +82,89 @@ export function seedGuide(s: Store) {
       startByte = endByte;
       return source;
     });
+    const discuss = (from: string, to: string, content: string) =>
+      postAgentMessage(s, p, to, {
+        fromSessionId: from,
+        content: `【预置讨论】${content}`,
+      });
+    discuss(
+      coordinator,
+      analyst,
+      "请核对当前短篇的事件顺序、粮食数量和人物动机。特别区分沈恒签字、被扣押和被指潜逃三件事。只说明原作事实与依据，先不决定删改。",
+    );
     const overview = savePreparationRecord(s, p, {
       kind: "overview",
       authorSessionId: analyst,
-      content: {
-        title: "原作概况与已知人物",
-        summary:
-          "沈砚与江绾凭运单、官账和剑鞘收据，追查赈灾粮去向。故事由中年回忆青年经历，核心是查证与信任。",
-        details: `${guideNotice}\n覆盖范围：本项目保存的三段原文节选，不代表已经分析一部长篇小说。\n主要人物：20 岁沈砚、40 岁沈砚（同一人的不同阶段）、江绾。父亲通过线索被提及。\n青禾剑是证物载体，不具有法术。`,
-        sources,
-        unresolved: [
-          "人物外貌、服装和视觉风格尚未设计；不能把文字描述当作定稿画像。",
-        ],
-      },
+      content: { ...guideOverview, sources },
     });
+    discuss(
+      analyst,
+      coordinator,
+      `现有短篇全文已整理为概况 ${overview.id}。三百石分为县仓一百八十石、北山一百二十石；县仓六石湿损另算。江绾并不替沈恒担保，秦穆也先查证再处理。原文没有确定恋爱关系或案件终审结果。`,
+    );
     reviewPreparation(s, p, String(overview.id), {
       coordinatorSessionId: coordinator,
       decision: "confirmed",
-      reason: `${guideNotice} 已列明节选范围与未知信息。`,
+      reason: "概况与三段原文一致；保留数量区别和结案范围，不将猜测写成事实。",
     });
     const requirementMessage = postHumanMessage(s, p, coordinator, {
       content:
-        "【引导用例预置 · 需求确认示例】先制作原文三段内容，共 3 集，每集约 90 秒。保留赈灾粮调查主线和中年回忆，不增添法术或新支线。",
+        "【预置讨论】就做三集、每集两分钟左右。重点是赈粮调查和沈砚逐渐学会查证，不加感情支线。江绾、船户和巡粮使都要发挥原来的作用，结尾不需要另写判刑。",
     });
     const requirements = savePreparationRecord(s, p, {
       kind: "requirements",
       authorSessionId: coordinator,
       basisId: overview.id,
-      content: {
-        title: "制作范围与体量",
-        summary: "3 集古装悬疑漫剧，每集约 90 秒，覆盖现有三段原文。",
-        details: guideNotice,
-        episodeCount: 3,
-        minutesPerEpisode: 1.5,
-        scope: "渡口相遇 → 官账比对 → 谷仓公开证据",
-        constraints: [
-          "保留 20 岁与 40 岁沈砚两个阶段。",
-          "青禾剑不带法术；不增加原文外支线。",
-          "目前只确定框架与原文分配，不写分场、对白或分镜。",
-        ],
-      },
+      content: guideRequirements,
     });
     reviewPreparation(s, p, String(requirements.id), {
       coordinatorSessionId: coordinator,
       decision: "confirmed",
       userMessageId: requirementMessage.message!.id,
-      reason: guideNotice,
+      reason:
+        "已明确集数、时长、写实风格与保留人物；以现有短篇为范围，不外加支线。",
     });
+    discuss(
+      coordinator,
+      writer,
+      `依据需求 ${requirements.id} 设计三集框架。先说明每集的新发现、悬念与删减边界。秦穆的到场和剑鞘收据必须有前文铺垫，先不要写分场或对白。`,
+    );
     const framework = savePreparationRecord(s, p, {
       kind: "framework",
       authorSessionId: writer,
       basisId: requirements.id,
-      content: {
-        title: "三集改编框架",
-        summary:
-          "第一集建立相遇与异常运单；第二集追查账册并质疑父亲身份；第三集用收据完成澄清和开仓。",
-        details: `${guideNotice}\n叙事顺序：中年回忆进入青年线，结尾回到中年。\n取舍：本次保留三段，没有跳章；不另写衙役背景或新的感情支线。\n衔接：运单引向官账，官账引向谷仓，剑鞘收据完成父亲身份的解释。\n体量仍为规划目标，是否需要压缩在后续分集讨论中核对。`,
-        sources,
-        unresolved: ["各集具体场景、节奏、对白与画面尚未讨论。"],
-      },
+      content: { ...guideFramework, sources },
     });
+    discuss(
+      writer,
+      coordinator,
+      `框架 ${framework.id} 将三集分别落在“粮去哪了”“父亲是否涉案”“独立证据如何对上”。第三集较密，建议压缩路程与点数过程，保留孟九报信和秦穆核查；不让巡粮使突然出现。两分钟先作为目标，具体场面确定后再核时。`,
+    );
     const frameworkMessage = postHumanMessage(s, p, coordinator, {
       content:
-        "【引导用例预置 · 框架确认示例】同意这三集框架。由编剧直接建立各集入口，把原始文案放好；先不开展集内制作。",
+        "【预置讨论】这个结构可以。第三集宁可少些追赶，也要让粮食去向讲清楚。先把三集对应原文存好；具体怎么改成每集的内容，下一步再讨论。",
     });
     reviewPreparation(s, p, String(framework.id), {
       coordinatorSessionId: coordinator,
       decision: "confirmed",
       userMessageId: frameworkMessage.message!.id,
-      reason: guideNotice,
+      reason:
+        "三集都有独立问题与承接线索；同意压缩过渡而保留核验。先建立入口与原文引用。",
     });
-    delegateWriting(s, p, {
+    const delegated = delegateWriting(s, p, {
       parentSessionId: writer,
       requestKey: id(),
-      name: "原文范围核对 AI",
-      objective: `【引导用例预置任务】核对三段原文对应范围与前后衔接，只向上级编剧反馈来源位置和疑问，不生成具体剧本。${guideNotice}`,
+      name: "线索与数量核对 AI",
+      objective:
+        "【预置讨论】核对三百石、一百八十石、一百二十石、六石湿损及九十六石加二十四石的对应关系；检查秦穆行程、铜钉和收据的铺垫。将疑问直接反馈给上级编剧，只返回依据与结论，不写剧本。",
       sourceIds: [storyId],
       recordIds: [String(framework.id)],
     });
+    discuss(
+      String(delegated.child_session_id),
+      writer,
+      "数量链闭合：180＋120＝300，96＋24＝120，6 石湿损属于县仓的 180 石。首段口信预告秦穆行程和新铜钉；末段由孟九报信促成提前核仓。第二集抄录只是线索，第三集须保留原始交割联、收据、车夫出仓簿和实物核对。",
+    );
     const episodes = createEpisodes(s, p, {
       writerSessionId: writer,
       frameworkId: framework.id,
@@ -158,88 +175,68 @@ export function seedGuide(s: Store) {
         sources: [sources[index]],
       })),
     });
+    discuss(
+      writer,
+      coordinator,
+      `三集入口已建立：${episodes.episodes.map((episode: { code: string; name: string }) => `${episode.code} ${episode.name}`).join("；")}。原文按原有三部分关联，未改写。数量与线索核对已记录在编剧内部讨论中，下一步需讨论各集具体改编。`,
+    );
     const knowledge = proposeKnowledge(s, p, {
       authorSessionId: analyst,
       payload: {
-        summary: "原文中已知的人物与关系；画像尚未制作。",
-        entities: [
-          {
-            code: "shen_yan",
-            kind: "person",
-            name: "沈砚",
-            role: "主要人物",
-            description:
-              "20 岁是调查赈灾粮的青年；40 岁是重返旧渡的回忆者。是同一人，未来画像须按年龄分开登记。",
-            sources: [sources[0], sources[2]],
-          },
-          {
-            code: "jiang_wan",
-            kind: "person",
-            name: "江绾",
-            role: "共同查证者",
-            description:
-              "掌握账册线索，与沈砚协作。现有原文未确认恋爱关系，也未说明具体外貌。",
-            sources,
-          },
-          {
-            code: "father",
-            kind: "person",
-            name: "沈砚之父",
-            role: "线索人物",
-            description: "通过剑、签名和收据出现；原文结尾确认其参与查验失粮。",
-            sources,
-          },
-        ],
-        relations: [
-          {
-            code: "partners",
-            from: "shen_yan",
-            to: "jiang_wan",
-            label: "协作查证",
-            period: "青年调查期间",
-            sources,
-          },
-          {
-            code: "kinship",
-            from: "shen_yan",
-            to: "father",
-            label: "父子",
-            period: "全篇",
-            sources,
-          },
-        ],
+        summary: "六名人物及父子信任变化、报信与核查关系。",
+        entities: guidePeople.map((person) => ({
+          ...person,
+          kind: "person",
+          sources,
+        })),
+        relations: guideRelations.map((relation) => ({ ...relation, sources })),
       },
     });
     reviewKnowledge(s, p, knowledge.id, {
       coordinatorSessionId: coordinator,
       decision: "confirmed",
-      reason: guideNotice,
+      reason:
+        "人物动机和关系均有当前原文依据；按阶段保留沈砚对父亲的坚信、怀疑与重新信任。",
     });
-    for (const [nodeId, content] of [
-      [
-        setup.coordinator_node_id,
-        "阅读顺序：原作概况 → 制作需求 → 改编框架 → 三个分集入口。点击故事资料查看人物关系。总控只接收成果清单，不搬运整批原文。",
-      ],
-      [
-        setup.analysis_node_id,
-        "这里只给原作事实、阅读范围和未知项，不替用户决定改编取舍。",
-      ],
-      [
-        setup.writing_node_id,
-        `编剧已按示例框架建立 ${episodes.episodes.length} 个入口。每集可查看独立原文片段和相邻集。下级核对任务可在聊天列表查看，尚未实际执行。`,
-      ],
-    ])
+    const nodeNotes = [
+      {
+        nodeId: setup.coordinator_node_id,
+        goal: "保持证据推动情节：不增加恋爱支线，不用拔剑替代核查。三集约两分钟，第三集以说清粮食去向为优先。",
+        objective:
+          "围绕《青禾剑录》的改编方向，与创作者确认体量和取舍，协调原作分析与编剧成果。",
+      },
+      {
+        nodeId: setup.analysis_node_id,
+        goal: "六石湿损属于县仓入粮，不是私仓分流；沈恒经手、签字、被扣押和被诬称潜逃要分别记录。原文未写终审判决。",
+        objective:
+          "梳理赈粮数量、两本账的时间差与人物立场，提供能回查的原文依据。",
+      },
+      {
+        nodeId: setup.writing_node_id,
+        goal: "第一集留下异常运单，第二集留下父亲签名与收据，第三集回收报信和封袋号。可压缩过渡，不删独立证据来源。",
+        objective:
+          "在三集约两分钟的目标下安排悬念与衔接，保留青年/中年回忆结构，完成原文归位。",
+      },
+    ];
+    for (const note of nodeNotes) {
+      s.run(
+        "UPDATE nodes SET objective=? WHERE id=?",
+        note.objective,
+        String(note.nodeId),
+      );
       createHighlight(s, p, {
-        nodeId,
+        nodeId: note.nodeId,
         kind: "goal",
-        content,
-        rationale: guideNotice,
+        status: "confirmed",
+        content: note.goal,
+        rationale: "依据已确认的故事范围、制作目标和三集框架。",
       });
+    }
     updateNodeState(s, p, String(setup.analysis_node_id), "completed");
     updateNodeState(s, p, String(setup.writing_node_id), "completed");
     // Replace the known old fixture only, never projects found by a loose name match.
     for (const old of s.all(
-      "SELECT DISTINCT project_id FROM audit_events WHERE action='demo.seeded' AND target_id='qinghe-v1'",
+      "SELECT DISTINCT project_id FROM audit_events WHERE (action='demo.seeded' AND target_id='qinghe-v1') OR (action='guide.seeded' AND target_id='qinghe-preparation-v1')",
     ))
       archiveProject(s, String(old.project_id), true);
     audit(s, p, "guide.seeded", guideKey, {
