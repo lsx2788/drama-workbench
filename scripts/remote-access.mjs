@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, writeFile, access } from "node:fs/promises";
+import { mkdir, writeFile, readFile, access } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGateway } from "./remote-gateway.mjs";
@@ -71,10 +71,30 @@ if (!(await appReady())) {
     stop();
   }
 }
-const credentials = {
+let credentials = {
   username: "viewer",
   password: randomBytes(15).toString("base64url"),
 };
+// Optional local configuration survives tunnel restarts; never store it in Git.
+try {
+  const configured = JSON.parse(
+    await readFile("data/remote/credentials.json", "utf8"),
+  );
+  if (
+    typeof configured.username !== "string" ||
+    !configured.username ||
+    configured.username.includes(":") ||
+    typeof configured.password !== "string" ||
+    !configured.password
+  )
+    throw new Error("Invalid remote credential configuration");
+  credentials = {
+    username: configured.username,
+    password: configured.password,
+  };
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
 const allowedHosts = new Set(["127.0.0.1:3100"]);
 const gateway = createGateway({
   ...credentials,
