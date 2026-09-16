@@ -26,6 +26,7 @@ export interface Workspace {
   highlights: RecordData[];
   items: RecordData[];
   assets: RecordData[];
+  assetVersions?: RecordData[];
   approvedVersions: RecordData[];
   runs: RecordData[];
   skills: RecordData[];

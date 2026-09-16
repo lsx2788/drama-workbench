@@ -37,10 +37,12 @@ export function AssetRecord({
   record,
   p,
   w,
+  versionId,
 }: {
   record: StoryRecord;
   p: string;
   w: Workspace;
+  versionId?: string;
 }) {
   const [detail, setDetail] = useState<RecordData>();
   const [error, setError] = useState("");
@@ -90,32 +92,34 @@ export function AssetRecord({
       )}
       {!detail && !error && <p className="muted">正在读取文件与版本…</p>}
       {detail &&
-        list(detail.versions).map((v) => (
-          <Panel
-            key={str(v, "id")}
-            title={`版本 ${v.version}`}
-            action={<Badge value={str(v, "status")} />}
-          >
-            <p>{str(v, "notes")}</p>
-            <p className="muted">
-              批准范围：{str(v, "approval_scope") || "尚未批准"}
-            </p>
-            {list(v.sources).length > 0 && (
-              <p>
-                来源：
-                {list(v.sources)
-                  .map((s) => `${s.code} · ${s.name} v${s.version}`)
-                  .join("、")}
+        list(detail.versions)
+          .filter((v) => !versionId || v.id === versionId)
+          .map((v) => (
+            <Panel
+              key={str(v, "id")}
+              title={`版本 ${v.version}`}
+              action={<Badge value={str(v, "status")} />}
+            >
+              <p>{str(v, "notes")}</p>
+              <p className="muted">
+                批准范围：{str(v, "approval_scope") || "尚未批准"}
               </p>
-            )}
-            {list(v.files).map((f) => (
-              <AssetFile key={str(f, "id")} file={f} />
-            ))}
-            {!list(v.files).length && (
-              <p className="muted">仅有需求记录，尚未归档实际文件。</p>
-            )}
-          </Panel>
-        ))}
+              {list(v.sources).length > 0 && (
+                <p>
+                  来源：
+                  {list(v.sources)
+                    .map((s) => `${s.code} · ${s.name} v${s.version}`)
+                    .join("、")}
+                </p>
+              )}
+              {list(v.files).map((f) => (
+                <AssetFile key={str(f, "id")} file={f} />
+              ))}
+              {!list(v.files).length && (
+                <p className="muted">仅有需求记录，尚未归档实际文件。</p>
+              )}
+            </Panel>
+          ))}
     </>
   );
 }

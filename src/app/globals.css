@@ -2215,6 +2215,9 @@ pre {
   flex: 1;
   min-height: 0;
 }
+.coordinator-workspace-grid:not(:has(> .project-reference-panel)) {
+  grid-template-columns: minmax(0, 1fr);
+}
 .coordinator-main {
   display: flex;
   flex-direction: column;
@@ -2326,6 +2329,23 @@ pre {
 .reference-folder summary > span {
   color: var(--muted);
   font-size: 11px;
+}
+.reference-status-group > h3 > span:first-child {
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+.reference-confirmed > h3 > span:first-child {
+  background: #e3f1e8;
+  color: #275f41;
+}
+.reference-discussing > h3 > span:first-child {
+  background: #fff1d8;
+  color: #86611f;
+}
+.reference-discussing .reference-summary {
+  background: #fffcf5;
+  border-color: #ede4d2;
 }
 .reference-summary {
   display: block;

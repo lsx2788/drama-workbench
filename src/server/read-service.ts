@@ -112,6 +112,10 @@ export function workspace(s: Store, p: string) {
       p,
     ),
     assets: searchAssets(s, p),
+    assetVersions: s.all(
+      "SELECT v.id,v.asset_id,v.version,v.status,v.notes FROM asset_versions v JOIN assets a ON a.id=v.asset_id WHERE a.project_id=? ORDER BY v.version DESC",
+      p,
+    ),
     approvedVersions: s.all(
       "SELECT v.id,v.version,a.id AS asset_id,a.code,a.name FROM asset_versions v JOIN assets a ON a.id=v.asset_id WHERE a.project_id=? AND v.status='approved' ORDER BY a.code,v.version DESC",
       p,

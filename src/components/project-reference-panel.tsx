@@ -1,8 +1,13 @@
 "use client";
 import { useState } from "react";
 import { str, type Workspace, type RecordData } from "@/client/api";
-import { storyRecords, type StoryRecord } from "@/client/story-records";
-import { Badge, Empty } from "./ui";
+import {
+  groupProjectReferences,
+  referenceCount,
+  type ReferenceGroup,
+  type ReferenceAsset,
+} from "@/client/project-references";
+import { Badge } from "./ui";
 import { PromptDialog } from "./prompt-dialog";
 import { StoryPreview } from "./story-preview";
 import { PreparationRecordDialog } from "./preparation-records";
@@ -14,118 +19,142 @@ const names: Record<string, string> = {
   requirements: "需求与目标",
   framework: "改编框架",
 };
+function ReferenceSection({
+  group,
+  confirmed,
+  onRecord,
+  onHighlight,
+  onAsset,
+}: {
+  group: ReferenceGroup;
+  confirmed: boolean;
+  onRecord: (id: string) => void;
+  onHighlight: (r: RecordData) => void;
+  onAsset: (a: ReferenceAsset) => void;
+}) {
+  const count = referenceCount(group);
+  if (!count) return null;
+  const categories = [...new Set(group.assets.map((a) => a.record.category))];
+  return (
+    <section
+      className={`reference-status-group ${confirmed ? "reference-confirmed" : "reference-discussing"}`}
+      aria-label={confirmed ? "已确定" : "讨论中"}
+    >
+      <h3>
+        <span>{confirmed ? "已确定" : "讨论中"}</span>
+        <span>{count}</span>
+      </h3>
+      {group.records.map((r) => (
+        <button
+          className="reference-summary"
+          key={str(r, "id")}
+          onClick={() => onRecord(str(r, "id"))}
+        >
+          <span>
+            <strong>{names[str(r, "kind")] ?? str(r, "title")}</strong>
+            <Badge value={str(r, "decision") || "proposed"} />
+          </span>
+          <b>
+            {str(r, "title")} · 第 {String(r.revision)} 版
+          </b>
+          <small>{str(r, "summary")}</small>
+        </button>
+      ))}
+      {group.highlights.length > 0 && (
+        <details className="reference-folder">
+          <summary>
+            讨论重点 <span>{group.highlights.length}</span>
+          </summary>
+          {group.highlights.map((r) => (
+            <button
+              className="reference-summary"
+              key={str(r, "id")}
+              onClick={() => onHighlight(r)}
+            >
+              <span>
+                <strong>{str(r, "content")}</strong>
+                <Badge value={str(r, "status")} />
+              </span>
+            </button>
+          ))}
+        </details>
+      )}
+      {categories.map((category) => (
+        <details className="reference-folder" key={category}>
+          <summary>
+            {category}
+            <span>
+              {
+                group.assets.filter((a) => a.record.category === category)
+                  .length
+              }
+            </span>
+          </summary>
+          {group.assets
+            .filter((a) => a.record.category === category)
+            .map((a) => (
+              <button
+                className="reference-summary"
+                key={str(a.version, "id")}
+                onClick={() => onAsset(a)}
+              >
+                <span>
+                  <strong>{a.record.name}</strong>
+                  <Badge value={str(a.version, "status")} />
+                </span>
+                <b>第 {String(a.version.version)} 版</b>
+                {!!a.version.notes && <small>{str(a.version, "notes")}</small>}
+              </button>
+            ))}
+        </details>
+      ))}
+    </section>
+  );
+}
 
-/** Read existing authoritative records; do not infer facts from chat or parse originals. */
+/** Group persisted facts by review state; never infer confirmation from prose. */
 export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
   const [recordId, setRecordId] = useState<string | null>(null);
-  const [asset, setAsset] = useState<StoryRecord | null>(null);
+  const [asset, setAsset] = useState<ReferenceAsset | null>(null);
   const [highlight, setHighlight] = useState<RecordData | null>(null);
-  const records = w.preparationRecords ?? [];
-  const current = records.filter(
-    (r) => !records.some((next) => next.previous_id === r.id),
-  );
-  const assets = storyRecords(w).filter((r) => r.type === "asset");
-  const categories = [...new Set(assets.map((r) => r.category))];
-  const highlights = w.highlights.filter(
-    (r) => !w.highlights.some((next) => next.supersedes_id === r.id),
-  );
+  const { confirmed, discussing } = groupProjectReferences(w);
+  if (
+    !referenceCount(confirmed) &&
+    !referenceCount(discussing) &&
+    !w.stories.length
+  )
+    return null;
+  const actions = {
+    onRecord: setRecordId,
+    onHighlight: setHighlight,
+    onAsset: setAsset,
+  };
   return (
-    <aside className="project-reference-panel" aria-label="已知信息与资产">
+    <aside className="project-reference-panel" aria-label="已有信息与资产">
       <header>
-        <h2>已知信息与资产</h2>
-        <p>随讨论更新，点击查看详情</p>
+        <h2>已有信息与资产</h2>
+        <p>仅展示已保存内容，按确认状态区分</p>
       </header>
       <div className="project-reference-scroll">
-        <section>
-          <h3>已知信息</h3>
-          {current.length ? (
-            current.map((r) => (
-              <button
-                className="reference-summary"
-                key={str(r, "id")}
-                onClick={() => setRecordId(str(r, "id"))}
-              >
-                <span>
-                  <strong>{names[str(r, "kind")] ?? str(r, "title")}</strong>
-                  <Badge value={str(r, "decision") || "proposed"} />
-                </span>
-                <b>{str(r, "title")}</b>
-                <small>{str(r, "summary") || "查看已保存的内容"}</small>
-              </button>
-            ))
-          ) : (
-            <p className="muted">总控保存的概况、需求和框架会显示在这里。</p>
-          )}
-        </section>
-        {highlights.length > 0 && (
-          <details className="reference-folder">
-            <summary>
-              讨论重点 <span>{highlights.length}</span>
-            </summary>
-            {highlights.map((r) => (
-              <button
-                className="reference-summary"
-                key={str(r, "id")}
-                onClick={() => setHighlight(r)}
-              >
-                <span>
-                  <strong>{str(r, "content")}</strong>
-                  <Badge value={str(r, "status")} />
-                </span>
-              </button>
-            ))}
-          </details>
+        <ReferenceSection group={confirmed} confirmed {...actions} />
+        <ReferenceSection group={discussing} confirmed={false} {...actions} />
+        {w.stories.length > 0 && (
+          <section aria-label="已保存资料">
+            <h3>
+              已保存资料 <span>{w.stories.length}</span>
+            </h3>
+            <div className="reference-sources">
+              {w.stories.map((r) => (
+                <StoryPreview
+                  key={str(r, "id")}
+                  p={p}
+                  storyId={str(r, "id")}
+                  filename={str(r, "original_name") || str(r, "title")}
+                />
+              ))}
+            </div>
+          </section>
         )}
-        <section>
-          <h3>
-            原始资料 <span>{w.stories.length}</span>
-          </h3>
-          <div className="reference-sources">
-            {w.stories.map((r) => (
-              <StoryPreview
-                key={str(r, "id")}
-                p={p}
-                storyId={str(r, "id")}
-                filename={str(r, "original_name") || str(r, "title")}
-              />
-            ))}
-          </div>
-          {!w.stories.length && <p className="muted">暂无原始资料</p>}
-        </section>
-        <section>
-          <h3>
-            故事资产 <span>{assets.length}</span>
-          </h3>
-          {categories.length ? (
-            categories.map((category) => (
-              <details className="reference-folder" key={category}>
-                <summary>
-                  {category}
-                  <span>
-                    {assets.filter((r) => r.category === category).length}
-                  </span>
-                </summary>
-                {assets
-                  .filter((r) => r.category === category)
-                  .map((r) => (
-                    <button
-                      className="reference-summary"
-                      key={r.id}
-                      onClick={() => setAsset(r)}
-                    >
-                      <span>
-                        <strong>{r.name}</strong>
-                        <Badge value={r.status} />
-                      </span>
-                      <small>{r.description || "查看文件与版本"}</small>
-                    </button>
-                  ))}
-              </details>
-            ))
-          ) : (
-            <Empty>人物、场景和图片等资产保存后，会按类别显示。</Empty>
-          )}
-        </section>
       </div>
       {recordId && (
         <PreparationRecordDialog
@@ -136,8 +165,16 @@ export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
         />
       )}
       {asset && (
-        <PromptDialog title={asset.name} onClose={() => setAsset(null)}>
-          <AssetRecord record={asset} p={p} w={w} />
+        <PromptDialog
+          title={`${asset.record.name} · 第 ${asset.version.version} 版`}
+          onClose={() => setAsset(null)}
+        >
+          <AssetRecord
+            record={asset.record}
+            versionId={str(asset.version, "id")}
+            p={p}
+            w={w}
+          />
         </PromptDialog>
       )}
       {highlight && (
