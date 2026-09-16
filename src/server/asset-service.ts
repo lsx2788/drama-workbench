@@ -185,6 +185,7 @@ export function reviewVersion(
   p: string,
   key: string,
   input: unknown,
+  reviewer = "local-user",
 ) {
   const d = reviewSchema.parse(input);
   return s.transaction(() => {
@@ -208,7 +209,7 @@ export function reviewVersion(
       "INSERT INTO reviews VALUES(?,?,?,?,?,?,?)",
       reviewId,
       key,
-      "local-user",
+      reviewer,
       d.decision,
       d.scope,
       d.reason,
@@ -220,7 +221,7 @@ export function reviewVersion(
       d.scope,
       key,
     );
-    audit(s, p, "asset.reviewed", key, d);
+    audit(s, p, "asset.reviewed", key, { ...d, reviewer });
     return versionInProject(s, p, key);
   });
 }

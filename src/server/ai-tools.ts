@@ -16,11 +16,13 @@ import {
   knowledge,
   proposeKnowledge,
   reviewKnowledge,
+  knowledgeProposal,
 } from "./knowledge-service";
 import { searchAssets, assetDetail } from "./asset-service";
 import { delegateWriting, postAgentMessage } from "./writer-collaboration";
 import { sourceInput, imageInput } from "./ai-context";
 import { readDocument } from "./document-reader";
+import { pendingReviews, reviewAsset } from "./result-review";
 import {
   publishGroupMessage,
   groupCandidates,
@@ -35,6 +37,12 @@ import {
 } from "./workflow-outline-service";
 
 const contracts: Record<string, string> = {
+  pending_reviews:
+    "{}: 查询前期成果、知识提议与资产版本的待审核清单，只读。聊天声称通过不会改变清单。",
+  knowledge_proposal:
+    "{id}: 获取知识提议完整内容、来源和当前审核结果，先读取再审核。",
+  review_asset:
+    "{id,decision:approved|rejected,scope,reason}: 仅总控可审核本项目资产版本；id 是版本编号，scope 写适用范围，reason 必须给出依据或具体返工要求。退回后生成新候选版本再审，不能覆盖旧审核。",
   propose_workflow_outline:
     "{title,summary,steps:[{key,name,objective,outputs?:[],dependsOn?:[]}],questions?:[],previousId?}: 总控保存待讨论的制作流程大纲，自动在群里显示预览卡片。steps 用局部 key 关联，允许分支但不允许环，最多40步。不会发布或执行正式流程；修订引用 previousId。",
   workflow_outline: "{id}: 按 ID 查询本项目已保存的流程大纲。",
@@ -54,7 +62,8 @@ const contracts: Record<string, string> = {
   assets: "{code?,kind?,entityKey?,status?,attributes?}: 精确查询资产。",
   asset: "{id}: 获取资产和版本。",
   records: "{}: 前期成果简表。",
-  record: "{id}: 获取具体成果。",
+  record:
+    "{id}: 获取具体成果及真实审核标记、usable 使用资格与不可用原因；只能将 usable=true 的版本用于正式下游。",
   knowledge: "{}: 已审核共用知识及提议。",
   episodes: "{around?,before?,after?,offset?,limit?}: 按编号查相邻集或分页。",
   episode: "{id}: 剧集 ID 或 E0001，获取原文引用。",
@@ -86,6 +95,8 @@ export function toolActions(profile: string) {
     "records",
     "record",
     "knowledge",
+    "knowledge_proposal",
+    "pending_reviews",
     "episodes",
     "episode",
     "group_members",
@@ -98,6 +109,7 @@ export function toolActions(profile: string) {
       "save_record",
       "review_record",
       "review_knowledge",
+      "review_asset",
       "group_member",
       "propose_workflow_outline",
       "workflow_outline",
@@ -195,6 +207,17 @@ export async function executeTool(
   const key = () => z.uuid().parse(d.id);
   let result: unknown;
   switch (call.action) {
+    case "pending_reviews":
+      result = pendingReviews(s, p);
+      break;
+    case "knowledge_proposal":
+      result = knowledgeProposal(s, p, key());
+      break;
+    case "review_asset": {
+      const { id: versionId, ...review } = d;
+      result = reviewAsset(s, p, sessionId, z.uuid().parse(versionId), review);
+      break;
+    }
     case "propose_workflow_outline":
       assert(group && group.id === sessionId, "流程大纲由本群总控制定");
       result = proposeWorkflowOutline(

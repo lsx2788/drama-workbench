@@ -210,13 +210,52 @@ export function preparationRecord(
     ),
     "前期成果",
   );
-  return { ...row, content: JSON.parse(String(row.content_json)) };
+  const eligibility = listPreparationRecords(s, p).find((r) => r.id === key)!;
+  return {
+    ...row,
+    usable: eligibility.usable,
+    use_blocker: eligibility.use_blocker,
+    has_newer_revision: eligibility.has_newer_revision,
+    content: JSON.parse(String(row.content_json)),
+  };
 }
-export function listPreparationRecords(s: Store, p: string) {
-  return s.all(
+export function listPreparationRecords(
+  s: Store,
+  p: string,
+): (Row & {
+  usable: boolean;
+  use_blocker: string;
+  has_newer_revision: boolean;
+})[] {
+  const rows = s.all(
     "SELECT r.id,r.kind,r.revision,r.previous_id,r.basis_id,r.author_session_id,r.created_at,v.decision,json_extract(r.content_json,'$.title') AS title,json_extract(r.content_json,'$.summary') AS summary FROM preparation_records r LEFT JOIN preparation_reviews v ON v.record_id=r.id WHERE r.project_id=? ORDER BY r.created_at,r.id",
     p,
   );
+  const blocker = (row: Row, visited = new Set<string>()): string => {
+    if (row.decision !== "confirmed")
+      return row.decision === "changes_requested"
+        ? "已退回修改"
+        : "尚未审核通过";
+    if (rows.some((next) => next.previous_id === row.id))
+      return "已有新修订，需确认最新版本";
+    if (visited.has(String(row.id))) return "成果依据异常";
+    visited.add(String(row.id));
+    if (row.basis_id) {
+      const basis = rows.find((r) => r.id === row.basis_id);
+      if (!basis || blocker(basis, visited))
+        return "所依据的成果尚不可用，需重新核对确认";
+    }
+    return "";
+  };
+  return rows.map((row) => {
+    const use_blocker = blocker(row);
+    return {
+      ...row,
+      has_newer_revision: rows.some((next) => next.previous_id === row.id),
+      usable: !use_blocker,
+      use_blocker,
+    };
+  });
 }
 export function confirmedRecord(
   s: Store,
@@ -229,6 +268,7 @@ export function confirmedRecord(
     record.kind === kind && record.decision === "confirmed",
     "需要对应类型的已确认成果",
   );
+  assert(record.usable, String(record.use_blocker));
   assert(
     !s.one("SELECT id FROM preparation_records WHERE previous_id=?", key),
     "该成果已有后续修订，请先确认最新版本",

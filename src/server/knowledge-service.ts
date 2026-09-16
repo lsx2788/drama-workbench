@@ -163,6 +163,12 @@ export function reviewKnowledge(
       return receipt();
     }
     if (d.decision === "confirmed") {
+      for (const entity of payload.entities)
+        for (const versionId of entity.assetVersionIds)
+          assert(
+            versionInProject(s, p, versionId).status === "approved",
+            "关联资产尚未审核通过，不能发布为已确认知识；请先审核资产或移除未定稿引用",
+          );
       for (const [table, items] of [
         ["knowledge_entities", payload.entities],
         ["knowledge_relations", payload.relations],

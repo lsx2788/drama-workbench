@@ -59,6 +59,13 @@ function ReferenceSection({
             {str(r, "title")} · 第 {String(r.revision)} 版
           </b>
           <small>{str(r, "summary")}</small>
+          {r.usable === true ? (
+            <small>已审核可用</small>
+          ) : (
+            !!r.use_blocker && (
+              <small>暂不可用于下一步：{str(r, "use_blocker")}</small>
+            )
+          )}
         </button>
       ))}
       {group.highlights.length > 0 && (

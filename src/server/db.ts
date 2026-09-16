@@ -18,6 +18,7 @@ import { migrateGroups } from "./group-migration";
 import { migrateDynamicCollaboration } from "./dynamic-collaboration-migration";
 import { migrateWorkflowOutlines } from "./workflow-outline-service";
 import { migrateProjectTrash } from "./project-trash";
+import { migrateReviewPolicy } from "./review-policy";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -48,6 +49,7 @@ export class Store {
     migrateDynamicCollaboration(this);
     migrateWorkflowOutlines(this);
     migrateProjectTrash(this);
+    migrateReviewPolicy(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];

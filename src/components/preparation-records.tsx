@@ -38,6 +38,7 @@ export function PreparationRecords({
               {kindNames[str(row, "kind")]} · v{String(row.revision)}
             </span>
             <Badge value={str(row, "decision") || "proposed"} />
+            {row.usable === true && <small>已审核可用</small>}
             {records.some((next) => next.previous_id === row.id) && (
               <small>已有后续修订</small>
             )}
@@ -89,6 +90,14 @@ export function PreparationRecordDialog({
       ) : (
         <>
           <Badge value={str(record, "decision") || "proposed"} />
+          <p className="muted">
+            {record.usable === true
+              ? "已审核可用"
+              : `不可作为正式下游依据：${str(record, "use_blocker") || "尚未审核通过"}`}
+          </p>
+          {!!record.reason && (
+            <p className="pre">审核意见：{str(record, "reason")}</p>
+          )}
           <p className="pre">{str(content, "summary")}</p>
           {!!content.scope && (
             <p className="pre">范围：{str(content, "scope")}</p>

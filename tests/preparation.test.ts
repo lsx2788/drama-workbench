@@ -34,7 +34,19 @@ import {
   SOURCE_RANGE_MAX_BYTES,
 } from "../src/server/story-range";
 import { productionMap } from "../src/client/production-map";
-import { promptSettings } from "../src/server/agent-prompt-service";
+import {
+  promptSettings,
+  updateAgentPrompt,
+  messagePrompt,
+} from "../src/server/agent-prompt-service";
+import { migrateReviewPolicy, REVIEW_RULES } from "../src/server/review-policy";
+import { pendingReviews } from "../src/server/result-review";
+import { executeTool } from "../src/server/ai-tools";
+import {
+  createAsset,
+  createVersion,
+  addFile,
+} from "../src/server/asset-service";
 
 function fixture(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-preparation-")),
@@ -137,6 +149,205 @@ function confirmPlan(f: ReturnType<typeof fixture>) {
   });
   return { framework, confirmation, requirements, overview };
 }
+
+test("chat cannot approve a deliverable; rejection and resubmission preserve independent review states", (t) => {
+  const { s, p, coordinator, analyst, source } = fixture(t);
+  const input = {
+    kind: "overview",
+    authorSessionId: analyst,
+    content: { title: "概况", summary: "待核对", sources: [source] },
+  };
+  const old = savePreparationRecord(s, p, input);
+  postHumanMessage(s, p, coordinator, { content: "这个通过了，可以使用" });
+  assert.equal(preparationRecord(s, p, String(old.id)).usable, false);
+  assert.equal(pendingReviews(s, p).counts.records, 1);
+  assert.throws(
+    () =>
+      reviewPreparation(s, p, String(old.id), {
+        coordinatorSessionId: analyst,
+        decision: "confirmed",
+        reason: "自行通过",
+      }),
+    /总控/,
+  );
+  reviewPreparation(s, p, String(old.id), {
+    coordinatorSessionId: coordinator,
+    decision: "changes_requested",
+    reason: "缺少人物来源，请核对原文后重交",
+  });
+  assert.equal(
+    preparationRecord(s, p, String(old.id)).use_blocker,
+    "已退回修改",
+  );
+  const revised = savePreparationRecord(s, p, { ...input, previousId: old.id });
+  assert.equal(revised.usable, false);
+  reviewPreparation(s, p, String(revised.id), {
+    coordinatorSessionId: coordinator,
+    decision: "confirmed",
+    reason: "已核对原文与范围",
+  });
+  assert.equal(preparationRecord(s, p, String(revised.id)).usable, true);
+  assert.equal(
+    preparationRecord(s, p, String(old.id)).decision,
+    "changes_requested",
+  );
+  assert.equal(pendingReviews(s, p).counts.records, 0);
+});
+
+test("a revised upstream result invalidates downstream use without rewriting historical approvals", (t) => {
+  const f = fixture(t),
+    { s, p, coordinator, analyst, writer, source } = f;
+  const { overview, framework, confirmation } = confirmPlan(f);
+  reviewPreparation(s, p, String(framework.id), {
+    coordinatorSessionId: coordinator,
+    decision: "confirmed",
+    userMessageId: confirmation,
+    reason: "确认框架",
+  });
+  assert.equal(preparationRecord(s, p, String(framework.id)).usable, true);
+  savePreparationRecord(s, p, {
+    kind: "overview",
+    authorSessionId: analyst,
+    previousId: overview.id,
+    content: { title: "补充概况", summary: "发现新情节", sources: [source] },
+  });
+  const stale = preparationRecord(s, p, String(framework.id));
+  assert.equal(stale.decision, "confirmed");
+  assert.equal(stale.usable, false);
+  assert.throws(
+    () =>
+      createEpisodes(s, p, {
+        writerSessionId: writer,
+        frameworkId: framework.id,
+        requestKey: randomUUID(),
+        units: [{ name: "第一集", sources: [source] }],
+      }),
+    /依据|不可用|重新/,
+  );
+  assert.equal(listEpisodes(s, p).length, 0);
+});
+
+test("asset approval is coordinator-bound and required before publishing linked knowledge", async (t) => {
+  const { s, p, coordinator, analyst } = fixture(t);
+  const asset = createAsset(s, p, {
+    code: "person20",
+    name: "20岁林川",
+    kind: "character",
+  });
+  const version = createVersion(s, p, String(asset.id), {});
+  addFile(s, p, String(version.id), {
+    name: "portrait.txt",
+    type: "text/plain",
+    bytes: Buffer.from("人物设定：二十岁"),
+  });
+  const proposal = proposeKnowledge(s, p, {
+    authorSessionId: analyst,
+    payload: {
+      summary: "主角画像",
+      entities: [
+        {
+          code: "lin",
+          name: "林川",
+          kind: "person",
+          assetVersionIds: [version.id],
+        },
+      ],
+    },
+  });
+  const review = {
+    coordinatorSessionId: coordinator,
+    decision: "confirmed",
+    reason: "确认人物",
+  };
+  assert.throws(
+    () => reviewKnowledge(s, p, proposal.id, review),
+    /资产尚未审核/,
+  );
+  assert.equal(knowledge(s, p).entities.length, 0);
+  const invoke = (
+    session: string,
+    profile: string,
+    action: string,
+    data: unknown,
+  ) =>
+    executeTool(
+      s,
+      p,
+      session,
+      profile,
+      { action, data: JSON.stringify(data) },
+      async () => {
+        throw new Error("must not call a model");
+      },
+    );
+  const approval = {
+    id: version.id,
+    decision: "approved",
+    scope: "二十岁阶段",
+    reason: "符合当前角色设定",
+  };
+  await assert.rejects(
+    invoke(analyst, "source-analysis", "review_asset", approval),
+    /权限/,
+  );
+  await assert.rejects(
+    invoke(analyst, "coordinator", "review_asset", approval),
+    /总控/,
+  );
+  assert.equal(pendingReviews(s, p).counts.assets, 1);
+  await invoke(coordinator, "coordinator", "review_asset", approval);
+  assert.equal(
+    s.one("SELECT actor FROM reviews WHERE version_id=?", String(version.id))
+      ?.actor,
+    coordinator,
+  );
+  reviewKnowledge(s, p, proposal.id, review);
+  assert.equal(knowledge(s, p).entities.length, 1);
+  const next = createVersion(s, p, String(asset.id), {});
+  assert.equal(next.status, "candidate");
+  await invoke(coordinator, "coordinator", "review_asset", {
+    id: next.id,
+    decision: "rejected",
+    scope: "二十岁阶段",
+    reason: "缺少文件，请补齐后提交新版本",
+  });
+  await assert.rejects(
+    invoke(coordinator, "coordinator", "review_asset", {
+      ...approval,
+      id: next.id,
+    }),
+    /不可重写/,
+  );
+  assert.equal(pendingReviews(s, p).counts.assets, 0);
+});
+
+test("review policy upgrade preserves custom prompts and historical session/message bindings", (t) => {
+  const { s, p, coordinator } = fixture(t);
+  const agentId = String(
+    s.one("SELECT agent_id FROM sessions WHERE id=?", coordinator)!.agent_id,
+  );
+  const before = promptSettings(s, p, agentId);
+  updateAgentPrompt(s, p, agentId, {
+    expectedVersion: before.current.version,
+    instructions: "保留本故事专属风格",
+  });
+  const message = postHumanMessage(s, p, coordinator, {
+    content: "旧消息",
+  }).message!;
+  const snapshot = messagePrompt(s, p, String(message.id));
+  const sessions = s.all("SELECT * FROM sessions ORDER BY id");
+  const prior = promptSettings(s, p, agentId);
+  s.run("DELETE FROM schema_migrations WHERE version=25");
+  migrateReviewPolicy(s);
+  const after = promptSettings(s, p, agentId);
+  assert.equal(after.current.instructions, prior.current.instructions);
+  assert.equal(after.current.version, prior.current.version + 1);
+  assert.ok(after.current.layers!.system.instructions.includes(REVIEW_RULES));
+  assert.deepEqual(messagePrompt(s, p, String(message.id)), snapshot);
+  assert.deepEqual(s.all("SELECT * FROM sessions ORDER BY id"), sessions);
+  migrateReviewPolicy(s);
+  assert.deepEqual(promptSettings(s, p, agentId), after);
+});
 test("preparation confirms separate outputs before writer creates stable, empty episodes with exact source references", (t) => {
   const f = fixture(t),
     { s, p, writer, coordinator, source, text, storyId } = f;

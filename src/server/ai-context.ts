@@ -117,11 +117,11 @@ export function chatContext(
     if (privateContext)
       text += `\n后台传递的任务引用（仅供调用工具）：${privateContext.references_json}`;
     const images = s.all(
-      "SELECT f.id,f.original_name,f.version_id FROM ai_images i JOIN files f ON f.id=i.file_id WHERE i.message_id=?",
+      "SELECT f.id,f.original_name,f.version_id,v.status AS review_status,(v.status='approved') AS usable FROM ai_images i JOIN files f ON f.id=i.file_id JOIN asset_versions v ON v.id=f.version_id WHERE i.message_id=?",
       String(row.id),
     );
     if (images.length)
-      text += `\n已生成候选图片（用 view_asset_image 查看）：${JSON.stringify(images)}`;
+      text += `\n已保存图片及当前审核标记（可查看/返工，只有 usable=1 可作正式输入；聊天不改变标记）：${JSON.stringify(images)}`;
     input.push({ role: ownReply ? "assistant" : "user", content: text });
   }
   return input;
