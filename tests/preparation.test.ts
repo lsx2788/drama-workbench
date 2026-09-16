@@ -53,7 +53,11 @@ function fixture(t: TestContext) {
     p = String(imported.project.id),
     storyId = String(imported.story.id);
   const coordinator = String(workspace(s, p).sessions[0].id);
-  const setup = startPreparation(s, p, { coordinatorSessionId: coordinator });
+  startPreparation(s, p, { coordinatorSessionId: coordinator });
+  const setup = startPreparation(s, p, {
+    coordinatorSessionId: coordinator,
+    profile: "screenwriting",
+  });
   const w = workspace(s, p);
   const analyst = String(
       w.sessions.find((row) => row.node_id === setup.analysis_node_id)!.id,

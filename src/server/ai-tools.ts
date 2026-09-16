@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Store } from "./db";
 import { assert, id, projectExists } from "./common";
 import { sessionInProject } from "./collaboration-service";
-import { listStories } from "./story-service";
+import { listStories, storyDetail } from "./story-service";
 import { readStoryRange } from "./story-range";
 import {
   listPreparationRecords,
@@ -23,7 +23,6 @@ import { sourceInput, imageInput } from "./ai-context";
 import { readDocument } from "./document-reader";
 import {
   publishGroupMessage,
-  addGroupMember,
   groupCandidates,
   setGroupMember,
   groupEnvelope,
@@ -31,9 +30,10 @@ import {
 import type { AiItem } from "./openai-provider";
 
 const contracts: Record<string, string> = {
-  group_members: "{}: 获取本讨论群可用 AI、真实 session ID 和在场/退出状态。",
+  group_members:
+    "{}: 获取可用 AI、真实 session ID 和 available（未参与）/active（在场）/paused（已退出）状态。",
   group_member:
-    "{sessionId,status:active|paused}: 总控邀请 AI 重新加入或结束其本轮参与。保留原会话、历史和外部 ID；退出者不再接受 @ 或新委派。只在当前子任务已返回后操作。",
+    "{sessionId,status:active|paused}: 总控邀请 AI 重新加入或结束其本轮参与。保留原会话、历史和外部 ID；退出者不再接受用户 @，需要时总控可用 ask_child 恢复。只在当前子任务已返回后操作。",
   state: "{}: 项目信息、原作元信息、成果索引及直接上下级会话。",
   history: "{offset?:number,limit?:number}: 本会话历史，从最近消息倒序分页。",
   read_source_range:
@@ -51,9 +51,9 @@ const contracts: Record<string, string> = {
   episodes: "{around?,before?,after?,offset?,limit?}: 按编号查相邻集或分页。",
   episode: "{id}: 剧集 ID 或 E0001，获取原文引用。",
   prepare:
-    "{}: 登记原作分析、编剧 AI 及会话，返回会话 ID；本操作不执行子 AI。随后 ask_child 开始讨论。",
+    "{profile:source-analysis|screenwriting}: 按当前任务仅创建或查找这一种专业 AI，返回 sessionId。不创建其他 AI，也不自动加入群或执行。先 group_members/state 查已有会话，需要谁就 ask_child 邀请谁。",
   ask_child:
-    "{sessionId,content}: 给直接子 AI 发任务并等待其本轮回复。子 AI 可提问，由你解释或向用户询问。不要把整本原文复制给子 AI，用编号。",
+    "{sessionId,content,sourceIds?:[],recordIds?:[],episodeIds?:[]}: 邀请或恢复指定直接子 AI 并等待回复。content 是群里可见的自然语言任务，不写 UUID、哈希、接口名或技术路径；技术引用放对应 ID 数组，由后台单独传递。不要复制原文。调用不会邀请其他 AI。",
   delegate_writer:
     "{name,objective,sourceIds?:[],recordIds?:[],episodeIds?:[]}: 编剧自行建立子任务，返回 child_session_id，随后 ask_child。",
   save_record:
@@ -219,6 +219,14 @@ export async function executeTool(
         .map((message) => ({
           ...message,
           group: groupEnvelope(s, String(message.id)),
+          references: JSON.parse(
+            String(
+              s.one(
+                "SELECT references_json FROM message_context WHERE message_id=?",
+                String(message.id),
+              )?.references_json ?? "{}",
+            ),
+          ),
         }));
       break;
     }
@@ -263,12 +271,10 @@ export async function executeTool(
       result = episodeDetail(s, p, z.string().parse(d.id));
       break;
     case "prepare":
-      startPreparation(s, p, { coordinatorSessionId: sessionId });
-      if (group)
-        for (const member of groupCandidates(s, p, group.id))
-          if (member.membership_status === "active")
-            addGroupMember(s, p, group.id, String(member.id));
-      result = projectState(s, p, sessionId);
+      result = startPreparation(s, p, {
+        ...d,
+        coordinatorSessionId: sessionId,
+      });
       break;
     case "save_record":
       result = savePreparationRecord(s, p, {
@@ -294,7 +300,8 @@ export async function executeTool(
           requestKey: id(),
         },
         group
-          ? (childId, messageId) =>
+          ? (childId, messageId) => {
+              setGroupMember(s, p, group.id, childId, "active", true);
               publishGroupMessage(
                 s,
                 p,
@@ -303,7 +310,8 @@ export async function executeTool(
                 [childId],
                 [],
                 group.triggerId,
-              )
+              );
+            }
           : undefined,
       );
       break;
@@ -331,7 +339,13 @@ export async function executeTool(
     }
     case "ask_child": {
       const q = z
-        .object({ sessionId: z.uuid(), content: z.string().min(1).max(10000) })
+        .object({
+          sessionId: z.uuid(),
+          content: z.string().min(1).max(10000),
+          sourceIds: z.array(z.uuid()).max(30).default([]),
+          recordIds: z.array(z.uuid()).max(30).default([]),
+          episodeIds: z.array(z.uuid()).max(30).default([]),
+        })
         .strict()
         .parse(d);
       const from = sessionInProject(s, p, sessionId),
@@ -345,11 +359,31 @@ export async function executeTool(
         "只能执行直接子 AI",
       );
       const posted = s.transaction(() => {
-        if (group) addGroupMember(s, p, group.id, q.sessionId);
+        q.sourceIds.forEach((key) => storyDetail(s, p, key));
+        q.recordIds.forEach((key) => preparationRecord(s, p, key));
+        q.episodeIds.forEach((key) => episodeDetail(s, p, key));
+        if (group) setGroupMember(s, p, group.id, q.sessionId, "active", true);
         const posted = postAgentMessage(s, p, q.sessionId, {
           fromSessionId: sessionId,
           content: q.content,
         });
+        s.run(
+          "INSERT INTO message_context VALUES(?,?)",
+          String(posted.message!.id),
+          JSON.stringify({
+            sourceIds: q.sourceIds,
+            recordIds: q.recordIds,
+            episodeIds: q.episodeIds,
+          }),
+        );
+        [...new Set(q.sourceIds)].forEach((key, position) =>
+          s.run(
+            "INSERT INTO chat_attachments VALUES(?,?,?)",
+            String(posted.message!.id),
+            key,
+            position,
+          ),
+        );
         if (group)
           publishGroupMessage(
             s,

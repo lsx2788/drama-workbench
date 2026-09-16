@@ -36,6 +36,7 @@ try {
   const child = String(
     groupCandidates(s, p, ss).find((r) => r.name === "原作初步分析 AI")!.id,
   );
+  setGroupMember(s, p, ss, child, "active");
   async function send(
     content: string,
     mentions: string[] = [],

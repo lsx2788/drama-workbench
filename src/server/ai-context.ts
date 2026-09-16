@@ -110,6 +110,12 @@ export function chatContext(
       storyDetail(s, p, key),
     );
     if (refs.length) text += `\n文件引用（尚未读取）：${JSON.stringify(refs)}`;
+    const privateContext = s.one(
+      "SELECT references_json FROM message_context WHERE message_id=?",
+      String(row.id),
+    );
+    if (privateContext)
+      text += `\n后台传递的任务引用（仅供调用工具）：${privateContext.references_json}`;
     const images = s.all(
       "SELECT f.id,f.original_name,f.version_id FROM ai_images i JOIN files f ON f.id=i.file_id WHERE i.message_id=?",
       String(row.id),

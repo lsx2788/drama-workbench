@@ -45,6 +45,7 @@ function fixture(t: TestContext) {
   const reader = groupCandidates(s, p, ss).find(
     (r) => r.name === "原作初步分析 AI",
   )!;
+  setGroupMember(s, p, ss, String(reader.id), "active");
   saveOpenaiConfig(s, {
     apiKey: "group-secret",
     model: "gpt-6-astra",
@@ -220,7 +221,7 @@ test("coordinator-to-child tool discussion is visible under coordinator identity
   );
 });
 
-test("members can leave and rejoin without losing native IDs or history; paused and foreign sessions cannot receive", async (t) => {
+test("members retain native IDs on exit; paused members reject user mentions but coordinator can resume them; foreign sessions are rejected", async (t) => {
   const { s, p, ss, child } = fixture(t);
   s.run(
     "UPDATE sessions SET external_session_id='retained-codex-thread' WHERE id=?",
@@ -267,31 +268,36 @@ test("members can leave and rejoin without losing native IDs or history; paused 
   await executeAiTurn(s, p, String(turn.id), async () => reply("收到"));
   const count = s.one("SELECT count(*) n FROM messages")!.n;
   setGroupMember(s, p, ss, child, "paused");
-  await assert.rejects(() =>
-    executeTool(
-      s,
-      p,
-      ss,
-      "coordinator",
-      {
-        action: "ask_child",
-        data: JSON.stringify({ sessionId: child, content: "不应收到" }),
-      },
-      async () => {
-        assert.fail("must not run");
-      },
-      { id: ss, triggerId: String(turn.message_id) },
-    ),
+  await executeTool(
+    s,
+    p,
+    ss,
+    "coordinator",
+    {
+      action: "ask_child",
+      data: JSON.stringify({
+        sessionId: child,
+        content: "恢复同一会话继续讨论",
+      }),
+    },
+    async (sessionId) => {
+      assert.equal(sessionId, child);
+      return { summary: "已恢复" };
+    },
+    { id: ss, triggerId: String(turn.message_id) },
   );
-  assert.equal(s.one("SELECT count(*) n FROM messages")!.n, count);
+  assert.equal(s.one("SELECT count(*) n FROM messages")!.n, Number(count) + 1);
   const reopened = new Store(s.root);
   try {
     assert.equal(
       groupCandidates(reopened, p, ss).find((r) => r.id === child)!
         .membership_status,
-      "paused",
+      "active",
     );
-    assert.equal(reopened.one("SELECT count(*) n FROM messages")!.n, count);
+    assert.equal(
+      reopened.one("SELECT count(*) n FROM messages")!.n,
+      Number(count) + 1,
+    );
   } finally {
     reopened.close();
   }

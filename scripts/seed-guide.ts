@@ -61,7 +61,11 @@ export function seedGuide(s: Store) {
     startStoryDiscussion(s, p, storyId, {
       ideas: `${guideNotice}\n我想做 3 集古装悬疑漫剧，每集约 2 分钟，画风写实一点。保留青年和中年两个时间层，不要把江绾改成只等男主救的人。`,
     });
-    const setup = startPreparation(s, p, { coordinatorSessionId: coordinator });
+    startPreparation(s, p, { coordinatorSessionId: coordinator });
+    const setup = startPreparation(s, p, {
+      coordinatorSessionId: coordinator,
+      profile: "screenwriting",
+    });
     const w = workspace(s, p);
     const analyst = String(
       w.sessions.find((row) => row.node_id === setup.analysis_node_id)!.id,

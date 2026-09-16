@@ -10,7 +10,9 @@ export const GROUP_POLICY = `
 ## 讨论与静默
 通过 ask_child 发给子 AI 的内容也会作为你的群消息展示；用真实会话 ID，避免重复转发已经 @ 到并回答过的问题。总控收到用户或子 AI 发言后按需要补充；若已有回答充分或仅需旁听，最终仅回复 ${SILENT_REPLY}，不要附加文字、不要为表态而重复答案。此标记仅限总控，本轮会记为静默而不会显示气泡。用户明确需要总控回答、确认或处理阻塞时应正常回答。专业 AI 回答用户 @ 问题也必须遵守原有职责和定稿权限，不擅自确认需求或跨阶段推进。
 ## 会话生命周期
-总控可用 group_members 查询真实会话和参与状态。当前环节完成、不再需要某个 AI 时，在其任务返回后用 group_member 将其设为 paused，保留会话与历史；后续需要继续沟通时将同一会话设为 active，不为重新加入而重建 AI。退出成员不再接收 @ 或新的委派。不要为了旁听而让所有 AI 自动回复。
+总控按实际任务动态选择协作者，不固定拉齐一组 AI。先用 group_members/state 查询已有会话；确实缺少时用 prepare 指定所需 profile，只创建这一个专业 AI。ask_child 会自动邀请或恢复指定子 AI，其他 AI 保持原状。当前环节完成、不再需要某个 AI 时，在其任务返回后用 group_member 将其设为 paused，保留会话与历史；后续需要沟通直接 ask_child 恢复同一个会话，不为重新加入而重建 AI。用户 @ 仅可选择在场成员。不要为了旁听而让所有 AI 自动回复。本规则替代旧的“一次登记原作分析和编剧”规则。
+## 面向用户的讨论内容
+群里所有可见发言使用清晰自然语言，说明任务、依据、结果和待确认问题。不要输出项目/会话/文件 UUID、SHA256、接口名称、工具参数或技术路径。ask_child 的 content 写可读任务；sourceIds、recordIds、episodeIds 单独传引用，后台会交给接收 AI。需要工具时使用后台提供的真实 ID，不能从可见文字猜 ID。面向用户用文件名、人物名、成果名称或集数描述。此规则替代旧模板要求在可见发言中罗列编号的规定。
 `;
 
 export function ensureGroup(s: Store, p: string, groupId: string) {
@@ -18,7 +20,7 @@ export function ensureGroup(s: Store, p: string, groupId: string) {
   assert(root.node_type === "coordinator", "群聊必须挂在总控会话下");
   s.run("INSERT OR IGNORE INTO chat_groups VALUES(?,?,?)", groupId, p, now());
   s.run(
-    "INSERT OR IGNORE INTO group_members(group_id,session_id,joined_at) VALUES(?,?,?)",
+    "INSERT OR IGNORE INTO group_members(group_id,session_id,joined_at,status) VALUES(?,?,?,'active')",
     groupId,
     groupId,
     now(),
@@ -31,7 +33,7 @@ export function groupCandidates(s: Store, p: string, groupId: string) {
   assert(root.node_type === "coordinator", "此会话不是总控群聊");
   return s.all(
     `WITH RECURSIVE tree(id) AS (SELECT ? UNION SELECT r.child_id FROM ai_relations r JOIN tree t ON r.parent_id=t.id)
-    SELECT ss.id,ss.title,ss.status,ss.external_session_id,a.id AS agent_id,a.name,n.node_type,COALESCE(gm.status,'active') AS membership_status FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN tree t ON t.id=a.id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id LEFT JOIN group_members gm ON gm.session_id=ss.id AND gm.group_id=?
+    SELECT ss.id,ss.title,ss.status,ss.external_session_id,a.id AS agent_id,a.name,n.node_type,COALESCE(gm.status,CASE WHEN n.node_type='coordinator' THEN 'active' ELSE 'available' END) AS membership_status FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN tree t ON t.id=a.id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id LEFT JOIN group_members gm ON gm.session_id=ss.id AND gm.group_id=?
     WHERE w.project_id=? AND ss.status='open' AND (ss.id=? OR a.id<>?) ORDER BY a.created_at,ss.created_at`,
     String(root.agent_id),
     groupId,
@@ -54,7 +56,7 @@ export function addGroupMember(
     "被提及的 AI 不在当前讨论中，请先重新加入",
   );
   s.run(
-    "INSERT OR IGNORE INTO group_members(group_id,session_id,joined_at) VALUES(?,?,?)",
+    "INSERT OR IGNORE INTO group_members(group_id,session_id,joined_at,status) VALUES(?,?,?,'active')",
     groupId,
     sessionId,
     now(),

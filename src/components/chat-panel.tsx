@@ -9,7 +9,6 @@ import { AiConnectionSettings } from "./ai-connection-settings";
 import { useAiChat } from "./use-ai-chat";
 import { StoryFileUpload } from "./story-file-upload";
 import { ChatImages } from "./chat-images";
-import { AiExecutionDetails } from "./ai-execution-details";
 import { GroupMembers, MentionPicker } from "./group-chat-controls";
 import { ChatMarkdown } from "./chat-markdown";
 
@@ -27,7 +26,10 @@ function messageAttachments(message: RecordData): RecordData[] {
 }
 
 function messageDisplay(message: RecordData) {
-  let content = str(message, "content");
+  let content =
+    typeof message.display_content === "string"
+      ? message.display_content
+      : str(message, "content");
   for (const attachment of messageAttachments(message)) {
     const sourcePath = str(attachment, "download_url");
     if (sourcePath)
@@ -157,26 +159,7 @@ export function ChatPanel({
           <Badge value={String(session?.status)} />
         </div>
       </div>
-      <details className="session-meta">
-        <summary>会话追溯信息</summary>
-        <p>内部 ID：{session?.id as string}</p>
-        <p>
-          外部 ID：
-          {(session?.external_session_id as string) || "尚未绑定"}
-        </p>
-        <p>前继会话：{(session?.predecessor_id as string) || "无"}</p>
-      </details>
-      <AiExecutionDetails p={p} turns={ai.turns} />
-      {isGroup && (
-        <GroupMembers
-          p={p}
-          groupId={str(session, "id")}
-          members={members}
-          busy={busy}
-          refresh={refresh}
-          fail={fail}
-        />
-      )}
+      {isGroup && <GroupMembers members={members} />}
       {session.node_type === "coordinator" && (
         <p className="muted" role="status">
           {ai.running
@@ -252,7 +235,7 @@ export function ChatPanel({
                     create("highlight", {
                       nodeId: str(m, "node_id"),
                       sourceMessageId: str(m, "id"),
-                      content: str(m, "content"),
+                      content: messageDisplay(m),
                     })
                   }
                 >
@@ -365,7 +348,7 @@ export function ChatPanel({
           />
           {unavailableMention && (
             <p className="error" role="alert">
-              提及的 AI 已退出，请移除提及或在“成员”中重新加入。
+              提及的 AI 已退出，请移除提及，并告诉总控你想继续与它讨论。
             </p>
           )}
           {(attachmentsOpen || files.length > 0) && (

@@ -36,13 +36,21 @@ export function preparationSetup(s: Store, p: string) {
     "前期协作",
   );
 }
-/** Explicit AI-facing setup. Empty sessions are registered, not executed. */
+/** Register only the requested specialty. Membership and execution are separate. */
 export function startPreparation(
   s: Store,
   p: string,
   input: unknown,
 ): Row & { execution: "not_configured" } {
-  const d = z.object({ coordinatorSessionId: z.uuid() }).strict().parse(input);
+  const d = z
+    .object({
+      coordinatorSessionId: z.uuid(),
+      profile: z
+        .enum(["source-analysis", "screenwriting"])
+        .default("source-analysis"),
+    })
+    .strict()
+    .parse(input);
   const coordinator = coordinatorSession(s, p, d.coordinatorSessionId);
   return s.transaction(() => {
     const existing = s.one(
@@ -54,7 +62,6 @@ export function startPreparation(
         existing.coordinator_node_id === coordinator.session.node_id,
         "已在另一总控流程中建立前期协作",
       );
-      return { ...existing, execution: "not_configured" };
     }
     assert(
       s.one("SELECT id FROM story_sources WHERE project_id=?", p),
@@ -68,11 +75,16 @@ export function startPreparation(
         ),
       ).workflow_id,
     );
-    const section = createSection(s, p, {
-      workflowId,
-      name: "改编准备",
-      phase: "preparation",
-    });
+    const section =
+      s.one(
+        "SELECT g.* FROM workflow_sections g WHERE g.workflow_id=? AND g.phase='preparation' ORDER BY g.position LIMIT 1",
+        workflowId,
+      ) ??
+      createSection(s, p, {
+        workflowId,
+        name: "改编准备",
+        phase: "preparation",
+      });
     const make = (
       profile: string,
       name: string,
@@ -105,28 +117,71 @@ export function startPreparation(
       createSession(s, p, { agentId: agent.id, title: `${name}讨论` });
       return node;
     };
-    const analysis = make(
-      "source-analysis",
-      "原作初步分析",
-      "按需了解故事基本信息，说明原文依据与已读范围。",
-      [],
+    if (!existing)
+      s.run(
+        "INSERT INTO preparation_setups VALUES(?,?,?,NULL,NULL)",
+        p,
+        workflowId,
+        String(coordinator.session.node_id),
+      );
+    const column =
+      d.profile === "source-analysis" ? "analysis_node_id" : "writing_node_id";
+    let nodeId = existing?.[column];
+    if (!nodeId) {
+      const node =
+        d.profile === "source-analysis"
+          ? make(
+              d.profile,
+              "原作初步分析",
+              "按需了解故事基本信息，说明原文依据与已读范围。",
+              [],
+            )
+          : make(
+              d.profile,
+              "改编框架与分集",
+              "依据已确认需求提出改编框架，确认后直接建立剧集入口并归位原文。",
+              existing?.analysis_node_id
+                ? [String(existing.analysis_node_id)]
+                : [],
+            );
+      nodeId = node.id;
+      s.run(
+        `UPDATE preparation_setups SET ${column}=? WHERE project_id=?`,
+        String(nodeId),
+        p,
+      );
+      audit(s, p, "preparation.specialist_registered", String(nodeId), {
+        profile: d.profile,
+      });
+    }
+    let ss = s.one(
+      "SELECT ss.* FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN ai_relations r ON r.child_id=a.id WHERE a.node_id=? AND r.parent_id=? AND ss.status='open' ORDER BY ss.rowid DESC LIMIT 1",
+      String(nodeId),
+      String(coordinator.agent.id),
     );
-    const writer = make(
-      "screenwriting",
-      "改编框架与分集",
-      "依据已确认需求提出改编框架，确认后直接建立剧集入口并归位原文。",
-      [String(analysis.id)],
-    );
-    s.run(
-      "INSERT INTO preparation_setups VALUES(?,?,?,?,?)",
-      p,
-      workflowId,
-      String(coordinator.session.node_id),
-      String(analysis.id),
-      String(writer.id),
-    );
-    audit(s, p, "preparation.registered", workflowId, {});
-    return { ...preparationSetup(s, p), execution: "not_configured" };
+    if (!ss) {
+      const agent = requireRow(
+        s.one(
+          "SELECT a.id FROM agents a JOIN ai_relations r ON r.child_id=a.id WHERE a.node_id=? AND r.parent_id=? ORDER BY a.rowid LIMIT 1",
+          String(nodeId),
+          String(coordinator.agent.id),
+        ),
+        "专业 AI",
+      );
+      ss = createSession(s, p, {
+        agentId: agent.id,
+        title:
+          d.profile === "source-analysis"
+            ? "原作初步分析讨论"
+            : "改编框架与分集讨论",
+      });
+    }
+    return {
+      ...preparationSetup(s, p),
+      sessionId: ss.id,
+      profile: d.profile,
+      execution: "not_configured",
+    };
   });
 }
 export const preparationContentSchema = z

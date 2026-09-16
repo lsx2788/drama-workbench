@@ -5,9 +5,11 @@ import { overview } from "./project-service";
 import { listStories } from "./story-service";
 import { listPreparationRecords } from "./preparation-service";
 import { groupEnvelope, groupCandidates } from "./group-service";
+import { messagePresenter } from "./message-presentation";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
+  const presentMessage = messagePresenter(s, p);
   const attachments = new Map<string, Row[]>();
   for (const row of s.all(
     "SELECT d.message_id,st.id,st.title,st.original_name,st.project_id FROM (SELECT message_id,story_id,position FROM story_discussions UNION ALL SELECT message_id,story_id,position FROM chat_attachments) d JOIN story_sources st ON st.id=d.story_id WHERE st.project_id=? ORDER BY d.position",
@@ -85,6 +87,7 @@ export function workspace(s: Store, p: string) {
         const sources = attachments.get(String(message.id)) ?? [];
         return {
           ...message,
+          display_content: presentMessage(message),
           group: groupEnvelope(s, String(message.id)),
           images: s
             .all(
