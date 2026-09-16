@@ -14,6 +14,7 @@ import { migrateAgentConfigLayers } from "./agent-config-migration";
 import { migratePreparation } from "./preparation-migration";
 import { migrateAiRuntime } from "./ai-migration";
 import { migrateCodex } from "./codex-migration";
+import { migrateGroups } from "./group-migration";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -40,6 +41,7 @@ export class Store {
     migratePreparation(this);
     migrateAiRuntime(this);
     migrateCodex(this);
+    migrateGroups(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];

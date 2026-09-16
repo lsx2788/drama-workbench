@@ -10,6 +10,7 @@ import { useAiChat } from "./use-ai-chat";
 import { StoryFileUpload } from "./story-file-upload";
 import { ChatImages } from "./chat-images";
 import { AiExecutionDetails } from "./ai-execution-details";
+import { GroupMembers, MentionPicker } from "./group-chat-controls";
 
 function messageAttachments(message: RecordData): RecordData[] {
   if (Array.isArray(message.attachments)) return message.attachments;
@@ -99,9 +100,30 @@ export function ChatPanel({
   const [files, setFiles] = useState<File[]>([]);
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [fileError, setFileError] = useState("");
+  const [mentions, setMentions] = useState<RecordData[]>([]);
+  const [mentionOpen, setMentionOpen] = useState(false);
   const ai = useAiChat(p, str(session, "id"), refresh, fail);
   const busy = ai.sending || ai.running;
-  const messages = w.messages.filter((m) => m.session_id === session.id);
+  const isGroup = session.node_type === "coordinator";
+  const members = (w.groupCandidates ?? []).filter(
+    (m) => m.group_id === session.id,
+  );
+  const selectedMentions = mentions.filter((m) =>
+    draft.includes(`@${str(m, "name")}`),
+  );
+  const unavailableMention = selectedMentions.some(
+    (m) =>
+      !members.some((r) => r.id === m.id && r.membership_status === "active"),
+  );
+  const messages = w.messages.filter((m) =>
+    isGroup
+      ? (m.group as RecordData | null)?.group_id === session.id ||
+        m.session_id === session.id
+      : m.session_id === session.id ||
+        (
+          ((m.group as RecordData | null)?.recipients as RecordData[]) ?? []
+        ).some((r) => r.session_id === session.id),
+  );
   const quoted = w.messages.find((m) => m.id === quoteId);
   const latest = messages.at(-1);
   const pending =
@@ -115,7 +137,7 @@ export function ChatPanel({
           <small>
             {session?.agent_name as string} ·{" "}
             {session?.node_type === "coordinator"
-              ? "主对话"
+              ? "项目讨论群"
               : "协作讨论 · 只读"}
           </small>
         </div>
@@ -144,6 +166,16 @@ export function ChatPanel({
         <p>前继会话：{(session?.predecessor_id as string) || "无"}</p>
       </details>
       <AiExecutionDetails p={p} turns={ai.turns} />
+      {isGroup && (
+        <GroupMembers
+          p={p}
+          groupId={str(session, "id")}
+          members={members}
+          busy={busy}
+          refresh={refresh}
+          fail={fail}
+        />
+      )}
       {session.node_type === "coordinator" && (
         <p className="muted" role="status">
           {ai.running
@@ -163,8 +195,33 @@ export function ChatPanel({
                     ? "你"
                     : str(m, "sender_name") || str(m, "agent_name")}
                 </strong>
+                {isGroup && (
+                  <span className="group-recipient">
+                    {(
+                      ((m.group as RecordData | null)
+                        ?.recipients as RecordData[]) ?? []
+                    )
+                      .filter((r) => r.mentioned)
+                      .map((r) => `@${r.name}`)
+                      .join(" ") ||
+                      (m.sender_type === "human" ? "发给总控" : "群内回复")}
+                  </span>
+                )}
                 <small>{date(m.created_at)}</small>
               </div>
+              {isGroup && !!(m.group as RecordData | null)?.reply_to_id && (
+                <div className="group-reply-reference">
+                  回复{" "}
+                  {(() => {
+                    const ref = w.messages.find(
+                      (r) => r.id === (m.group as RecordData).reply_to_id,
+                    );
+                    return ref
+                      ? `${ref.sender_type === "human" ? "你" : str(ref, "sender_name") || str(ref, "agent_name")}：${messageDisplay(ref).slice(0, 90)}`
+                      : "此前消息";
+                  })()}
+                </div>
+              )}
               {m.quote_id ? (
                 <blockquote>
                   {messageDisplay(
@@ -228,10 +285,21 @@ export function ChatPanel({
           className="composer"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (await ai.send(draft, files, quoteId)) {
+            if (unavailableMention) return;
+            if (
+              await ai.send(
+                draft,
+                files,
+                quoteId,
+                undefined,
+                selectedMentions.map((m) => str(m, "id")),
+              )
+            ) {
               setDraft("");
               setFiles([]);
               setAttachmentsOpen(false);
+              setMentions([]);
+              setMentionOpen(false);
               onClearQuote();
             }
           }}
@@ -244,13 +312,59 @@ export function ChatPanel({
               </button>
             </div>
           )}
+          {mentionOpen && (
+            <MentionPicker
+              members={members.filter(
+                (m) => m.id !== session.id && m.membership_status === "active",
+              )}
+              onClose={() => setMentionOpen(false)}
+              onSelect={(m) => {
+                setMentions((old) =>
+                  old.some((r) => r.id === m.id) ? old : [...old, m],
+                );
+                setDraft(
+                  (old) => `${old.replace(/@$/, "")}@${str(m, "name")} `,
+                );
+                setMentionOpen(false);
+              }}
+            />
+          )}
+          {mentions.some((m) => draft.includes(`@${str(m, "name")}`)) && (
+            <div className="mention-recipients">
+              <small>同时发给总控与</small>
+              {mentions
+                .filter((m) => draft.includes(`@${str(m, "name")}`))
+                .map((m) => (
+                  <button
+                    type="button"
+                    key={str(m, "id")}
+                    onClick={() => {
+                      setMentions((old) => old.filter((r) => r.id !== m.id));
+                      setDraft((old) =>
+                        old.replaceAll(`@${str(m, "name")}`, ""),
+                      );
+                    }}
+                  >
+                    @{str(m, "name")} ×
+                  </button>
+                ))}
+            </div>
+          )}
           <textarea
             aria-label="给总控的消息"
-            placeholder="和总控说说你的想法…"
+            placeholder="说说你的想法，或 @ 在场 AI；不 @ 默认发给总控…"
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              if (e.target.value.endsWith("@")) setMentionOpen(true);
+            }}
             disabled={ai.sending}
           />
+          {unavailableMention && (
+            <p className="error" role="alert">
+              提及的 AI 已退出，请移除提及或在“成员”中重新加入。
+            </p>
+          )}
           {(attachmentsOpen || files.length > 0) && (
             <div className="chat-attachment-picker">
               <StoryFileUpload
@@ -270,6 +384,13 @@ export function ChatPanel({
             <button
               type="button"
               disabled={busy}
+              onClick={() => setMentionOpen(!mentionOpen)}
+            >
+              ＠ 提及
+            </button>
+            <button
+              type="button"
+              disabled={busy}
               onClick={() => setAttachmentsOpen(!attachmentsOpen)}
             >
               ＋ 文件 / 图片{files.length ? ` · ${files.length}` : ""}
@@ -279,6 +400,7 @@ export function ChatPanel({
               className="primary"
               disabled={
                 busy ||
+                unavailableMention ||
                 !ai.settings?.configured ||
                 (!draft.trim() && !files.length)
               }
@@ -289,7 +411,7 @@ export function ChatPanel({
         </form>
       ) : (
         <div className="read-only">
-          这是子 AI 协作会话。可引用消息，通过总控提出意见。
+          这是子 AI 的会话记录。可在总控讨论群中 @ 此 AI 或引用消息。
         </div>
       )}
     </section>

@@ -67,6 +67,7 @@ export function delegateWriting(
   s: Store,
   p: string,
   input: unknown,
+  onMessage?: (sessionId: string, messageId: string) => void,
 ): Row & { execution: "not_configured" } {
   const d = z
     .object({
@@ -146,10 +147,11 @@ export function delegateWriting(
       JSON.stringify(refs),
       now(),
     );
-    postAgentMessage(s, p, String(ss.id), {
+    const posted = postAgentMessage(s, p, String(ss.id), {
       fromSessionId: d.parentSessionId,
       content: `## 本次任务\n${d.objective}\n\n## 输入引用\n${JSON.stringify(refs)}\n\n## 反馈\n有疑问向上级编剧讨论，汇报成果编号、范围和问题。`,
     });
+    onMessage?.(String(ss.id), String(posted.message!.id));
     audit(s, p, "writer.delegation_registered", key, {
       parentId: parent.agent.id,
       childId: child.id,

@@ -21,9 +21,19 @@ import { searchAssets, assetDetail } from "./asset-service";
 import { delegateWriting, postAgentMessage } from "./writer-collaboration";
 import { sourceInput, imageInput } from "./ai-context";
 import { readDocument } from "./document-reader";
+import {
+  publishGroupMessage,
+  addGroupMember,
+  groupCandidates,
+  setGroupMember,
+  groupEnvelope,
+} from "./group-service";
 import type { AiItem } from "./openai-provider";
 
 const contracts: Record<string, string> = {
+  group_members: "{}: 获取本讨论群可用 AI、真实 session ID 和在场/退出状态。",
+  group_member:
+    "{sessionId,status:active|paused}: 总控邀请 AI 重新加入或结束其本轮参与。保留原会话、历史和外部 ID；退出者不再接受 @ 或新委派。只在当前子任务已返回后操作。",
   state: "{}: 项目信息、原作元信息、成果索引及直接上下级会话。",
   history: "{offset?:number,limit?:number}: 本会话历史，从最近消息倒序分页。",
   read_source_range:
@@ -70,6 +80,7 @@ export function toolActions(profile: string) {
     "knowledge",
     "episodes",
     "episode",
+    "group_members",
   ];
   if (profile === "coordinator")
     return [
@@ -79,6 +90,7 @@ export function toolActions(profile: string) {
       "save_record",
       "review_record",
       "review_knowledge",
+      "group_member",
     ];
   if (profile === "source-analysis")
     return [
@@ -156,6 +168,7 @@ export async function executeTool(
   profile: string,
   input: unknown,
   runChild: ChildRunner,
+  group?: { id: string; triggerId: string },
 ): Promise<{ result: unknown; media?: AiItem }> {
   const call = z
     .object({ action: z.string(), data: z.string().max(100_000) })
@@ -166,6 +179,19 @@ export async function executeTool(
   const key = () => z.uuid().parse(d.id);
   let result: unknown;
   switch (call.action) {
+    case "group_members":
+      assert(group, "当前调用不在群聊执行中");
+      result = groupCandidates(s, p, group.id);
+      break;
+    case "group_member": {
+      assert(group && sessionId === group.id, "只有本群总控可以调整成员");
+      const q = z
+        .object({ sessionId: z.uuid(), status: z.enum(["active", "paused"]) })
+        .strict()
+        .parse(d);
+      result = setGroupMember(s, p, group.id, q.sessionId, q.status, true);
+      break;
+    }
     case "read_document": {
       const { storyId, ...range } = d;
       result = await readDocument(s, p, z.uuid().parse(storyId), range);
@@ -182,12 +208,18 @@ export async function executeTool(
         })
         .strict()
         .parse(d);
-      result = s.all(
-        "SELECT id,sender_type,sender_id,content,created_at FROM messages WHERE session_id=? ORDER BY rowid DESC LIMIT ? OFFSET ?",
-        sessionId,
-        q.limit,
-        q.offset,
-      );
+      result = s
+        .all(
+          "SELECT id,sender_type,sender_id,content,created_at FROM messages m WHERE session_id=? OR EXISTS(SELECT 1 FROM group_deliveries d WHERE d.message_id=m.id AND d.session_id=?) ORDER BY rowid DESC LIMIT ? OFFSET ?",
+          sessionId,
+          sessionId,
+          q.limit,
+          q.offset,
+        )
+        .map((message) => ({
+          ...message,
+          group: groupEnvelope(s, String(message.id)),
+        }));
       break;
     }
     case "view_source":
@@ -232,6 +264,10 @@ export async function executeTool(
       break;
     case "prepare":
       startPreparation(s, p, { coordinatorSessionId: sessionId });
+      if (group)
+        for (const member of groupCandidates(s, p, group.id))
+          if (member.membership_status === "active")
+            addGroupMember(s, p, group.id, String(member.id));
       result = projectState(s, p, sessionId);
       break;
     case "save_record":
@@ -248,13 +284,30 @@ export async function executeTool(
       });
       break;
     }
-    case "delegate_writer":
-      result = delegateWriting(s, p, {
-        ...d,
-        parentSessionId: sessionId,
-        requestKey: id(),
-      });
+    case "delegate_writer": {
+      result = delegateWriting(
+        s,
+        p,
+        {
+          ...d,
+          parentSessionId: sessionId,
+          requestKey: id(),
+        },
+        group
+          ? (childId, messageId) =>
+              publishGroupMessage(
+                s,
+                p,
+                group.id,
+                messageId,
+                [childId],
+                [],
+                group.triggerId,
+              )
+          : undefined,
+      );
       break;
+    }
     case "create_episodes":
       result = createEpisodes(s, p, {
         ...d,
@@ -291,9 +344,23 @@ export async function executeTool(
         ),
         "只能执行直接子 AI",
       );
-      const posted = postAgentMessage(s, p, q.sessionId, {
-        fromSessionId: sessionId,
-        content: q.content,
+      const posted = s.transaction(() => {
+        if (group) addGroupMember(s, p, group.id, q.sessionId);
+        const posted = postAgentMessage(s, p, q.sessionId, {
+          fromSessionId: sessionId,
+          content: q.content,
+        });
+        if (group)
+          publishGroupMessage(
+            s,
+            p,
+            group.id,
+            String(posted.message!.id),
+            [q.sessionId],
+            [q.sessionId],
+            group.triggerId,
+          );
+        return posted;
       });
       result = await runChild(q.sessionId, String(posted.message!.id));
       break;

@@ -6,6 +6,7 @@ import { storyImage } from "./story-image";
 import { getFile } from "./asset-service";
 import { assert } from "./common";
 import type { AiItem } from "./openai-provider";
+import { groupInputLabel } from "./group-service";
 
 export function chatSources(s: Store, messageId: string) {
   return s
@@ -56,14 +57,17 @@ export function chatContext(
   const until = untilMessageId
     ? Number(
         s.one(
-          "SELECT rowid FROM messages WHERE id=? AND session_id=?",
+          "SELECT rowid FROM messages WHERE id=? AND (session_id=? OR EXISTS(SELECT 1 FROM group_deliveries d WHERE d.message_id=messages.id AND d.session_id=?))",
           untilMessageId,
+          sessionId,
           sessionId,
         )?.rowid,
       )
     : null;
+  assert(until === null || Number.isFinite(until), "此消息未投递给当前 AI");
   const rows = s.all(
-    "SELECT * FROM messages WHERE session_id=? AND (? IS NULL OR rowid<=?) AND rowid>COALESCE((SELECT rowid FROM messages WHERE id=?),0) ORDER BY rowid DESC LIMIT 41",
+    "SELECT * FROM messages WHERE (session_id=? OR EXISTS(SELECT 1 FROM group_deliveries d WHERE d.message_id=messages.id AND d.session_id=?)) AND (? IS NULL OR rowid<=?) AND rowid>COALESCE((SELECT rowid FROM messages WHERE id=?),0) ORDER BY rowid DESC LIMIT 41",
+    sessionId,
     sessionId,
     until ?? null,
     until ?? null,
@@ -92,7 +96,7 @@ export function chatContext(
     const ownReply =
       row.sender_type === "agent" && row.sender_id === session.agent_id;
     if (afterMessageId && ownReply) continue;
-    let text = `[消息 ID ${row.id}; ${ownReply ? "本 AI" : row.sender_type === "human" ? "用户" : "上级/协作 AI"}]\n${row.content}`;
+    let text = `[消息 ID ${row.id}; ${ownReply ? "本 AI" : row.sender_type === "human" ? "用户" : "协作 AI"}]${groupInputLabel(s, String(row.id))}\n${row.content}`;
     if (row.quote_id) {
       const quote = s.one(
         "SELECT m.content FROM messages m JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND m.id=?",

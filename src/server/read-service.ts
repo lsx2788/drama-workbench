@@ -4,6 +4,7 @@ import { searchAssets } from "./asset-service";
 import { overview } from "./project-service";
 import { listStories } from "./story-service";
 import { listPreparationRecords } from "./preparation-service";
+import { groupEnvelope, groupCandidates } from "./group-service";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
@@ -23,6 +24,17 @@ export function workspace(s: Store, p: string) {
     attachments.set(key, rows);
   }
   return {
+    groupCandidates: s
+      .all(
+        "SELECT ss.id FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND n.node_type='coordinator'",
+        p,
+      )
+      .flatMap((ss) =>
+        groupCandidates(s, p, String(ss.id)).map((member) => ({
+          ...member,
+          group_id: ss.id,
+        })),
+      ),
     preparation:
       s.one("SELECT * FROM preparation_setups WHERE project_id=?", p) ?? null,
     preparationRecords: listPreparationRecords(s, p),
@@ -66,13 +78,14 @@ export function workspace(s: Store, p: string) {
     ),
     messages: s
       .all(
-        "SELECT m.*,a.name AS agent_name,sender.name AS sender_name,a.node_id,pv.version AS prompt_version FROM messages m LEFT JOIN agents sender ON sender.id=m.sender_id AND m.sender_type='agent' LEFT JOIN message_prompt_versions pv ON pv.message_id=m.id JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.created_at",
+        "SELECT m.*,a.name AS agent_name,sender.name AS sender_name,a.node_id,pv.version AS prompt_version FROM messages m LEFT JOIN agents sender ON sender.id=m.sender_id AND m.sender_type='agent' LEFT JOIN message_prompt_versions pv ON pv.message_id=m.id JOIN sessions ss ON ss.id=m.session_id JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? ORDER BY m.rowid",
         p,
       )
       .map((message): Row & { attachments: Row[] } => {
         const sources = attachments.get(String(message.id)) ?? [];
         return {
           ...message,
+          group: groupEnvelope(s, String(message.id)),
           images: s
             .all(
               "SELECT f.id,f.original_name,f.mime,f.version_id FROM ai_images i JOIN files f ON f.id=i.file_id WHERE i.message_id=?",

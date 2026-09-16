@@ -72,11 +72,13 @@ export function useAiChat(
     files: File[],
     quoteId: string,
     messageId?: string,
+    mentionSessionIds: string[] = [],
   ) {
     const signature = JSON.stringify([
       content,
       quoteId,
       messageId,
+      mentionSessionIds,
       files.map((f) => [f.name, f.size, f.lastModified]),
     ]);
     if (request.current?.signature !== signature)
@@ -108,6 +110,7 @@ export function useAiChat(
                 requestKey: request.current.key,
                 content,
                 storyIds,
+                mentionSessionIds,
                 ...(quoteId ? { quoteId } : {}),
               },
         ),

@@ -62,6 +62,7 @@ import {
   requireOpenaiConfig,
 } from "./openai-config";
 import { testOpenaiConnection } from "./openai-provider";
+import { groupCandidates, setGroupMember } from "./group-service";
 import {
   connectionStatus,
   saveConnection,
@@ -186,6 +187,16 @@ async function route(request: Request, parts: string[]) {
   if (parts[0] !== "projects" || !parts[1]) return missing();
   const [, p, resource, key, action] = parts;
   projectExists(s, p);
+  if (resource === "sessions" && key && action === "group-members") {
+    if (method === "GET") return groupCandidates(s, p, key);
+    if (method === "PATCH") {
+      const d = z
+        .object({ sessionId: z.uuid(), status: z.enum(["active", "paused"]) })
+        .strict()
+        .parse(await request.json());
+      return setGroupMember(s, p, key, d.sessionId, d.status);
+    }
+  }
   if (resource === "sessions" && key && action === "turns") {
     if (method === "GET") return listAiTurns(s, p, key);
     if (method === "POST") {
