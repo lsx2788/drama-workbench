@@ -7,7 +7,10 @@ import { randomUUID } from "node:crypto";
 import { Store, type Row } from "../src/server/db";
 import { importStory } from "../src/server/story-service";
 import { workspace } from "../src/server/read-service";
-import { postHumanMessage } from "../src/server/collaboration-service";
+import {
+  postHumanMessage,
+  createSession,
+} from "../src/server/collaboration-service";
 import { publishGroupMessage } from "../src/server/group-service";
 import { executeTool } from "../src/server/ai-tools";
 import {
@@ -18,7 +21,7 @@ import {
 } from "../src/server/chat-confirmations";
 import { startPreparation } from "../src/server/preparation-service";
 import { promptSettings } from "../src/server/agent-prompt-service";
-import { CONFIRMATION_POLICY } from "../src/server/chat-confirmation-migration";
+import { REPLY_CONFIRMATION_POLICY } from "../src/server/chat-confirmation-migration";
 import { queueAiTurn, executeAiTurn } from "../src/server/ai-runtime";
 import { saveOpenaiConfig } from "../src/server/openai-config";
 import { SILENT_REPLY } from "../src/server/group-service";
@@ -93,7 +96,7 @@ test("runtime publishes the question through the model tool and later resolves i
   });
   let calls = 0;
   await executeAiTurn(s, p, String(first.id), async (_secret, body) => {
-    assert.ok(String(body.instructions).includes(CONFIRMATION_POLICY));
+    assert.ok(String(body.instructions).includes(REPLY_CONFIRMATION_POLICY));
     return ++calls === 1 ? action("ask_confirmation", question) : silent();
   });
   assert.equal(
@@ -111,7 +114,7 @@ test("runtime publishes the question through the model tool and later resolves i
     content: "做一分钟吧。",
     quoteId: q.message_id,
   });
-  assert.equal(chatConfirmations(s, p)[0].status, "pending");
+  assert.equal(chatConfirmations(s, p)[0].status, "answered");
   calls = 0;
   await executeAiTurn(s, p, String(second.id), async () =>
     ++calls === 1
@@ -130,11 +133,13 @@ test("runtime publishes the question through the model tool and later resolves i
   assert.equal(s.all("SELECT * FROM preparation_reviews").length, 0);
 });
 
-test("explicit confirmation tools publish one pinned message, preserve pending across reply/restart and do not infer old questions", async (t) => {
+test("quoted human replies immediately clear reminders and survive restart without waiting for AI", async (t) => {
   const { root, s, p, ss, trigger, session, human } = fixture(t);
   assert.equal(chatConfirmations(s, p).length, 0);
   const prompt = promptSettings(s, p, String(session.agent_id)).current;
-  assert.ok(prompt.layers!.system.instructions.includes(CONFIRMATION_POLICY));
+  assert.ok(
+    prompt.layers!.system.instructions.includes(REPLY_CONFIRMATION_POLICY),
+  );
   const call = () =>
     executeTool(
       s,
@@ -154,11 +159,11 @@ test("explicit confirmation tools publish one pinned message, preserve pending a
   assert.equal(msg.sender_id, session.agent_id);
   assert.equal(w.confirmations.length, 1);
   human("30秒是包含片头吗？", String(q.message_id));
-  assert.equal(chatConfirmations(s, p)[0].status, "pending");
+  assert.equal(chatConfirmations(s, p)[0].status, "answered");
   assert.equal(s.all("SELECT * FROM preparation_reviews").length, 0);
   const reopened = new Store(root);
   try {
-    assert.equal(chatConfirmations(reopened, p)[0].status, "pending");
+    assert.equal(chatConfirmations(reopened, p)[0].status, "answered");
     assert.deepEqual(reopened.all("PRAGMA foreign_key_check"), []);
   } finally {
     reopened.close();
@@ -203,7 +208,7 @@ test("only same-group coordinator can resolve using a subsequent real human repl
   const q = askConfirmation(s, p, ss, question, trigger);
   startPreparation(s, p, { coordinatorSessionId: ss });
   const child = workspace(s, p).sessions.find((row) => row.id !== ss)!;
-  const response = human("不要30秒，我希望做一分钟。", String(q.message_id));
+  const response = human("不要30秒，我希望做一分钟。");
   const data = { id: q.id, userMessageId: response, reason: "用户选择一分钟" };
   await assert.rejects(
     executeTool(
@@ -270,4 +275,63 @@ test("failed question creation rolls back the message and duplicate keys cannot 
     /标识已使用/,
   );
   assert.equal(chatConfirmations(s, p).length, 1);
+});
+
+test("only the replied question in the same group is cleared; a later reply can answer a skipped question", (t) => {
+  const { s, p, ss, trigger, human, session } = fixture(t);
+  const first = askConfirmation(s, p, ss, question, trigger);
+  const second = askConfirmation(
+    s,
+    p,
+    ss,
+    { ...question, key: "style", title: "风格" },
+    trigger,
+  );
+  const other = createSession(s, p, {
+    agentId: session.agent_id,
+    title: "另一个讨论",
+  });
+  postHumanMessage(s, p, String(other.id), {
+    content: "另一群的引用",
+    quoteId: first.message_id,
+  });
+  human("普通聊天消息");
+  assert.ok(chatConfirmations(s, p).every((q) => q.status === "pending"));
+  skipConfirmation(s, p, String(first.id), { confirm: true });
+  const reply = human("我现在补充一下", String(first.message_id));
+  const rows = chatConfirmations(s, p);
+  assert.equal(rows.find((q) => q.id === first.id)!.response_message_id, reply);
+  assert.equal(rows.find((q) => q.id === first.id)!.status, "answered");
+  assert.equal(rows.find((q) => q.id === second.id)!.status, "pending");
+});
+
+test("failed send rolls back the reply and its automatic confirmation together", (t) => {
+  const { s, p, ss, trigger } = fixture(t);
+  saveOpenaiConfig(s, {
+    apiKey: "test-only-key",
+    model: "gpt-6-astra",
+    imageModel: "gpt-image-2.5-sunburst",
+  });
+  const q = askConfirmation(s, p, ss, question, trigger);
+  const count = s.all("SELECT id FROM messages").length;
+  s.db.exec(
+    "CREATE TRIGGER fail_queue BEFORE INSERT ON ai_turns BEGIN SELECT RAISE(ABORT,'test queue failure'); END;",
+  );
+  assert.throws(
+    () =>
+      queueAiTurn(s, p, ss, {
+        requestKey: randomUUID(),
+        content: "一分钟",
+        quoteId: q.message_id,
+      }),
+    /test queue failure/,
+  );
+  assert.equal(s.all("SELECT id FROM messages").length, count);
+  assert.equal(chatConfirmations(s, p)[0].status, "pending");
+  assert.equal(
+    s.all(
+      "SELECT * FROM audit_events WHERE action='chat.confirmation_answered'",
+    ).length,
+    0,
+  );
 });

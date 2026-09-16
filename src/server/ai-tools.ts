@@ -47,7 +47,7 @@ const contracts: Record<string, string> = {
   ask_confirmation:
     "{key,title,content}: 总控向用户提出一个独立待确认问题，自动保存并发布黄色消息。key 是群内唯一标识，重试保持相同；不要在最终回复重复问题。",
   resolve_confirmation:
-    "{id,userMessageId,reason}: 总控依据真实用户回答将问题标为已回应；不代表用户同意，不改变成果审核。不完整或有歧义的回复仍保留待确认。",
+    "{id,userMessageId,reason}: 为未引用问题的用户回复补充问题关联并移出提醒；明确引用的回复已自动处理，无需重复调用。不代表同意，不改变成果审核。",
   pending_reviews:
     "{}: 查询前期成果、知识提议与资产版本的待审核清单，只读。聊天声称通过不会改变清单。",
   knowledge_proposal:

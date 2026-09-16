@@ -1,3 +1,4 @@
+import { confirmQuotedQuestion } from "./confirmation-replies";
 import {
   recordInitialPrompt,
   promptSettings,
@@ -121,6 +122,7 @@ export function postHumanMessage(
       String(agent.id),
       Number(agent.config_version),
     );
+    confirmQuotedQuestion(s, p, key);
     return {
       message: s.one("SELECT * FROM messages WHERE id=?", key),
       delivery: "stored",

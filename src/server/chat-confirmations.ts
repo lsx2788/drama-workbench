@@ -151,10 +151,7 @@ export function resolveConfirmation(
     const q = scoped(s, p, d.id);
     assert(q.group_id === sessionId, "只能处理当前群的问题");
     if (q.status === "answered") {
-      assert(
-        q.response_message_id === d.userMessageId && q.resolution === d.reason,
-        "此问题已有处理结果",
-      );
+      assert(q.response_message_id === d.userMessageId, "此问题已有处理结果");
       return q;
     }
     assert(q.status === "pending", "问题已跳过，不能把跳过视作用户确认");
