@@ -237,7 +237,10 @@ export function ChatPanel({
         connection={ai.settings}
       />
       {session.node_type === "coordinator" && (
-        <p className="muted" role="status">
+        <p
+          className={`muted chat-activity${ai.running ? " is-running" : ""}`}
+          role="status"
+        >
           {ai.running
             ? "总控正在处理，回复和协作记录会自动更新…"
             : ai.settings?.configured

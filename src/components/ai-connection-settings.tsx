@@ -35,13 +35,19 @@ export function AiConnectionSettings({
       <button
         type="button"
         className="ai-connect-button"
+        aria-label={`AI 连接：${value?.provider === "codex" ? "本机 Codex" : "OpenAI API"} · ${value?.configured ? "已连接" : "未连接"}`}
         onClick={() => {
           setError("");
           setOpen(true);
         }}
       >
-        {value?.provider === "codex" ? "本机 Codex" : "OpenAI API"} ·{" "}
-        {value?.configured ? "已连接" : "未连接"}
+        <span className="connection-label">
+          {value?.provider === "codex" ? "本机 Codex" : "OpenAI API"} ·{" "}
+          {value?.configured ? "已连接" : "未连接"}
+        </span>
+        <span className="connection-mobile-label" aria-hidden="true">
+          AI · {value?.configured ? "已连接" : "未连接"}
+        </span>
       </button>
       {open && (
         <PromptDialog

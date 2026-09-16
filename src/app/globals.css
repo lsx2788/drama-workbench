@@ -3616,3 +3616,282 @@ pre {
   font-size: 12px;
   margin-bottom: 8px;
 }
+
+/* Phones prioritize the message viewport; secondary surfaces stay behind entries. */
+.mobile-pages-toggle,
+.connection-mobile-label {
+  display: none;
+}
+.mobile-page-list {
+  display: grid;
+  gap: 8px;
+}
+.mobile-page-list > div {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.mobile-page-list > div > button:first-child {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+}
+.mobile-page-list small {
+  color: var(--muted);
+}
+.mobile-page-list [aria-current="page"] {
+  background: #e7f0e8;
+  border-color: #9bb9a3;
+}
+@media (max-width: 760px) {
+  body {
+    overflow: hidden;
+  }
+  .workspace-main {
+    position: fixed;
+    top: var(--visible-top, 0px);
+    left: 0;
+    width: 100%;
+    height: var(--visible-height, 100dvh);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .workspace-main > .topbar {
+    height: 44px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .workspace-main > .topbar > div {
+    flex: 1;
+  }
+  .workspace-main .directory-toggle {
+    border: 0;
+    background: transparent;
+    padding: 8px;
+    min-height: 36px;
+  }
+  .directory-toggle > span {
+    display: none;
+  }
+  .mobile-pages-toggle {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    font-size: 11px;
+    padding: 7px 8px;
+    min-height: 34px;
+    flex-shrink: 0;
+  }
+  .mobile-pages-toggle small {
+    color: var(--muted);
+  }
+  .workspace-main > .workspace-tabs {
+    display: none;
+  }
+  .workspace-panel.content:has(.conversation-page) {
+    padding: 4px 6px 0;
+    overflow: hidden;
+  }
+  .conversation-page {
+    min-height: 0;
+  }
+  .conversation-toolbar {
+    min-height: 32px;
+    padding: 0 4px 3px;
+    flex-shrink: 0;
+  }
+  .conversation-toolbar h2 {
+    font-size: 13px;
+  }
+  .conversation-toolbar button {
+    min-width: 32px;
+    min-height: 32px;
+    justify-content: center;
+    padding: 7px;
+  }
+  .conversation-toolbar button span {
+    display: none;
+  }
+  .coordinator-studio {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    grid-template-rows: 30px minmax(0, 1fr);
+  }
+  .coordinator-studio > .studio-side.collapsed {
+    width: auto;
+  }
+  .coordinator-studio > .studio-left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .coordinator-studio > .studio-right {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .coordinator-studio > .studio-chat {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .studio-side.collapsed .studio-rail {
+    flex-direction: row;
+    width: 100%;
+    min-height: 28px;
+    padding: 5px 8px;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .studio-rail span {
+    font-size: 10px;
+    writing-mode: horizontal-tb;
+    letter-spacing: 0;
+  }
+  .studio-rail svg {
+    width: 13px;
+    height: 13px;
+  }
+  .conversation-page .chat-panel {
+    position: relative;
+    border-radius: 9px 9px 0 0;
+    overflow: hidden;
+    box-shadow: none;
+  }
+  .conversation-page .chat-header {
+    padding: 6px 62px 6px 10px;
+    min-height: 42px;
+    gap: 6px;
+  }
+  .conversation-page .chat-header > div:first-child {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .conversation-page .chat-header strong {
+    font-size: 12px;
+    white-space: nowrap;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .conversation-page .chat-header small,
+  .conversation-page .chat-settings-actions > .badge,
+  .conversation-page .connection-label {
+    display: none;
+  }
+  .conversation-page .connection-mobile-label {
+    display: inline;
+  }
+  .conversation-page .ai-connect-button {
+    padding: 6px;
+    font-size: 10px;
+    min-height: 30px;
+    white-space: nowrap;
+  }
+  .conversation-page .group-member-bar {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .conversation-page .group-member-bar > .group-avatar,
+  .conversation-page .group-member-bar > .group-member-name {
+    display: none;
+  }
+  .conversation-page .group-members-open {
+    margin: 0;
+    padding: 6px 8px;
+    min-height: 30px;
+    font-size: 11px;
+  }
+  .conversation-page .chat-activity:not(.is-running) {
+    display: none;
+  }
+  .conversation-page .chat-panel > .chat-activity.is-running {
+    margin: 4px 0;
+    padding: 0 10px;
+    font-size: 10px;
+  }
+  .conversation-page .messages {
+    padding: 10px 8px;
+    min-height: 0;
+    flex: 1 1 0;
+    overflow-y: auto;
+  }
+  .conversation-page .message {
+    max-width: 96%;
+    min-width: min(180px, 80%);
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .conversation-page .message.human {
+    max-width: 90%;
+  }
+  .conversation-page .message-meta {
+    padding-bottom: 6px;
+    margin-bottom: 7px;
+  }
+  .conversation-page .chat-markdown,
+  .conversation-page .chat-markdown p {
+    font-size: 13px;
+  }
+  .conversation-page .composer {
+    padding: 7px 10px 8px;
+    background: #fffefa;
+  }
+  .conversation-page .composer textarea {
+    height: 40px;
+    min-height: 40px;
+    max-height: 100px;
+    margin-bottom: 5px;
+    font-size: 16px;
+    line-height: 1.4;
+    resize: none;
+  }
+  .conversation-page .composer textarea::placeholder {
+    font-size: 12px;
+  }
+  .conversation-page .composer-footer {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .conversation-page .composer-footer > small {
+    display: none;
+  }
+  .conversation-page .composer-footer > button {
+    min-height: 34px;
+    padding: 7px 10px;
+  }
+  .conversation-page .quote-preview {
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .conversation-page .quote-preview > span {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .conversation-page .quote-preview > button {
+    flex-shrink: 0;
+    padding: 6px;
+  }
+  .conversation-page .chat-attachment-picker {
+    max-height: 110px;
+    overflow: auto;
+  }
+  .mobile-keyboard .conversation-toolbar,
+  .mobile-keyboard .coordinator-studio > .studio-side {
+    display: none;
+  }
+  .mobile-keyboard .coordinator-studio {
+    display: flex;
+  }
+  .mobile-keyboard .workspace-main > .topbar {
+    height: 36px;
+  }
+}

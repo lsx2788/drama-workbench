@@ -113,6 +113,7 @@ export function WorkspacePage({
           <button
             onClick={() => openNode(str(session, "node_id"))}
             title="查看资料"
+            aria-label="查看资料"
           >
             <FileText size={15} />
             <span>资料</span>
@@ -121,12 +122,14 @@ export function WorkspacePage({
             <>
               <button
                 aria-expanded={historyOpen}
+                aria-label="历史聊天"
                 onClick={() => setHistoryOpen(!historyOpen)}
               >
                 <History size={15} />
                 <span>历史聊天</span>
               </button>
               <button
+                aria-label="新聊天"
                 onClick={() =>
                   create("session", {
                     nodeId: str(session, "node_id"),

@@ -1,6 +1,13 @@
 "use client";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { Clapperboard, FolderOpen, Plus, Trash2, X } from "lucide-react";
+import {
+  Clapperboard,
+  FolderOpen,
+  PanelsTopLeft,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   DeleteProjectDialog,
   ProjectTrashDialog,
@@ -19,8 +26,12 @@ import { CreateForm, type FormKind } from "./create-form";
 import { Empty } from "./ui";
 import type { StoryDiscussion } from "@/shared/story-import";
 import { StoryNavigation } from "./story-link";
+import { PromptDialog } from "./prompt-dialog";
+import { useMobileViewport } from "./use-mobile-viewport";
 
 export function Workbench() {
+  const viewportRoot = useMobileViewport();
+  const [pagesOpen, setPagesOpen] = useState(false);
   const [projects, setProjects] = useState<RecordData[]>([]);
   const [deleteProject, setDeleteProject] = useState<RecordData | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -123,7 +134,7 @@ export function Workbench() {
     defaults?: Record<string, string>,
   ) => setForm({ kind, projectId, defaults });
   return (
-    <div className="app-shell">
+    <div className="app-shell" ref={viewportRoot}>
       {directoryOpen && (
         <button
           className="directory-backdrop"
@@ -179,13 +190,24 @@ export function Workbench() {
             className="directory-toggle"
             aria-controls="project-directory"
             aria-expanded={directoryOpen}
+            aria-label="剧本目录"
             onClick={() => setDirectoryOpen(!directoryOpen)}
           >
-            <FolderOpen size={17} /> 剧本目录
+            <FolderOpen size={17} /> <span>剧本目录</span>
           </button>
           <div>
             <strong>{project ? str(project, "name") : "我的剧本"}</strong>
           </div>
+          {!!tabs.pages.length && (
+            <button
+              className="mobile-pages-toggle"
+              aria-label="切换已打开的页面"
+              onClick={() => setPagesOpen(true)}
+            >
+              <PanelsTopLeft size={16} /> 页面{" "}
+              <small>{tabs.pages.length}</small>
+            </button>
+          )}
         </header>
         <WorkspaceTabs
           pages={tabs.pages}
@@ -269,6 +291,45 @@ export function Workbench() {
           ))}
         </div>
       </main>
+      {pagesOpen && (
+        <PromptDialog
+          title="已打开的页面"
+          closeLabel="关闭页面列表"
+          onClose={() => setPagesOpen(false)}
+        >
+          <div className="mobile-page-list">
+            {tabs.pages.map((page) => (
+              <div key={page.id}>
+                <button
+                  aria-current={page.id === tabs.activeId ? "page" : undefined}
+                  onClick={() => {
+                    dispatch({ type: "select", id: page.id });
+                    setPagesOpen(false);
+                    setNotice("");
+                  }}
+                >
+                  <strong>{page.title}</strong>
+                  <small>
+                    {str(
+                      projects.find((r) => r.id === page.projectId) ?? {},
+                      "name",
+                    )}
+                  </small>
+                </button>
+                <button
+                  aria-label={`关闭页面 ${page.title}`}
+                  onClick={() => dispatch({ type: "close", id: page.id })}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+            {!tabs.pages.length && (
+              <p className="muted">暂时没有打开的页面。</p>
+            )}
+          </div>
+        </PromptDialog>
+      )}
       {deleteProject && (
         <DeleteProjectDialog
           project={deleteProject}
