@@ -1,0 +1,31 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createLongPress, type PressPoint } from "../src/client/long-press";
+
+test("message long press waits, fires once, and cancels on release, scroll, or teardown", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const held: PressPoint[] = [];
+  const press = createLongPress((p) => held.push(p));
+  press.start({ x: 50, y: 60 });
+  t.mock.timers.tick(549);
+  assert.equal(held.length, 0);
+  press.move({ x: 52, y: 62 });
+  t.mock.timers.tick(1);
+  assert.deepEqual(held, [{ x: 50, y: 60 }]);
+  t.mock.timers.tick(1000);
+  assert.equal(held.length, 1);
+  press.start({ x: 50, y: 60 });
+  t.mock.timers.tick(100);
+  press.move({ x: 50, y: 80 });
+  t.mock.timers.tick(1000);
+  assert.equal(held.length, 1);
+  press.start({ x: 10, y: 10 });
+  press.cancel();
+  t.mock.timers.tick(1000);
+  assert.equal(held.length, 1);
+  press.start({ x: 20, y: 20 });
+  press.start({ x: 30, y: 30 });
+  t.mock.timers.tick(550);
+  assert.deepEqual(held.at(-1), { x: 30, y: 30 });
+  assert.equal(held.length, 2);
+});

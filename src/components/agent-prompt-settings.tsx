@@ -1,11 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Settings2 } from "lucide-react";
 import { api } from "@/client/api";
 import {
   AGENT_PROMPT_MAX_LENGTH,
   type PromptSettings,
-  type PromptVersion,
 } from "@/shared/agent-prompt";
 import { PromptDialog } from "./prompt-dialog";
 import { PromptHistoryDialog } from "./prompt-history-dialog";
@@ -48,11 +47,13 @@ export function AgentPromptEditor({
   agentId,
   refresh,
   onClose,
+  memberInfo,
 }: {
   p: string;
   agentId: string;
   refresh: () => Promise<void>;
   onClose: () => void;
+  memberInfo?: ReactNode;
 }) {
   const [settings, setSettings] = useState<PromptSettings | null>(null);
   const [draft, setDraft] = useState("");
@@ -102,7 +103,11 @@ export function AgentPromptEditor({
         ));
   return (
     <PromptDialog
-      title={settings ? `${settings.name} · AI 设置` : "AI 设置"}
+      title={
+        settings
+          ? `${settings.name} · ${memberInfo ? "成员配置" : "AI 设置"}`
+          : "正在读取配置"
+      }
       onClose={onClose}
       busy={busy}
     >
@@ -115,6 +120,7 @@ export function AgentPromptEditor({
         </p>
       ) : (
         <>
+          {memberInfo}
           <div className="prompt-tabs" role="group" aria-label="提示词视图">
             <span className="prompt-current-version">
               当前配置 · v{settings.current.version}
@@ -356,73 +362,5 @@ export function AgentPromptEditor({
         />
       )}
     </PromptDialog>
-  );
-}
-
-export function MessagePrompt({
-  p,
-  messageId,
-  version,
-}: {
-  p: string;
-  messageId: string;
-  version: unknown;
-}) {
-  const [open, setOpen] = useState(false);
-  const [snapshot, setSnapshot] = useState<PromptVersion | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    if (!open) return;
-    const controller = new AbortController();
-    api<{ snapshot: PromptVersion | null }>(
-      `/projects/${p}/messages/${messageId}/prompt`,
-      { signal: controller.signal },
-    )
-      .then((result) => {
-        setSnapshot(result.snapshot);
-        if (!result.snapshot) setError("这条历史消息没有留存提示词版本。");
-      })
-      .catch((err) => {
-        if (!controller.signal.aborted) setError(err.message);
-      });
-    return () => controller.abort();
-  }, [open, p, messageId]);
-  if (!version)
-    return (
-      <small className="muted" title="这条历史消息没有留存提示词版本">
-        提示词未留档
-      </small>
-    );
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          setError("");
-          setOpen(true);
-        }}
-      >
-        提示词 v{String(version)}
-      </button>
-      {open && (
-        <PromptDialog
-          title={`消息提示词 · v${String(version)}`}
-          onClose={() => setOpen(false)}
-        >
-          <p className="muted">
-              这是这条消息关联的提示词版本；模型实际输入与执行状态请查看聊天中的 AI 执行记录。
-          </p>
-          {error ? (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          ) : snapshot ? (
-            <PromptLayerView snapshot={snapshot} />
-          ) : (
-            <p role="status">正在读取…</p>
-          )}
-        </PromptDialog>
-      )}
-    </>
   );
 }

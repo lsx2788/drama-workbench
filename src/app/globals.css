@@ -1838,13 +1838,7 @@ pre {
   margin: 0 6px 0 0;
   vertical-align: middle;
 }
-.message-actions button {
-  font-size: 9px;
-  background: transparent;
-  border: 0;
-  color: #849475;
-  padding: 3px 9px 3px 0;
-}
+
 .message blockquote {
   margin: 8px 0;
   border-left: 2px solid #b3c4a6;
@@ -3320,7 +3314,7 @@ pre {
   border-bottom: 1px solid #e5e7eb;
   margin-bottom: 0;
 }
-.group-member-bar button {
+.group-member-bar .group-members-open {
   margin-left: auto;
   font-size: 12px;
 }
@@ -3340,6 +3334,87 @@ pre {
   border-radius: 14px;
   background: #f1f4f5;
   color: #4a5860;
+  border: 0;
+  cursor: pointer;
+}
+.group-member-name:hover {
+  background: #e5ece6;
+}
+.group-member-card {
+  width: 100%;
+  text-align: left;
+  background: #fffefa;
+}
+.group-member-card:hover {
+  border-color: #a8bca9;
+  background: #f3f7ef;
+}
+.member-configuration-summary {
+  color: #63756a;
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+.member-configuration-summary p {
+  line-height: 1.8;
+}
+.member-configuration-summary dl {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 8px 12px;
+}
+.member-configuration-summary dt {
+  color: var(--muted);
+}
+.member-configuration-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.member-configuration-summary details {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.member-configuration-summary summary {
+  cursor: pointer;
+  font-size: 11px;
+}
+.message[aria-haspopup="menu"]:focus-visible {
+  outline: 2px solid #92b7a0;
+  outline-offset: 3px;
+}
+.message-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+.message-context-menu {
+  position: absolute;
+  width: 164px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  background: #fffefa;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px #203a2826;
+}
+.message-context-menu button {
+  display: flex;
+  width: 100%;
+  gap: 9px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 9px 12px;
+  text-align: left;
+}
+.message-context-menu button:hover,
+.message-context-menu button:focus-visible {
+  background: #eaf1e7;
+}
+@media (hover: none) {
+  .message[aria-haspopup="menu"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 .group-member-list {
   display: grid;

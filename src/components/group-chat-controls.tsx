@@ -1,10 +1,28 @@
 "use client";
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { str, type RecordData } from "@/client/api";
+import type { AiConnectionStatus } from "@/shared/ai-connection";
 import { PromptDialog } from "./prompt-dialog";
+import { AgentPromptEditor } from "./agent-prompt-settings";
 
-export function GroupMembers({ members }: { members: RecordData[] }) {
+export function GroupMembers({
+  members,
+  agents,
+  p,
+  refresh,
+  connection,
+}: {
+  members: RecordData[];
+  agents: RecordData[];
+  p: string;
+  refresh: () => Promise<void>;
+  connection: AiConnectionStatus | null;
+}) {
   const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState("");
+  const selected = members.find((m) => m.id === selectedId);
+  const selectedAgent = agents.find((a) => a.id === selected?.agent_id);
   return (
     <>
       <div className="group-member-bar">
@@ -12,11 +30,21 @@ export function GroupMembers({ members }: { members: RecordData[] }) {
         {members
           .filter((m) => m.membership_status === "active")
           .map((m) => (
-            <span key={str(m, "id")} className="group-member-name">
+            <button
+              type="button"
+              key={str(m, "id")}
+              className="group-member-name"
+              aria-label={`查看${str(m, "name")}的配置`}
+              onClick={() => setSelectedId(str(m, "id"))}
+            >
               {str(m, "name")}
-            </span>
+            </button>
           ))}
-        <button type="button" onClick={() => setOpen(true)}>
+        <button
+          type="button"
+          className="group-members-open"
+          onClick={() => setOpen(true)}
+        >
           成员
         </button>
       </div>
@@ -30,7 +58,12 @@ export function GroupMembers({ members }: { members: RecordData[] }) {
             {members
               .filter((m) => m.membership_status !== "available")
               .map((m) => (
-                <div key={str(m, "id")} className="group-member-card">
+                <button
+                  type="button"
+                  key={str(m, "id")}
+                  className="group-member-card"
+                  onClick={() => setSelectedId(str(m, "id"))}
+                >
                   <div>
                     <strong>{str(m, "name")}</strong>
                     <small>
@@ -38,10 +71,57 @@ export function GroupMembers({ members }: { members: RecordData[] }) {
                       {m.membership_status === "paused" ? "已退出本轮" : "在场"}
                     </small>
                   </div>
-                </div>
+                  <ChevronRight size={16} />
+                </button>
               ))}
           </div>
         </PromptDialog>
+      )}
+      {selected && (
+        <AgentPromptEditor
+          key={str(selected, "agent_id")}
+          p={p}
+          agentId={str(selected, "agent_id")}
+          refresh={refresh}
+          onClose={() => setSelectedId("")}
+          memberInfo={
+            <section
+              className="member-configuration-summary"
+              aria-label="成员信息"
+            >
+              {!!selectedAgent?.purpose && (
+                <p>{str(selectedAgent, "purpose")}</p>
+              )}
+              <dl>
+                <dt>参与状态</dt>
+                <dd>
+                  {selected.membership_status === "paused"
+                    ? "已退出本轮"
+                    : "在场"}
+                </dd>
+                <dt>当前会话</dt>
+                <dd>{str(selected, "title")}</dd>
+                <dt>当前接入</dt>
+                <dd>
+                  {connection
+                    ? `${connection.provider === "codex" ? "本机 Codex" : "OpenAI API"} · ${connection.configured ? "已连接" : "未连接"}`
+                    : "正在读取"}
+                </dd>
+                <dt>接入模型</dt>
+                <dd>{connection?.model || "未配置"}</dd>
+              </dl>
+              <details>
+                <summary>会话信息</summary>
+                <dl>
+                  <dt>会话编号</dt>
+                  <dd>{str(selected, "id")}</dd>
+                  <dt>已保存的外部会话</dt>
+                  <dd>{str(selected, "external_session_id") || "尚未建立"}</dd>
+                </dl>
+              </details>
+            </section>
+          }
+        />
       )}
     </>
   );

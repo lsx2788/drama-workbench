@@ -5,7 +5,7 @@ import { str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
 import { StoryPreview } from "./story-preview";
-import { AgentPromptSettings, MessagePrompt } from "./agent-prompt-settings";
+import { MessageBubble } from "./message-bubble";
 import { AiConnectionSettings } from "./ai-connection-settings";
 import { useAiChat } from "./use-ai-chat";
 import { StoryFileUpload } from "./story-file-upload";
@@ -113,7 +113,6 @@ export function ChatPanel({
   p,
   session,
   quoteId,
-  create,
   refresh,
   fail,
   onQuote,
@@ -199,15 +198,26 @@ export function ChatPanel({
               changed={ai.loadSettings}
             />
           )}
-          <AgentPromptSettings
-            p={p}
-            agentId={str(session, "agent_id")}
-            refresh={refresh}
-          />
           <Badge value={String(session?.status)} />
         </div>
       </div>
-      {isGroup && <GroupMembers members={members} />}
+      <GroupMembers
+        members={
+          isGroup
+            ? members
+            : [
+                {
+                  ...session,
+                  name: session.agent_name,
+                  membership_status: "active",
+                },
+              ]
+        }
+        agents={w.agents}
+        p={p}
+        refresh={refresh}
+        connection={ai.settings}
+      />
       {session.node_type === "coordinator" && (
         <p className="muted" role="status">
           {ai.running
@@ -222,9 +232,18 @@ export function ChatPanel({
           messages.map((m) => {
             const forUser = isGroup && repliesToUser(m, session, w.messages);
             return (
-              <article
+              <MessageBubble
                 key={str(m, "id")}
                 className={`message ${m.sender_type}${forUser ? " reply-to-user" : isGroup && m.sender_type === "agent" ? " ai-collaboration" : ""}`}
+                sender={
+                  m.sender_type === "human"
+                    ? "你"
+                    : str(m, "sender_name") || str(m, "agent_name")
+                }
+                onQuote={() => {
+                  onQuote(str(m, "id"));
+                  requestAnimationFrame(() => composerInput.current?.focus());
+                }}
               >
                 <div className="message-meta">
                   <strong>
@@ -254,32 +273,7 @@ export function ChatPanel({
                       onOpen={onOutlineOpen}
                     />
                   ))}
-                <div className="message-actions">
-                  <MessagePrompt
-                    p={p}
-                    messageId={str(m, "id")}
-                    version={m.prompt_version}
-                  />
-                  <button
-                    onClick={() => {
-                      onQuote(str(m, "id"));
-                    }}
-                  >
-                    引用给总控
-                  </button>
-                  <button
-                    onClick={() =>
-                      create("highlight", {
-                        nodeId: str(m, "node_id"),
-                        sourceMessageId: str(m, "id"),
-                        content: messageDisplay(m),
-                      })
-                    }
-                  >
-                    记录为重点
-                  </button>
-                </div>
-              </article>
+              </MessageBubble>
             );
           })
         ) : (
