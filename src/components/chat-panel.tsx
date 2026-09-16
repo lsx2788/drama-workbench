@@ -11,6 +11,7 @@ import { StoryFileUpload } from "./story-file-upload";
 import { ChatImages } from "./chat-images";
 import { AiExecutionDetails } from "./ai-execution-details";
 import { GroupMembers, MentionPicker } from "./group-chat-controls";
+import { ChatMarkdown } from "./chat-markdown";
 
 function messageAttachments(message: RecordData): RecordData[] {
   if (Array.isArray(message.attachments)) return message.attachments;
@@ -49,7 +50,7 @@ function StoryMessage({
   const attachments = messageAttachments(message);
   return (
     <>
-      <p className="pre">{messageDisplay(message)}</p>
+      <ChatMarkdown text={messageDisplay(message)} />
       {attachments.length > 0 && (
         <div className="story-message-attachments">
           {attachments.map((attachment) => {
@@ -224,9 +225,11 @@ export function ChatPanel({
               )}
               {m.quote_id ? (
                 <blockquote>
-                  {messageDisplay(
-                    w.messages.find((x) => x.id === m.quote_id) ?? {},
-                  )}
+                  <ChatMarkdown
+                    text={messageDisplay(
+                      w.messages.find((x) => x.id === m.quote_id) ?? {},
+                    )}
+                  />
                 </blockquote>
               ) : null}
               <StoryMessage p={p} message={m} stories={w.stories} />
