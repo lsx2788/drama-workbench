@@ -44,18 +44,8 @@ function EntityAssets({ p, ids }: { p: string; ids: string[] }) {
   );
 }
 export function StoryKnowledge({ w, p }: { w: Workspace; p: string }) {
-  const [data, setData] = useState<RecordData | null>(null),
-    [selected, setSelected] = useState<RecordData | null>(null),
-    [error, setError] = useState("");
-  useEffect(() => {
-    const c = new AbortController();
-    api<RecordData>(`/projects/${p}/knowledge`, { signal: c.signal })
-      .then(setData)
-      .catch((err) => {
-        if (!c.signal.aborted) setError(err.message);
-      });
-    return () => c.abort();
-  }, [p, w]);
+  const [selected, setSelected] = useState<RecordData | null>(null);
+  const data = w.knowledge;
   const entities = list(data?.entities),
     relations = list(data?.relations);
   const positions = new Map(
@@ -71,13 +61,8 @@ export function StoryKnowledge({ w, p }: { w: Workspace; p: string }) {
   return (
     <div className="story-knowledge">
       <PreparationRecords w={w} p={p} />
-      {error && <p role="alert">{error}</p>}
-      <Panel title="人物与知识关系">
-        {!entities.length ? (
-          <p className="muted">
-            原作分析中的人物、概念和关系，经总控检查后逐步显示在这里。
-          </p>
-        ) : (
+      {!!entities.length && (
+        <Panel title="人物与知识关系">
           <>
             <svg
               className="knowledge-network"
@@ -175,8 +160,8 @@ export function StoryKnowledge({ w, p }: { w: Workspace; p: string }) {
               ))}
             </div>
           </>
-        )}
-      </Panel>
+        </Panel>
+      )}
       {!!list(data?.proposals).filter((row) => !row.decision).length && (
         <Panel title="待总控检查的增补">
           {list(data?.proposals)

@@ -19,10 +19,12 @@ import { PromptDialog } from "./prompt-dialog";
 export function CoordinatorWorkspace({
   w,
   p,
+  sessionId,
   children,
 }: {
   w: Workspace;
   p: string;
+  sessionId: string;
   children: (openOutline: (id: string) => void) => ReactNode;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -39,10 +41,12 @@ export function CoordinatorWorkspace({
     observer.observe(container.current!);
     return () => observer.disconnect();
   }, []);
-  const { confirmed, discussing } = groupProjectReferences(w);
+  const { confirmed, discussing, sources } = groupProjectReferences(
+    w,
+    sessionId,
+  );
   const hasReferences =
-    referenceCount(confirmed) + referenceCount(discussing) + w.stories.length >
-    0;
+    referenceCount(confirmed) + referenceCount(discussing) + sources.length > 0;
   const canDockLeft = width >= 1180;
   const canDockRight = width >= 920;
   const leftExpanded = canDockLeft && leftOpen && !!w.workflowOutlines?.length;
@@ -129,7 +133,7 @@ export function CoordinatorWorkspace({
             </button>
           )}
           <div className="studio-side-content" hidden={!rightExpanded}>
-            <ProjectReferencePanel w={w} p={p} />
+            <ProjectReferencePanel w={w} p={p} sessionId={sessionId} />
           </div>
         </aside>
       )}
@@ -142,7 +146,7 @@ export function CoordinatorWorkspace({
           {dialog === "outline" ? (
             outline()
           ) : (
-            <ProjectReferencePanel w={w} p={p} />
+            <ProjectReferencePanel w={w} p={p} sessionId={sessionId} />
           )}
         </PromptDialog>
       )}

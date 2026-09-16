@@ -1,4 +1,5 @@
 import { str, type RecordData, type Workspace } from "./api";
+import { hasStoryKnowledge } from "./story-records";
 
 export type FlowTarget = {
   kind: "node" | "unit" | "season" | "knowledge";
@@ -22,7 +23,13 @@ export function unitProgress(nodes: RecordData[]) {
 export function productionMap(
   w: Pick<
     Workspace,
-    "nodes" | "sections" | "seasons" | "dependencies" | "preparation"
+    | "nodes"
+    | "sections"
+    | "seasons"
+    | "dependencies"
+    | "preparation"
+    | "preparationRecords"
+    | "knowledge"
   >,
   workflowId: string,
 ) {
@@ -138,13 +145,17 @@ export function productionMap(
     }
   }
   const coordinator = sourceNodes.find((n) => n.node_type === "coordinator");
-  if (coordinator && w.preparation?.workflow_id === workflowId) {
+  if (
+    coordinator &&
+    w.preparation?.workflow_id === workflowId &&
+    hasStoryKnowledge(w)
+  ) {
     const key = `knowledge:${workflowId}`;
     targets.set(key, { kind: "knowledge", id: workflowId });
     nodes.push({
       id: key,
       name: "故事资料",
-      summary: "原作概况 · 人物与知识关系 · 公共资产引用",
+      summary: "已保存的故事分析与讨论成果",
       status: "reference",
       graph_kind: "knowledge",
     });

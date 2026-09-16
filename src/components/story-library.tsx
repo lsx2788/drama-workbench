@@ -8,7 +8,11 @@ import {
   type Workspace,
   type RecordData,
 } from "@/client/api";
-import { storyRecords, type StoryRecord } from "@/client/story-records";
+import {
+  hasStoryKnowledge,
+  storyRecords,
+  type StoryRecord,
+} from "@/client/story-records";
 import { Badge, Dialog, Empty, Panel, date } from "./ui";
 import { AssetFile } from "./asset-file";
 import { StorySource } from "./story-source";
@@ -165,53 +169,63 @@ export function StoryLibrary({
       </div>
       {!category ? (
         <div className="library-directory">
-          <button
-            className="library-folder"
-            onClick={() => setKnowledgeOpen(true)}
-          >
-            <Folder size={23} />
-            <span className="library-folder-copy">
-              <strong>故事资料</strong>
-              <small>原作概况、需求目标、改编框架与关系图</small>
-            </span>
-            <ChevronRight size={15} />
-          </button>
-          {["创作资产", "项目记录"].map((group) => (
-            <section key={group} aria-label={group}>
-              <h3>{group}</h3>
-              <div className="library-folders">
-                {libraryCategories
-                  .filter(
-                    (c) =>
-                      c.group === group &&
-                      records.some((record) => record.category === c.name),
-                  )
-                  .map((c) => (
-                    <button
-                      key={c.name}
-                      className="library-folder"
-                      onClick={() => {
-                        setCategory(c.name);
-                        setQuery("");
-                      }}
-                      aria-label={`打开${c.name}`}
-                    >
-                      <span className="library-folder-icon">
-                        <Folder size={23} />
-                      </span>
-                      <span className="library-folder-copy">
-                        <strong>{c.name}</strong>
-                        <small>{c.description}</small>
-                      </span>
-                      <span className="library-folder-count">
-                        {records.filter((r) => r.category === c.name).length}
-                      </span>
-                      <ChevronRight size={15} />
-                    </button>
-                  ))}
-              </div>
-            </section>
-          ))}
+          {hasStoryKnowledge(w) && (
+            <button
+              className="library-folder"
+              onClick={() => setKnowledgeOpen(true)}
+            >
+              <Folder size={23} />
+              <span className="library-folder-copy">
+                <strong>故事资料</strong>
+                <small>已保存的故事分析与讨论成果</small>
+              </span>
+              <ChevronRight size={15} />
+            </button>
+          )}
+          {["创作资产", "项目记录"]
+            .filter((group) =>
+              libraryCategories.some(
+                (c) =>
+                  c.group === group &&
+                  records.some((r) => r.category === c.name),
+              ),
+            )
+            .map((group) => (
+              <section key={group} aria-label={group}>
+                <h3>{group}</h3>
+                <div className="library-folders">
+                  {libraryCategories
+                    .filter(
+                      (c) =>
+                        c.group === group &&
+                        records.some((record) => record.category === c.name),
+                    )
+                    .map((c) => (
+                      <button
+                        key={c.name}
+                        className="library-folder"
+                        onClick={() => {
+                          setCategory(c.name);
+                          setQuery("");
+                        }}
+                        aria-label={`打开${c.name}`}
+                      >
+                        <span className="library-folder-icon">
+                          <Folder size={23} />
+                        </span>
+                        <span className="library-folder-copy">
+                          <strong>{c.name}</strong>
+                          <small>{c.description}</small>
+                        </span>
+                        <span className="library-folder-count">
+                          {records.filter((r) => r.category === c.name).length}
+                        </span>
+                        <ChevronRight size={15} />
+                      </button>
+                    ))}
+                </div>
+              </section>
+            ))}
         </div>
       ) : (
         <>

@@ -7,6 +7,7 @@ import { listPreparationRecords } from "./preparation-service";
 import { groupEnvelope, groupCandidates } from "./group-service";
 import { messagePresenter } from "./message-presentation";
 import { workflowOutlines } from "./workflow-outline-service";
+import { knowledge } from "./knowledge-service";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
@@ -42,6 +43,7 @@ export function workspace(s: Store, p: string) {
     preparation:
       s.one("SELECT * FROM preparation_setups WHERE project_id=?", p) ?? null,
     preparationRecords: listPreparationRecords(s, p),
+    knowledge: knowledge(s, p),
     aiRelations: s.all(
       "SELECT r.* FROM ai_relations r JOIN agents a ON a.id=r.child_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=?",
       p,

@@ -3,6 +3,7 @@ export interface Workspace {
   workflowOutlines?: RecordData[];
   preparation?: RecordData | null;
   preparationRecords?: RecordData[];
+  knowledge?: RecordData;
   aiRelations?: RecordData[];
   groupCandidates?: RecordData[];
   overview: {

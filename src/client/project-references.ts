@@ -1,4 +1,4 @@
-import { str, type RecordData, type Workspace } from "./api";
+import { list, str, type RecordData, type Workspace } from "./api";
 import { storyRecords, type StoryRecord } from "./story-records";
 
 export interface ReferenceAsset {
@@ -22,16 +22,48 @@ function latestBy(rows: RecordData[], field: string, revision: string) {
   }
   return [...latest.values()];
 }
-export function groupProjectReferences(w: Workspace) {
-  const records = w.preparationRecords ?? [];
-  const highlights = w.highlights.filter(
-    (r) =>
-      r.status !== "superseded" &&
-      !w.highlights.some((next) => next.supersedes_id === r.id),
+export function groupProjectReferences(w: Workspace, sessionId?: string) {
+  // The side pane is a projection of the full library, never another store.
+  const library = storyRecords(w);
+  const records = library
+    .filter((r) => r.type === "preparation")
+    .map((r) => r.source);
+  const sources = library
+    .filter((r) => r.type === "story")
+    .map((r) => r.source);
+  const highlights = library
+    .filter((r) => r.type === "highlight")
+    .map((r) => r.source)
+    .filter(
+      (r) =>
+        r.status !== "superseded" &&
+        !w.highlights.some((next) => next.supersedes_id === r.id),
+    );
+  const referencedVersions = new Set(
+    w.messages
+      .filter(
+        (m) =>
+          !sessionId ||
+          m.session_id === sessionId ||
+          (m.group as RecordData | undefined)?.group_id === sessionId,
+      )
+      .flatMap((m) => list(m.images).map((image) => str(image, "version_id"))),
+  );
+  const referencedAssets = new Set(
+    (w.assetVersions ?? [])
+      .filter((v) => referencedVersions.has(str(v, "id")))
+      .map((v) => str(v, "asset_id")),
   );
   const assetRecords = new Map(
-    storyRecords(w)
-      .filter((r) => r.type === "asset")
+    library
+      .filter(
+        (r) =>
+          r.type === "asset" &&
+          (["character", "scene", "prop", "costume", "composite"].includes(
+            str(r.source, "kind"),
+          ) ||
+            referencedAssets.has(r.id)),
+      )
       .map((r) => [r.id, r]),
   );
   const versions = w.assetVersions ?? [];
@@ -73,7 +105,7 @@ export function groupProjectReferences(w: Workspace) {
     highlights: highlights.filter((r) => r.status === "proposed"),
     assets: assets(candidates),
   };
-  return { confirmed, discussing };
+  return { confirmed, discussing, sources };
 }
 export function referenceCount(group: ReferenceGroup) {
   return group.records.length + group.highlights.length + group.assets.length;

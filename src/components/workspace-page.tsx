@@ -164,7 +164,7 @@ export function WorkspacePage({
         </div>
       )}
       {session.node_type === "coordinator" ? (
-        <CoordinatorWorkspace w={w} p={p}>
+        <CoordinatorWorkspace w={w} p={p} sessionId={str(session, "id")}>
           {(openOutline) => (
             <ChatPanel
               key={str(session, "id")}

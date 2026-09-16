@@ -114,18 +114,29 @@ function ReferenceSection({
 }
 
 /** Group persisted facts by review state; never infer confirmation from prose. */
-export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
+export function ProjectReferencePanel({
+  w,
+  p,
+  sessionId,
+}: {
+  w: Workspace;
+  p: string;
+  sessionId?: string;
+}) {
   const [folder, setFolder] = useState<
     "confirmed" | "discussing" | "sources" | null
   >(null);
   const [recordId, setRecordId] = useState<string | null>(null);
   const [asset, setAsset] = useState<ReferenceAsset | null>(null);
   const [highlight, setHighlight] = useState<RecordData | null>(null);
-  const { confirmed, discussing } = groupProjectReferences(w);
+  const { confirmed, discussing, sources } = groupProjectReferences(
+    w,
+    sessionId,
+  );
   if (
     !referenceCount(confirmed) &&
     !referenceCount(discussing) &&
-    !w.stories.length
+    !sources.length
   )
     return null;
   const actions = {
@@ -147,7 +158,7 @@ export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
             name: "讨论中",
             count: referenceCount(discussing),
           },
-          { key: "sources", name: "已保存资料", count: w.stories.length },
+          { key: "sources", name: "已保存资料", count: sources.length },
         ] as const
       )
         .filter((item) => item.count > 0)
@@ -191,10 +202,10 @@ export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
             {folder === "sources" && (
               <section aria-label="已保存资料">
                 <h3>
-                  已保存资料 <span>{w.stories.length}</span>
+                  已保存资料 <span>{sources.length}</span>
                 </h3>
                 <div className="reference-sources">
-                  {w.stories.map((r) => (
+                  {sources.map((r) => (
                     <StoryPreview
                       key={str(r, "id")}
                       p={p}

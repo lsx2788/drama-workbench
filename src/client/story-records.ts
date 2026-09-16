@@ -1,4 +1,14 @@
-import { str, type Workspace, type RecordData } from "./api";
+import { list, str, type Workspace, type RecordData } from "./api";
+export function hasStoryKnowledge(
+  w: Pick<Workspace, "preparationRecords" | "knowledge">,
+) {
+  return !!(
+    (w.preparationRecords ?? []).length ||
+    list(w.knowledge?.entities).length ||
+    list(w.knowledge?.relations).length ||
+    list(w.knowledge?.proposals).some((r) => !r.decision)
+  );
+}
 export interface StoryRecord {
   id: string;
   code: string;
@@ -11,6 +21,7 @@ export interface StoryRecord {
   source: RecordData;
   type:
     | "story"
+    | "preparation"
     | "asset"
     | "prompt"
     | "document"
@@ -36,6 +47,14 @@ export function storyRecords(w: Workspace): StoryRecord[] {
     status: "",
   });
   return [
+    ...(w.preparationRecords ?? []).map((r) => ({
+      ...base(r),
+      type: "preparation" as const,
+      name: str(r, "title"),
+      category: "故事资料",
+      status: str(r, "decision") || "proposed",
+      description: str(r, "summary"),
+    })),
     ...w.agents.map((r) => ({
       ...base(r),
       type: "prompt" as const,

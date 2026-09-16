@@ -4,6 +4,7 @@ import { api, str, list, type Workspace, type RecordData } from "@/client/api";
 import { Panel, Badge } from "./ui";
 import { PromptDialog } from "./prompt-dialog";
 import { StoryPreview } from "./story-preview";
+import { storyRecords } from "@/client/story-records";
 const kindNames: Record<string, string> = {
   overview: "原作概况",
   requirements: "需求与目标",
@@ -19,9 +20,10 @@ export function PreparationRecords({
   kind?: string;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const records = (w.preparationRecords ?? []).filter(
-    (row) => !kind || row.kind === kind,
-  );
+  const records = storyRecords(w)
+    .filter((r) => r.type === "preparation")
+    .map((r) => r.source)
+    .filter((row) => !kind || row.kind === kind);
   if (!records.length) return null;
   return (
     <Panel title={kind ? kindNames[kind] : "前期成果"}>

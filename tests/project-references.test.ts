@@ -5,6 +5,7 @@ import {
   referenceCount,
 } from "../src/client/project-references";
 import type { Workspace } from "../src/client/api";
+import { hasStoryKnowledge, storyRecords } from "../src/client/story-records";
 
 function workspace(): Workspace {
   return {
@@ -35,6 +36,69 @@ function workspace(): Workspace {
     audit: [],
   };
 }
+test("story information exists only after real records or knowledge have been saved", () => {
+  const w = workspace();
+  w.preparation = { workflow_id: "draft" };
+  assert.equal(hasStoryKnowledge(w), false);
+  w.knowledge = { entities: [], relations: [], proposals: [] };
+  assert.equal(hasStoryKnowledge(w), false);
+  w.knowledge.proposals = [{ id: "proposal", summary: "新增人物" }];
+  assert.equal(hasStoryKnowledge(w), true);
+  w.knowledge = { entities: [{ code: "hero", name: "云澜" }] };
+  assert.equal(hasStoryKnowledge(w), true);
+});
+test("side references are a current-library subset, excluding unrelated media and technical records", () => {
+  const w = workspace();
+  w.preparationRecords = [
+    {
+      id: "overview",
+      kind: "overview",
+      title: "原作概况",
+      revision: 1,
+      decision: "confirmed",
+    },
+  ];
+  w.stories = [{ id: "original", original_name: "原文.docx" }];
+  w.agents = [{ id: "agent", name: "总控", instructions: "提示词" }];
+  w.items = [{ id: "task", title: "其他环节任务" }];
+  w.assets = [
+    { id: "hero", kind: "character", name: "云澜" },
+    { id: "current", kind: "image", name: "当前参考图" },
+    { id: "other", kind: "video", name: "其他分集视频" },
+  ];
+  w.assetVersions = w.assets.map((a) => ({
+    id: `${a.id}-v1`,
+    asset_id: a.id,
+    version: 1,
+    status: "approved",
+  }));
+  w.messages = [
+    {
+      session_id: "child",
+      group: { group_id: "current-chat" },
+      images: [{ version_id: "current-v1" }],
+    },
+    { session_id: "other-chat", images: [{ version_id: "other-v1" }] },
+  ];
+  const result = groupProjectReferences(w, "current-chat");
+  assert.deepEqual(
+    result.confirmed.assets.map((a) => a.record.id),
+    ["hero", "current"],
+  );
+  const library = storyRecords(w);
+  assert.ok(library.some((r) => r.id === "other"));
+  assert.ok(library.some((r) => r.type === "prompt"));
+  assert.ok(library.some((r) => r.type === "item"));
+  assert.equal(
+    result.confirmed.records[0],
+    library.find((r) => r.id === "overview")?.source,
+  );
+  assert.equal(
+    result.sources[0],
+    library.find((r) => r.id === "original")?.source,
+  );
+  assert.equal(referenceCount(result.confirmed), 3);
+});
 test("right panel retains confirmed baseline beside newer draft, then replaces it on confirmation", () => {
   const w = workspace();
   w.preparationRecords = [
