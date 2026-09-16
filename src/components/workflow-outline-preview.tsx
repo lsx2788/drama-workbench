@@ -1,7 +1,11 @@
 "use client";
 import { useState } from "react";
 import type { RecordData } from "@/client/api";
-import type { WorkflowOutline } from "@/shared/workflow-outline";
+import {
+  withFixedOutlineStart,
+  FIXED_OUTLINE_KEYS,
+  type WorkflowOutline,
+} from "@/shared/workflow-outline";
 import { PromptDialog } from "./prompt-dialog";
 import { WorkflowGraph } from "./workflow-graph";
 
@@ -42,12 +46,16 @@ export function WorkflowOutlinePreview({
 
 export function WorkflowOutlineContent({ outline }: { outline: RecordData }) {
   const [selected, setSelected] = useState("");
-  const content = outline.content as WorkflowOutline;
+  const raw = outline.content as WorkflowOutline;
+  const content = { ...raw, steps: withFixedOutlineStart(raw.steps) };
   const step = content.steps.find((r) => r.key === selected);
   return (
     <div className="workflow-outline-preview">
       <p className="muted">
-        第 {String(outline.revision)} 版草案 · 点击节点查看目标与交付物
+        {outline.revision === 0
+          ? "固定流程起点"
+          : `第 ${String(outline.revision)} 版草案`}{" "}
+        · 点击节点查看目标与交付物
       </p>
       <p>{content.summary}</p>
       <WorkflowGraph
@@ -55,7 +63,7 @@ export function WorkflowOutlineContent({ outline }: { outline: RecordData }) {
           id: r.key,
           name: r.name,
           objective: r.objective,
-          status: "draft",
+          status: FIXED_OUTLINE_KEYS.has(r.key) ? "fixed" : "draft",
         }))}
         dependencies={content.steps.flatMap((r) =>
           r.dependsOn.map((dep) => ({ node_id: r.key, depends_on: dep })),
@@ -66,6 +74,9 @@ export function WorkflowOutlineContent({ outline }: { outline: RecordData }) {
       {step && (
         <section className="outline-step-detail" aria-label="大纲节点详情">
           <h3>{step.name}</h3>
+          {FIXED_OUTLINE_KEYS.has(step.key) && (
+            <small>固定环节 · 后续流程从编剧之后继续</small>
+          )}
           <p>{step.objective}</p>
           {step.outputs.length > 0 && (
             <>

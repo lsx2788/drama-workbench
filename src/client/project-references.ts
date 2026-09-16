@@ -67,40 +67,26 @@ export function groupProjectReferences(w: Workspace, sessionId?: string) {
       .map((r) => [r.id, r]),
   );
   const versions = w.assetVersions ?? [];
-  const approved = latestBy(
-    versions.filter((v) => v.status === "approved"),
-    "asset_id",
-    "version",
-  );
-  const candidates = latestBy(
-    versions.filter((v) => v.status === "candidate"),
-    "asset_id",
-    "version",
-  ).filter(
-    (v) =>
-      !approved.some(
-        (a) =>
-          a.asset_id === v.asset_id && Number(a.version) > Number(v.version),
-      ),
-  );
+  const currentVersions = latestBy(versions, "asset_id", "version");
+  const approved = currentVersions.filter((v) => v.status === "approved");
+  const candidates = currentVersions.filter((v) => v.status === "candidate");
+  const currentRecords = latestBy(records, "kind", "revision");
   const assets = (rows: RecordData[]): ReferenceAsset[] =>
     rows.flatMap((v) => {
       const record = assetRecords.get(str(v, "asset_id"));
       return record ? [{ record, version: v }] : [];
     });
   const confirmed: ReferenceGroup = {
-    // A proposed revision must not erase the last confirmed baseline.
-    records: latestBy(
-      records.filter((r) => r.decision === "confirmed"),
-      "kind",
-      "revision",
+    // Current-only summary: historical approvals remain in the full library.
+    records: currentRecords.filter(
+      (r) => r.decision === "confirmed" && r.usable === true,
     ),
     highlights: highlights.filter((r) => r.status === "confirmed"),
     assets: assets(approved),
   };
   const discussing: ReferenceGroup = {
-    records: latestBy(records, "kind", "revision").filter(
-      (r) => r.decision !== "confirmed",
+    records: currentRecords.filter(
+      (r) => r.decision !== "confirmed" || r.usable !== true,
     ),
     highlights: highlights.filter((r) => r.status === "proposed"),
     assets: assets(candidates),

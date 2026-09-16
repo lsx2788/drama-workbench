@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  FIXED_OUTLINE_STEPS,
+  OUTLINE_CONTINUATION_KEY,
+} from "../shared/workflow-outline";
 import type { Store } from "./db";
 import { assert, id, projectExists } from "./common";
 import { sessionInProject } from "./collaboration-service";
@@ -55,7 +59,7 @@ const contracts: Record<string, string> = {
   review_asset:
     "{id,decision:approved|rejected,scope,reason}: 仅总控可审核本项目资产版本；id 是版本编号，scope 写适用范围，reason 必须给出依据或具体返工要求。退回后生成新候选版本再审，不能覆盖旧审核。",
   propose_workflow_outline:
-    "{title,summary,steps:[{key,name,objective,outputs?:[],dependsOn?:[]}],questions?:[],previousId?}: 总控保存待讨论的制作流程大纲，自动在群里显示预览卡片。steps 用局部 key 关联，允许分支但不允许环，最多40步。不会发布或执行正式流程；修订引用 previousId。",
+    "{title,summary,steps:[{key,name,objective,outputs?:[],dependsOn?:[]}],questions?:[],previousId?}: 总控续写流程。系统固定提供总控→原文分析→编剧，steps 仅包含最多40个新增节点，不能重建或覆盖已有节点。有大纲时 previousId 必须是最新版本；dependsOn 可引用已有或新增 key，省略前置默认接已有末端，首次可接 fixed_screenwriting。自动保存新版本及群预览卡片，不发布制作。",
   workflow_outline: "{id}: 按 ID 查询本项目已保存的流程大纲。",
   group_members:
     "{}: 获取可用 AI、真实 session ID 和 available（未参与）/active（在场）/paused（已退出）状态。",
@@ -184,6 +188,10 @@ export function projectState(s: Store, p: string, sessionId: string) {
     sessionId,
     sources: listStories(s, p).slice(0, 200),
     records: listPreparationRecords(s, p),
+    workflowStart: {
+      steps: FIXED_OUTLINE_STEPS,
+      continueAfter: OUTLINE_CONTINUATION_KEY,
+    },
     workflowOutlines: workflowOutlines(s, p).map((r) => ({
       id: r.id,
       revision: r.revision,

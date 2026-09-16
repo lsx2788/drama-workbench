@@ -12,6 +12,10 @@ import { workspace } from "../src/server/read-service";
 import { executeTool } from "../src/server/ai-tools";
 import { workflowOutline } from "../src/server/workflow-outline-service";
 import { mentionAt } from "../src/client/chat-mentions";
+import {
+  initialWorkflowOutline,
+  withFixedOutlineStart,
+} from "../src/shared/workflow-outline";
 
 const plan = {
   title: "御剑短片制作路线",
@@ -48,6 +52,20 @@ const plan = {
   ],
   questions: ["是否按30秒控制总时长？"],
 };
+
+test("fixed start is available before generation and legacy rendering is non-mutating and idempotent", () => {
+  const start = initialWorkflowOutline();
+  assert.deepEqual(
+    start.steps.map((s) => s.name),
+    ["总控", "原文分析", "编剧"],
+  );
+  const original = structuredClone(plan.steps);
+  const projected = withFixedOutlineStart(plan.steps);
+  assert.deepEqual(plan.steps, original);
+  assert.deepEqual(withFixedOutlineStart(projected), projected);
+  assert.deepEqual(projected[3].dependsOn, ["fixed_screenwriting"]);
+  assert.deepEqual(projected[6].dependsOn, ["visual", "shots"]);
+});
 
 test("workflow outline tool persists clickable drafts and immutable revisions, without publishing or creating production nodes", async (t) => {
   const root = mkdtempSync(path.join(tmpdir(), "drama-outline-"));
@@ -102,10 +120,41 @@ test("workflow outline tool persists clickable drafts and immutable revisions, w
   assert.equal(m.prompt_version, group.promptVersion);
   assert.equal(s.one("SELECT count(*) n FROM nodes")!.n, beforeNodes);
   assert.ok(w.workflows.every((r) => r.status === "draft"));
+  const firstContent = workflowOutline(s, p, first.id).content;
+  assert.deepEqual(
+    firstContent.steps.slice(0, 3).map((step) => step.name),
+    ["总控", "原文分析", "编剧"],
+  );
+  assert.deepEqual(firstContent.steps[3].dependsOn, ["fixed_screenwriting"]);
   const second = (
-    await invoke({ ...plan, previousId: first.id, title: "调整后的路线" })
+    await invoke({
+      ...plan,
+      previousId: first.id,
+      title: "续写交付流程",
+      steps: [
+        {
+          key: "delivery",
+          name: "最终交付",
+          objective: "保存审定成片",
+          outputs: ["交付文件"],
+          dependsOn: [],
+        },
+      ],
+    })
   ).result as { id: string };
   assert.equal(workflowOutline(s, p, second.id).revision, 2);
+  assert.deepEqual(
+    workflowOutline(s, p, second.id).content.steps.slice(
+      0,
+      firstContent.steps.length,
+    ),
+    firstContent.steps,
+  );
+  assert.deepEqual(
+    workflowOutline(s, p, second.id).content.steps.at(-1)!.dependsOn,
+    ["video"],
+  );
+  assert.deepEqual(workflowOutline(s, p, first.id).content, firstContent);
   assert.equal(workflowOutline(s, p, first.id).content.title, plan.title);
   await assert.rejects(invoke({ ...plan, previousId: first.id }));
   await assert.rejects(invoke(plan, "source-analysis"));
@@ -113,15 +162,39 @@ test("workflow outline tool persists clickable drafts and immutable revisions, w
   await assert.rejects(
     invoke({
       ...plan,
+      previousId: second.id,
       steps: [
-        { ...plan.steps[0], dependsOn: ["video"] },
-        ...plan.steps.slice(1),
+        { ...plan.steps[0], key: "a", dependsOn: ["b"] },
+        { ...plan.steps[0], key: "b", dependsOn: ["a"] },
       ],
     }),
   );
   await assert.rejects(
-    invoke({ ...plan, steps: [{ ...plan.steps[0], dependsOn: ["missing"] }] }),
+    invoke({
+      ...plan,
+      previousId: second.id,
+      steps: [{ ...plan.steps[0], key: "bad", dependsOn: ["missing"] }],
+    }),
   );
+  await assert.rejects(
+    invoke({
+      ...plan,
+      previousId: second.id,
+      steps: [{ ...plan.steps[0], key: "fixed_screenwriting" }],
+    }),
+    /固定节点|已有节点/,
+  );
+  await assert.rejects(
+    invoke({
+      ...plan,
+      previousId: second.id,
+      steps: [
+        { ...plan.steps[0], key: "bypass", dependsOn: ["fixed_coordinator"] },
+      ],
+    }),
+    /编剧之后/,
+  );
+  await assert.rejects(invoke(plan), /最新大纲/);
   assert.equal(s.one("SELECT count(*) n FROM messages")!.n, count);
   assert.throws(() =>
     s.run(

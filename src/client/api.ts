@@ -52,6 +52,7 @@ export const str = (row: RecordData, key: string) => String(row[key] ?? "");
 export const list = (value: unknown) =>
   Array.isArray(value) ? (value as RecordData[]) : [];
 export const labels: Record<string, string> = {
+  fixed: "固定环节",
   open: "可接续",
   closed: "已结束",
   planned: "待准备",

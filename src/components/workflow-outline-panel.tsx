@@ -2,8 +2,12 @@
 import { useState } from "react";
 import { GitBranch } from "lucide-react";
 import { str, type RecordData } from "@/client/api";
-import type { WorkflowOutline } from "@/shared/workflow-outline";
-import { Empty } from "./ui";
+import {
+  initialWorkflowOutline,
+  withFixedOutlineStart,
+  FIXED_OUTLINE_KEYS,
+  type WorkflowOutline,
+} from "@/shared/workflow-outline";
 import { PromptDialog } from "./prompt-dialog";
 import { WorkflowOutlineContent } from "./workflow-outline-preview";
 
@@ -20,14 +24,17 @@ export function WorkflowOutlinePanel({
 }) {
   const [preview, setPreview] = useState(false);
   const [stepKey, setStepKey] = useState("");
-  const selected = outlines.find((o) => o.id === selectedId) ?? outlines.at(-1);
-  if (!selected)
-    return (
-      <section className="outline-workspace-panel">
-        <Empty>流程大纲尚未生成。与总控讨论制作方向后，它会显示在这里。</Empty>
-      </section>
-    );
-  const content = selected.content as WorkflowOutline;
+  const selected = outlines.find((o) => o.id === selectedId) ??
+    outlines.at(-1) ?? {
+      id: "fixed-start",
+      revision: 0,
+      content: initialWorkflowOutline(),
+    };
+  const rawContent = selected.content as WorkflowOutline;
+  const content = {
+    ...rawContent,
+    steps: withFixedOutlineStart(rawContent.steps),
+  };
   const step = content.steps.find((s) => s.key === stepKey);
   return (
     <section className="outline-workspace-panel" aria-label="流程大纲">
@@ -64,6 +71,7 @@ export function WorkflowOutlinePanel({
                 <span>{String(index + 1).padStart(2, "0")}</span>
                 <div>
                   <strong>{item.name}</strong>
+                  {FIXED_OUTLINE_KEYS.has(item.key) && <small>固定环节</small>}
                   {item.dependsOn.length > 0 && (
                     <small>
                       前置：

@@ -56,6 +56,7 @@ test("side references are a current-library subset, excluding unrelated media an
       title: "原作概况",
       revision: 1,
       decision: "confirmed",
+      usable: true,
     },
   ];
   w.stories = [{ id: "original", original_name: "原文.docx" }];
@@ -99,10 +100,16 @@ test("side references are a current-library subset, excluding unrelated media an
   );
   assert.equal(referenceCount(result.confirmed), 3);
 });
-test("right panel retains confirmed baseline beside newer draft, then replaces it on confirmation", () => {
+test("right panel shows only the latest result, keeping historical approvals in the full library", () => {
   const w = workspace();
   w.preparationRecords = [
-    { id: "r1", kind: "requirements", revision: 1, decision: "confirmed" },
+    {
+      id: "r1",
+      kind: "requirements",
+      revision: 1,
+      decision: "confirmed",
+      usable: false,
+    },
     {
       id: "r2",
       kind: "requirements",
@@ -114,19 +121,28 @@ test("right panel retains confirmed baseline beside newer draft, then replaces i
   let grouped = groupProjectReferences(w);
   assert.deepEqual(
     grouped.confirmed.records.map((r) => r.id),
-    ["r1"],
+    [],
   );
   assert.deepEqual(
     grouped.discussing.records.map((r) => r.id),
     ["r2"],
   );
   w.preparationRecords[1].decision = "confirmed";
+  w.preparationRecords[1].usable = true;
   grouped = groupProjectReferences(w);
   assert.deepEqual(
     grouped.confirmed.records.map((r) => r.id),
     ["r2"],
   );
   assert.equal(referenceCount(grouped.discussing), 0);
+  assert.ok(storyRecords(w).some((r) => r.id === "r1"));
+  w.preparationRecords[1].usable = false;
+  grouped = groupProjectReferences(w);
+  assert.equal(grouped.confirmed.records.length, 0);
+  assert.deepEqual(
+    grouped.discussing.records.map((r) => r.id),
+    ["r2"],
+  );
 });
 test("asset certainty is bound to an actual version; newer candidates do not inherit approval", () => {
   const w = workspace();
@@ -144,12 +160,11 @@ test("asset certainty is bound to an actual version; newer candidates do not inh
     { id: "v1", asset_id: "a", version: 1, status: "candidate" },
     { id: "v2", asset_id: "a", version: 2, status: "approved" },
     { id: "v3", asset_id: "a", version: 3, status: "candidate" },
-    { id: "v4", asset_id: "a", version: 4, status: "rejected" },
   ];
-  const grouped = groupProjectReferences(w);
+  let grouped = groupProjectReferences(w);
   assert.deepEqual(
     grouped.confirmed.assets.map((a) => a.version.id),
-    ["v2"],
+    [],
   );
   assert.deepEqual(
     grouped.discussing.assets.map((a) => a.version.id),
@@ -157,8 +172,31 @@ test("asset certainty is bound to an actual version; newer candidates do not inh
   );
   assert.equal(
     referenceCount(grouped.confirmed) + referenceCount(grouped.discussing),
-    2,
+    1,
   );
+  w.assetVersions.push({
+    id: "v4",
+    asset_id: "a",
+    version: 4,
+    status: "rejected",
+  });
+  grouped = groupProjectReferences(w);
+  assert.equal(
+    referenceCount(grouped.confirmed) + referenceCount(grouped.discussing),
+    0,
+  );
+  w.assetVersions.push({
+    id: "v5",
+    asset_id: "a",
+    version: 5,
+    status: "approved",
+  });
+  grouped = groupProjectReferences(w);
+  assert.deepEqual(
+    grouped.confirmed.assets.map((a) => a.version.id),
+    ["v5"],
+  );
+  assert.equal(w.assetVersions.length, 5);
 });
 test("empty groups stay empty; uploaded sources and unrecorded chat claims do not become confirmed facts", () => {
   const w = workspace();

@@ -49,7 +49,7 @@ export function CoordinatorWorkspace({
     referenceCount(confirmed) + referenceCount(discussing) + sources.length > 0;
   const canDockLeft = width >= 1180;
   const canDockRight = width >= 920;
-  const leftExpanded = canDockLeft && leftOpen && !!w.workflowOutlines?.length;
+  const leftExpanded = canDockLeft && leftOpen;
   const rightExpanded = canDockRight && rightOpen;
   const openOutline = (id: string) => {
     setOutlineId(id);
@@ -91,7 +91,7 @@ export function CoordinatorWorkspace({
             aria-label="展开流程大纲"
             aria-expanded={false}
             onClick={() => {
-              if (canDockLeft && w.workflowOutlines?.length) setLeftOpen(true);
+              if (canDockLeft) setLeftOpen(true);
               else setDialog("outline");
             }}
           >

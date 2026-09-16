@@ -53,7 +53,11 @@ function ReferenceSection({
         >
           <span>
             <strong>{names[str(r, "kind")] ?? str(r, "title")}</strong>
-            <Badge value={str(r, "decision") || "proposed"} />
+            {!confirmed && r.decision === "confirmed" ? (
+              <span className="badge proposed">需重新确认</span>
+            ) : (
+              <Badge value={str(r, "decision") || "proposed"} />
+            )}
           </span>
           <b>
             {str(r, "title")} · 第 {String(r.revision)} 版
