@@ -14,11 +14,15 @@ export function MessageBubble({
   className,
   sender,
   onQuote,
+  messageId,
+  needsConfirmation = false,
 }: {
   children: ReactNode;
   className: string;
   sender: string;
   onQuote: () => void;
+  messageId?: string;
+  needsConfirmation?: boolean;
 }) {
   const article = useRef<HTMLElement>(null);
   const suppressClickUntil = useRef(0);
@@ -52,8 +56,9 @@ export function MessageBubble({
       <article
         ref={article}
         className={className}
+        data-message-id={messageId}
         tabIndex={0}
-        aria-label={`${sender}的消息`}
+        aria-label={`${sender}的消息${needsConfirmation ? "，待确认，点击或按回车引用回复" : ""}`}
         aria-haspopup="menu"
         onContextMenu={(e) => {
           if (interactive(e.target)) return;
@@ -64,6 +69,11 @@ export function MessageBubble({
         }}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return;
+          if (needsConfirmation && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onQuote();
+            return;
+          }
           if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
             e.preventDefault();
             const rect = e.currentTarget.getBoundingClientRect();
@@ -90,6 +100,15 @@ export function MessageBubble({
             e.preventDefault();
             e.stopPropagation();
           }
+        }}
+        onClick={(e) => {
+          if (
+            needsConfirmation &&
+            !interactive(e.target) &&
+            !window.getSelection()?.toString() &&
+            Date.now() >= suppressClickUntil.current
+          )
+            onQuote();
         }}
       >
         {children}

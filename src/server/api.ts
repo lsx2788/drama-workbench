@@ -52,6 +52,7 @@ import {
 } from "./work-service";
 import { nodeStateSchema } from "./schemas";
 import { workspace } from "./read-service";
+import { skipConfirmation } from "./chat-confirmations";
 import { createSection, appendUnit } from "./section-service";
 import { createSeason } from "./season-service";
 import { createProjectWithCoordinator } from "./project-bootstrap";
@@ -347,6 +348,8 @@ async function route(request: Request, parts: string[]) {
   if (method === "PATCH" && resource === "agents" && key && action === "prompt")
     return updateAgentPrompt(s, p, key, await request.json());
   if (method === "POST") {
+    if (resource === "confirmations" && key && action === "skip")
+      return skipConfirmation(s, p, key, await request.json());
     if (resource === "preparation" && !key)
       return startPreparation(s, p, await request.json());
     if (resource === "preparation-records" && !key)

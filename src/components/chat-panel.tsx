@@ -13,6 +13,7 @@ import { ChatImages } from "./chat-images";
 import { GroupMembers, MentionPicker } from "./group-chat-controls";
 import { ChatMarkdown } from "./chat-markdown";
 import { WorkflowOutlinePreview } from "./workflow-outline-preview";
+import { ChatConfirmations } from "./chat-confirmations";
 
 function messageAttachments(message: RecordData): RecordData[] {
   if (Array.isArray(message.attachments)) return message.attachments;
@@ -139,6 +140,13 @@ export function ChatPanel({
   const [mentionRange, setMentionRange] =
     useState<ReturnType<typeof mentionAt>>(null);
   const composerInput = useRef<HTMLTextAreaElement>(null);
+  const messageList = useRef<HTMLDivElement>(null);
+  const [locatedId, setLocatedId] = useState("");
+  useEffect(() => {
+    if (!locatedId) return;
+    const timer = setTimeout(() => setLocatedId(""), 2400);
+    return () => clearTimeout(timer);
+  }, [locatedId]);
   useEffect(() => {
     const input = composerInput.current;
     if (!input || !quoteId) return;
@@ -193,265 +201,300 @@ export function ChatPanel({
         ).some((r) => r.session_id === session.id),
   );
   const quoted = w.messages.find((m) => m.id === quoteId);
+  const questions = (w.confirmations ?? []).filter(
+    (q) => q.group_id === session.id,
+  );
   const latest = messages.at(-1);
   const pending =
     latest?.sender_type === "human" &&
     !ai.turns.some((t) => t.message_id === latest.id);
   return (
-    <section className="chat-panel">
-      <div className="chat-header">
-        <div>
-          <strong>{session?.title as string}</strong>
-          <small>
-            {session?.agent_name as string} ·{" "}
-            {session?.node_type === "coordinator"
-              ? "项目讨论群"
-              : "协作讨论 · 只读"}
-          </small>
-        </div>
-        <div className="chat-settings-actions">
-          {session.node_type === "coordinator" && (
-            <AiConnectionSettings
-              value={ai.settings}
-              changed={ai.loadSettings}
-            />
-          )}
-          <Badge value={String(session?.status)} />
-        </div>
-      </div>
-      <GroupMembers
-        members={
-          isGroup
-            ? members
-            : [
-                {
-                  ...session,
-                  name: session.agent_name,
-                  membership_status: "active",
-                },
-              ]
-        }
-        agents={w.agents}
-        p={p}
-        refresh={refresh}
-        connection={ai.settings}
-      />
-      {session.node_type === "coordinator" && (
-        <p
-          className={`muted chat-activity${ai.running ? " is-running" : ""}`}
-          role="status"
-        >
-          {ai.running
-            ? "总控正在处理，回复和协作记录会自动更新…"
-            : ai.settings?.configured
-              ? `${ai.settings.provider === "codex" ? "本机 Codex" : "OpenAI API"} 已连接 · 消息、附件和生成结果会自动保存`
-              : "消息已保存。连接 AI 后即可开始讨论。"}
-        </p>
-      )}
-      <div className="messages">
-        {messages.length ? (
-          messages.map((m) => {
-            const forUser = isGroup && repliesToUser(m, session, w.messages);
-            return (
-              <MessageBubble
-                key={str(m, "id")}
-                className={`message ${m.sender_type}${forUser ? " reply-to-user" : isGroup && m.sender_type === "agent" ? " ai-collaboration" : ""}`}
-                sender={
-                  m.sender_type === "human"
-                    ? "你"
-                    : str(m, "sender_name") || str(m, "agent_name")
-                }
-                onQuote={() => {
-                  onQuote(str(m, "id"));
-                  requestAnimationFrame(() => composerInput.current?.focus());
-                }}
-              >
-                <div className="message-meta">
-                  <strong>
-                    {m.sender_type === "human"
-                      ? "你"
-                      : str(m, "sender_name") || str(m, "agent_name")}
-                  </strong>
-                  <small>{date(m.created_at)}</small>
-                </div>
-                {m.quote_id ? (
-                  <blockquote>
-                    <ChatMarkdown
-                      text={messageDisplay(
-                        w.messages.find((x) => x.id === m.quote_id) ?? {},
-                      )}
-                    />
-                  </blockquote>
-                ) : null}
-                <StoryMessage p={p} message={m} stories={w.stories} />
-                <ChatImages images={m.images} />
-                {(w.workflowOutlines ?? [])
-                  .filter((o) => o.message_id === m.id)
-                  .map((o) => (
-                    <WorkflowOutlinePreview
-                      key={str(o, "id")}
-                      outline={o}
-                      onOpen={onOutlineOpen}
-                    />
-                  ))}
-              </MessageBubble>
+    <div className="chat-shell">
+      {isGroup && (
+        <ChatConfirmations
+          p={p}
+          questions={questions}
+          refresh={refresh}
+          onLocate={(id) => {
+            const target = messageList.current?.querySelector<HTMLElement>(
+              `[data-message-id="${id}"]`,
             );
-          })
-        ) : (
-          <Empty>围绕当前目标开始讨论。消息和引用会持续保存。</Empty>
-        )}
-      </div>
-      {session.node_type === "coordinator" && (
-        <>
-          {ai.turns[0]?.error ? (
-            <p role="alert" className="error">
-              上次执行未完成：{str(ai.turns[0], "error")}。可发送补充消息继续。
-            </p>
-          ) : null}
-          {pending && ai.settings?.configured && !busy && (
-            <button
-              type="button"
-              className="pending-ai-message"
-              onClick={() => void ai.send("", [], "", str(latest!, "id"))}
-            >
-              让总控处理这条消息
-            </button>
-          )}
-        </>
-      )}
-      {session?.node_type === "coordinator" ? (
-        <form
-          className="composer"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (unavailableMention) return;
-            if (await ai.send(draft, files, quoteId, undefined, mentionIds)) {
-              setDraft("");
-              setFiles([]);
-              setAttachmentsOpen(false);
-              setMentions([]);
-              setMentionOpen(false);
-              onClearQuote();
-            }
+            if (!target) return;
+            target.focus({ preventScroll: true });
+            target.scrollIntoView({ block: "center", behavior: "smooth" });
+            setLocatedId(id);
           }}
-        >
-          {quoted && (
-            <div className="quote-preview">
-              <span>引用：{messageDisplay(quoted).slice(0, 150)}</span>
-              <button type="button" onClick={() => onClearQuote()}>
-                取消引用
+        />
+      )}
+      <section className="chat-panel">
+        <div className="chat-header">
+          <div>
+            <strong>{session?.title as string}</strong>
+            <small>
+              {session?.agent_name as string} ·{" "}
+              {session?.node_type === "coordinator"
+                ? "项目讨论群"
+                : "协作讨论 · 只读"}
+            </small>
+          </div>
+          <div className="chat-settings-actions">
+            {session.node_type === "coordinator" && (
+              <AiConnectionSettings
+                value={ai.settings}
+                changed={ai.loadSettings}
+              />
+            )}
+            <Badge value={String(session?.status)} />
+          </div>
+        </div>
+        <GroupMembers
+          members={
+            isGroup
+              ? members
+              : [
+                  {
+                    ...session,
+                    name: session.agent_name,
+                    membership_status: "active",
+                  },
+                ]
+          }
+          agents={w.agents}
+          p={p}
+          refresh={refresh}
+          connection={ai.settings}
+        />
+        {session.node_type === "coordinator" && (
+          <p
+            className={`muted chat-activity${ai.running ? " is-running" : ""}`}
+            role="status"
+          >
+            {ai.running
+              ? "总控正在处理，回复和协作记录会自动更新…"
+              : ai.settings?.configured
+                ? `${ai.settings.provider === "codex" ? "本机 Codex" : "OpenAI API"} 已连接 · 消息、附件和生成结果会自动保存`
+                : "消息已保存。连接 AI 后即可开始讨论。"}
+          </p>
+        )}
+        <div className="messages" ref={messageList}>
+          {messages.length ? (
+            messages.map((m) => {
+              const forUser = isGroup && repliesToUser(m, session, w.messages);
+              const question = questions.find((q) => q.message_id === m.id);
+              const needsConfirmation = question?.status === "pending";
+              return (
+                <MessageBubble
+                  key={str(m, "id")}
+                  messageId={str(m, "id")}
+                  needsConfirmation={needsConfirmation}
+                  className={`message ${m.sender_type}${forUser ? " reply-to-user" : isGroup && m.sender_type === "agent" ? " ai-collaboration" : ""}${needsConfirmation ? " needs-confirmation" : ""}${locatedId === m.id ? " message-located" : ""}`}
+                  sender={
+                    m.sender_type === "human"
+                      ? "你"
+                      : str(m, "sender_name") || str(m, "agent_name")
+                  }
+                  onQuote={() => {
+                    onQuote(str(m, "id"));
+                    requestAnimationFrame(() => composerInput.current?.focus());
+                  }}
+                >
+                  <div className="message-meta">
+                    <strong>
+                      {m.sender_type === "human"
+                        ? "你"
+                        : str(m, "sender_name") || str(m, "agent_name")}
+                    </strong>
+                    <small>{date(m.created_at)}</small>
+                  </div>
+                  {question && (
+                    <small className="confirmation-message-status">
+                      {needsConfirmation
+                        ? "待确认 · 点击引用回复"
+                        : question.status === "skipped"
+                          ? "已跳过"
+                          : "已回应"}
+                    </small>
+                  )}
+                  {m.quote_id ? (
+                    <blockquote>
+                      <ChatMarkdown
+                        text={messageDisplay(
+                          w.messages.find((x) => x.id === m.quote_id) ?? {},
+                        )}
+                      />
+                    </blockquote>
+                  ) : null}
+                  <StoryMessage p={p} message={m} stories={w.stories} />
+                  <ChatImages images={m.images} />
+                  {(w.workflowOutlines ?? [])
+                    .filter((o) => o.message_id === m.id)
+                    .map((o) => (
+                      <WorkflowOutlinePreview
+                        key={str(o, "id")}
+                        outline={o}
+                        onOpen={onOutlineOpen}
+                      />
+                    ))}
+                </MessageBubble>
+              );
+            })
+          ) : (
+            <Empty>围绕当前目标开始讨论。消息和引用会持续保存。</Empty>
+          )}
+        </div>
+        {session.node_type === "coordinator" && (
+          <>
+            {ai.turns[0]?.error ? (
+              <p role="alert" className="error">
+                上次执行未完成：{str(ai.turns[0], "error")}
+                。可发送补充消息继续。
+              </p>
+            ) : null}
+            {pending && ai.settings?.configured && !busy && (
+              <button
+                type="button"
+                className="pending-ai-message"
+                onClick={() => void ai.send("", [], "", str(latest!, "id"))}
+              >
+                让总控处理这条消息
               </button>
-            </div>
-          )}
-          {mentionOpen && mentionRange && (
-            <MentionPicker
-              members={members.filter(
-                (m) =>
-                  m.id !== session.id &&
-                  m.membership_status === "active" &&
-                  str(m, "name")
-                    .toLowerCase()
-                    .includes(mentionRange.query.toLowerCase()),
-              )}
-              onClose={() => setMentionOpen(false)}
-              onSelect={(m) => {
-                setMentions((old) =>
-                  old.some((r) => r.id === m.id) ? old : [...old, m],
-                );
-                const insertion = `@${str(m, "name")} `;
-                const caret = mentionRange.start + insertion.length;
-                setDraft(
-                  (old) =>
-                    old.slice(0, mentionRange.start) +
-                    insertion +
-                    old.slice(mentionRange.end),
-                );
+            )}
+          </>
+        )}
+        {session?.node_type === "coordinator" ? (
+          <form
+            className="composer"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (unavailableMention) return;
+              if (await ai.send(draft, files, quoteId, undefined, mentionIds)) {
+                setDraft("");
+                setFiles([]);
+                setAttachmentsOpen(false);
+                setMentions([]);
                 setMentionOpen(false);
-                setMentionRange(null);
-                requestAnimationFrame(() => {
-                  composerInput.current?.focus();
-                  composerInput.current?.setSelectionRange(caret, caret);
-                });
-              }}
-            />
-          )}
-          <textarea
-            ref={composerInput}
-            aria-label="给总控的消息"
-            placeholder="说说你的想法，输入 @ 选择成员…"
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              updateMention(e.target.value, e.target.selectionStart);
-            }}
-            onSelect={(e) =>
-              updateMention(
-                e.currentTarget.value,
-                e.currentTarget.selectionStart,
-              )
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setMentionOpen(false);
-              if (
-                quoteId &&
-                !e.currentTarget.value.length &&
-                !e.nativeEvent.isComposing &&
-                e.nativeEvent.keyCode !== 229 &&
-                (e.key === "Backspace" || e.key === "Delete")
-              ) {
-                e.preventDefault();
                 onClearQuote();
               }
             }}
-            disabled={ai.sending}
-          />
-          {unavailableMention && (
-            <p className="error" role="alert">
-              提及的 AI 已退出，请移除提及，并告诉总控你想继续与它讨论。
-            </p>
-          )}
-          {(attachmentsOpen || files.length > 0) && (
-            <div className="chat-attachment-picker">
-              <StoryFileUpload
-                files={files}
-                disabled={busy}
-                onChange={setFiles}
-                onError={setFileError}
+          >
+            {quoted && (
+              <div className="quote-preview">
+                <span>引用：{messageDisplay(quoted).slice(0, 150)}</span>
+                <button type="button" onClick={() => onClearQuote()}>
+                  取消引用
+                </button>
+              </div>
+            )}
+            {mentionOpen && mentionRange && (
+              <MentionPicker
+                members={members.filter(
+                  (m) =>
+                    m.id !== session.id &&
+                    m.membership_status === "active" &&
+                    str(m, "name")
+                      .toLowerCase()
+                      .includes(mentionRange.query.toLowerCase()),
+                )}
+                onClose={() => setMentionOpen(false)}
+                onSelect={(m) => {
+                  setMentions((old) =>
+                    old.some((r) => r.id === m.id) ? old : [...old, m],
+                  );
+                  const insertion = `@${str(m, "name")} `;
+                  const caret = mentionRange.start + insertion.length;
+                  setDraft(
+                    (old) =>
+                      old.slice(0, mentionRange.start) +
+                      insertion +
+                      old.slice(mentionRange.end),
+                  );
+                  setMentionOpen(false);
+                  setMentionRange(null);
+                  requestAnimationFrame(() => {
+                    composerInput.current?.focus();
+                    composerInput.current?.setSelectionRange(caret, caret);
+                  });
+                }}
               />
-              {fileError && (
-                <p className="error" role="alert">
-                  {fileError}
-                </p>
-              )}
-            </div>
-          )}
-          <div className="composer-footer">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setAttachmentsOpen(!attachmentsOpen)}
-            >
-              ＋ 文件 / 图片{files.length ? ` · ${files.length}` : ""}
-            </button>
-            <small>也可以直接告诉总控你想生成什么图片</small>
-            <button
-              className="primary"
-              disabled={
-                busy ||
-                unavailableMention ||
-                !ai.settings?.configured ||
-                (!draft.trim() && !files.length)
+            )}
+            <textarea
+              ref={composerInput}
+              aria-label="给总控的消息"
+              placeholder="说说你的想法，输入 @ 选择成员…"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                updateMention(e.target.value, e.target.selectionStart);
+              }}
+              onSelect={(e) =>
+                updateMention(
+                  e.currentTarget.value,
+                  e.currentTarget.selectionStart,
+                )
               }
-            >
-              {ai.sending ? "发送中…" : ai.running ? "处理中…" : "发送 ↗"}
-            </button>
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setMentionOpen(false);
+                if (
+                  quoteId &&
+                  !e.currentTarget.value.length &&
+                  !e.nativeEvent.isComposing &&
+                  e.nativeEvent.keyCode !== 229 &&
+                  (e.key === "Backspace" || e.key === "Delete")
+                ) {
+                  e.preventDefault();
+                  onClearQuote();
+                }
+              }}
+              disabled={ai.sending}
+            />
+            {unavailableMention && (
+              <p className="error" role="alert">
+                提及的 AI 已退出，请移除提及，并告诉总控你想继续与它讨论。
+              </p>
+            )}
+            {(attachmentsOpen || files.length > 0) && (
+              <div className="chat-attachment-picker">
+                <StoryFileUpload
+                  files={files}
+                  disabled={busy}
+                  onChange={setFiles}
+                  onError={setFileError}
+                />
+                {fileError && (
+                  <p className="error" role="alert">
+                    {fileError}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="composer-footer">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setAttachmentsOpen(!attachmentsOpen)}
+              >
+                ＋ 文件 / 图片{files.length ? ` · ${files.length}` : ""}
+              </button>
+              <small>也可以直接告诉总控你想生成什么图片</small>
+              <button
+                className="primary"
+                disabled={
+                  busy ||
+                  unavailableMention ||
+                  !ai.settings?.configured ||
+                  (!draft.trim() && !files.length)
+                }
+              >
+                {ai.sending ? "发送中…" : ai.running ? "处理中…" : "发送 ↗"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="read-only">
+            这是子 AI 的会话记录。可在总控讨论群中 @ 此 AI 或引用消息。
           </div>
-        </form>
-      ) : (
-        <div className="read-only">
-          这是子 AI 的会话记录。可在总控讨论群中 @ 此 AI 或引用消息。
-        </div>
-      )}
-    </section>
+        )}
+      </section>
+    </div>
   );
 }

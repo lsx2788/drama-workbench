@@ -24,6 +24,11 @@ import { sourceInput, imageInput } from "./ai-context";
 import { readDocument } from "./document-reader";
 import { pendingReviews, reviewAsset } from "./result-review";
 import {
+  askConfirmation,
+  chatConfirmations,
+  resolveConfirmation,
+} from "./chat-confirmations";
+import {
   publishGroupMessage,
   groupCandidates,
   setGroupMember,
@@ -37,6 +42,12 @@ import {
 } from "./workflow-outline-service";
 
 const contracts: Record<string, string> = {
+  confirmations:
+    "{}: 查询当前群已登记的用户问题与 pending/answered/skipped 状态。跳过和已回应都不是审批。",
+  ask_confirmation:
+    "{key,title,content}: 总控向用户提出一个独立待确认问题，自动保存并发布黄色消息。key 是群内唯一标识，重试保持相同；不要在最终回复重复问题。",
+  resolve_confirmation:
+    "{id,userMessageId,reason}: 总控依据真实用户回答将问题标为已回应；不代表用户同意，不改变成果审核。不完整或有歧义的回复仍保留待确认。",
   pending_reviews:
     "{}: 查询前期成果、知识提议与资产版本的待审核清单，只读。聊天声称通过不会改变清单。",
   knowledge_proposal:
@@ -104,6 +115,9 @@ export function toolActions(profile: string) {
   if (profile === "coordinator")
     return [
       ...common,
+      "confirmations",
+      "ask_confirmation",
+      "resolve_confirmation",
       "prepare",
       "ask_child",
       "save_record",
@@ -207,6 +221,26 @@ export async function executeTool(
   const key = () => z.uuid().parse(d.id);
   let result: unknown;
   switch (call.action) {
+    case "confirmations":
+      result = chatConfirmations(s, p, sessionId);
+      break;
+    case "ask_confirmation":
+      assert(
+        group && group.id === sessionId,
+        "只能由当前群总控提出用户待确认问题",
+      );
+      result = askConfirmation(
+        s,
+        p,
+        sessionId,
+        d,
+        group.triggerId,
+        group.promptVersion,
+      );
+      break;
+    case "resolve_confirmation":
+      result = resolveConfirmation(s, p, sessionId, d);
+      break;
     case "pending_reviews":
       result = pendingReviews(s, p);
       break;

@@ -8,6 +8,7 @@ import { groupEnvelope, groupCandidates } from "./group-service";
 import { messagePresenter } from "./message-presentation";
 import { workflowOutlines } from "./workflow-outline-service";
 import { knowledge } from "./knowledge-service";
+import { chatConfirmations } from "./chat-confirmations";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
@@ -28,6 +29,7 @@ export function workspace(s: Store, p: string) {
     attachments.set(key, rows);
   }
   return {
+    confirmations: chatConfirmations(s, p),
     workflowOutlines: workflowOutlines(s, p),
     groupCandidates: s
       .all(

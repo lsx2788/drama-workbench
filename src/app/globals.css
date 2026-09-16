@@ -2334,6 +2334,143 @@ pre {
 .studio-chat > .chat-panel {
   width: 100%;
 }
+.chat-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.chat-shell > .chat-panel {
+  flex: 1;
+  min-height: 0;
+}
+.confirmation-reminder {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  padding: 0 2px 6px;
+}
+.confirmation-reminder button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff3cb;
+  border-color: #e5c571;
+  color: #79580e;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 16px;
+}
+.confirmation-reminder b {
+  font-variant-numeric: tabular-nums;
+}
+.message.needs-confirmation,
+.message.reply-to-user.needs-confirmation {
+  background: #fff8df;
+  border-color: #e1c165;
+  box-shadow: inset 3px 0 #d8a72e;
+  cursor: pointer;
+}
+.message.needs-confirmation .message-meta {
+  border-color: #e9dcae;
+}
+.confirmation-message-status {
+  display: block;
+  color: #897023;
+  font-size: 10px;
+  margin: 0 0 8px;
+}
+.message.message-located {
+  outline: 2px solid #d3a334;
+  outline-offset: 2px;
+}
+.confirmation-list {
+  display: grid;
+  gap: 10px;
+  max-height: 60dvh;
+  overflow-y: auto;
+  padding: 3px;
+}
+.confirmation-list-help {
+  font-size: 12px;
+}
+.confirmation-row-wrap {
+  position: relative;
+  background: #f5e7bb;
+  border-radius: 9px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.confirmation-swipe-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 15px;
+  color: #886323;
+  font-size: 12px;
+}
+.confirmation-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 62px;
+  padding: 14px;
+  text-align: left;
+  border-radius: 9px;
+  background: #fffbef;
+  border: 1px solid #ebdbaa;
+  color: #594921;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.confirmation-row span {
+  overflow-wrap: anywhere;
+}
+.confirmation-row small {
+  white-space: nowrap;
+  color: #95845e;
+  font-size: 10px;
+}
+.confirmation-row-menu {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  background: #fffbef;
+  padding: 8px 12px;
+}
+.confirmation-row-menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+@media (max-width: 760px) {
+  .confirmation-reminder {
+    padding-bottom: 4px;
+  }
+  .confirmation-reminder button {
+    min-height: 28px;
+    padding: 3px 9px;
+    font-size: 11px;
+  }
+  .confirmation-row {
+    padding: 12px;
+  }
+}
 .studio-side {
   flex-shrink: 0;
   min-width: 0;
