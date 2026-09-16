@@ -4,6 +4,7 @@ import { Download, FileText } from "lucide-react";
 import { api, str, type RecordData } from "@/client/api";
 import { decodeStoryText, isStoryText } from "@/client/story-text";
 import { isStoryImage } from "@/shared/story-import";
+import { DocxPreview } from "./docx-preview";
 
 export function StoryReader({
   p,
@@ -131,10 +132,13 @@ export function StoryReader({
         ) : (
           <p className="muted">正在读取图片…</p>
         )
+      ) : /\.docx$/i.test(str(detail, "original_name")) ? (
+        <DocxPreview
+          key={`${p}:${storyId}`}
+          url={str(detail, "download_url")}
+        />
       ) : !isStoryText(str(detail, "mime")) ? (
-        <p className="muted">
-          此文件保留原始格式，可下载浏览；网页支持文本和图片预览。
-        </p>
+        <p className="muted">此格式暂不支持网页预览，可下载原文件查看。</p>
       ) : !decoded ? (
         <p className="muted">正在读取原文…</p>
       ) : decoded.error ? (

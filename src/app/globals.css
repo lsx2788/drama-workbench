@@ -2939,6 +2939,57 @@ pre {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+.story-document-note {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0 0 16px;
+}
+.story-document-content {
+  padding: clamp(16px, 4vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+.story-document-content > :first-child {
+  margin-top: 0;
+}
+.story-document-content > :last-child {
+  margin-bottom: 0;
+}
+.story-document-content h1 {
+  font-size: 23px;
+}
+.story-document-content h2 {
+  font-size: 20px;
+}
+.story-document-content h3 {
+  font-size: 17px;
+}
+.story-document-content p {
+  margin: 0 0 1em;
+}
+.story-document-content img {
+  max-width: 100%;
+  height: auto;
+}
+.story-document-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+.story-document-content td,
+.story-document-content th {
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  min-width: 70px;
+}
+.story-document-content pre {
+  white-space: pre-wrap;
+}
 .story-reader-image img {
   display: block;
   max-width: 100%;
