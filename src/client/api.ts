@@ -1,5 +1,6 @@
 export type RecordData = Record<string, unknown>;
 export interface Workspace {
+  workflowOutlines?: RecordData[];
   preparation?: RecordData | null;
   preparationRecords?: RecordData[];
   aiRelations?: RecordData[];

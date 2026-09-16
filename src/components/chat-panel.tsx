@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { mentionAt } from "@/client/chat-mentions";
 import { str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
@@ -11,6 +12,7 @@ import { StoryFileUpload } from "./story-file-upload";
 import { ChatImages } from "./chat-images";
 import { GroupMembers, MentionPicker } from "./group-chat-controls";
 import { ChatMarkdown } from "./chat-markdown";
+import { WorkflowOutlinePreview } from "./workflow-outline-preview";
 
 function messageAttachments(message: RecordData): RecordData[] {
   if (Array.isArray(message.attachments)) return message.attachments;
@@ -125,6 +127,18 @@ export function ChatPanel({
   const [fileError, setFileError] = useState("");
   const [mentions, setMentions] = useState<RecordData[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionRange, setMentionRange] =
+    useState<ReturnType<typeof mentionAt>>(null);
+  const composerInput = useRef<HTMLTextAreaElement>(null);
+  const updateMention = (value: string, caret: number) => {
+    const range = mentionAt(
+      value,
+      caret,
+      mentions.map((m) => str(m, "name")),
+    );
+    setMentionRange(range);
+    setMentionOpen(!!range);
+  };
   const ai = useAiChat(p, str(session, "id"), refresh, fail);
   const busy = ai.sending || ai.running;
   const isGroup = session.node_type === "coordinator";
@@ -246,6 +260,11 @@ export function ChatPanel({
                 ) : null}
                 <StoryMessage p={p} message={m} stories={w.stories} />
                 <ChatImages images={m.images} />
+                {(w.workflowOutlines ?? [])
+                  .filter((o) => o.message_id === m.id)
+                  .map((o) => (
+                    <WorkflowOutlinePreview key={str(o, "id")} outline={o} />
+                  ))}
                 <div className="message-actions">
                   <MessagePrompt
                     p={p}
@@ -328,20 +347,35 @@ export function ChatPanel({
               </button>
             </div>
           )}
-          {mentionOpen && (
+          {mentionOpen && mentionRange && (
             <MentionPicker
               members={members.filter(
-                (m) => m.id !== session.id && m.membership_status === "active",
+                (m) =>
+                  m.id !== session.id &&
+                  m.membership_status === "active" &&
+                  str(m, "name")
+                    .toLowerCase()
+                    .includes(mentionRange.query.toLowerCase()),
               )}
               onClose={() => setMentionOpen(false)}
               onSelect={(m) => {
                 setMentions((old) =>
                   old.some((r) => r.id === m.id) ? old : [...old, m],
                 );
+                const insertion = `@${str(m, "name")} `;
+                const caret = mentionRange.start + insertion.length;
                 setDraft(
-                  (old) => `${old.replace(/@$/, "")}@${str(m, "name")} `,
+                  (old) =>
+                    old.slice(0, mentionRange.start) +
+                    insertion +
+                    old.slice(mentionRange.end),
                 );
                 setMentionOpen(false);
+                setMentionRange(null);
+                requestAnimationFrame(() => {
+                  composerInput.current?.focus();
+                  composerInput.current?.setSelectionRange(caret, caret);
+                });
               }}
             />
           )}
@@ -367,12 +401,22 @@ export function ChatPanel({
             </div>
           )}
           <textarea
+            ref={composerInput}
             aria-label="给总控的消息"
             placeholder="说说你的想法，或 @ 在场 AI；不 @ 默认发给总控…"
             value={draft}
             onChange={(e) => {
               setDraft(e.target.value);
-              if (e.target.value.endsWith("@")) setMentionOpen(true);
+              updateMention(e.target.value, e.target.selectionStart);
+            }}
+            onSelect={(e) =>
+              updateMention(
+                e.currentTarget.value,
+                e.currentTarget.selectionStart,
+              )
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setMentionOpen(false);
             }}
             disabled={ai.sending}
           />
@@ -397,13 +441,6 @@ export function ChatPanel({
             </div>
           )}
           <div className="composer-footer">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setMentionOpen(!mentionOpen)}
-            >
-              ＠ 提及
-            </button>
             <button
               type="button"
               disabled={busy}

@@ -6,6 +6,7 @@ import { listStories } from "./story-service";
 import { listPreparationRecords } from "./preparation-service";
 import { groupEnvelope, groupCandidates } from "./group-service";
 import { messagePresenter } from "./message-presentation";
+import { workflowOutlines } from "./workflow-outline-service";
 
 export function workspace(s: Store, p: string) {
   projectExists(s, p);
@@ -26,6 +27,7 @@ export function workspace(s: Store, p: string) {
     attachments.set(key, rows);
   }
   return {
+    workflowOutlines: workflowOutlines(s, p),
     groupCandidates: s
       .all(
         "SELECT ss.id FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND n.node_type='coordinator'",

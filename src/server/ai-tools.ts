@@ -28,8 +28,16 @@ import {
   groupEnvelope,
 } from "./group-service";
 import type { AiItem } from "./openai-provider";
+import {
+  proposeWorkflowOutline,
+  workflowOutline,
+  workflowOutlines,
+} from "./workflow-outline-service";
 
 const contracts: Record<string, string> = {
+  propose_workflow_outline:
+    "{title,summary,steps:[{key,name,objective,outputs?:[],dependsOn?:[]}],questions?:[],previousId?}: 总控保存待讨论的制作流程大纲，自动在群里显示预览卡片。steps 用局部 key 关联，允许分支但不允许环，最多40步。不会发布或执行正式流程；修订引用 previousId。",
+  workflow_outline: "{id}: 按 ID 查询本项目已保存的流程大纲。",
   group_members:
     "{}: 获取可用 AI、真实 session ID 和 available（未参与）/active（在场）/paused（已退出）状态。",
   group_member:
@@ -91,6 +99,8 @@ export function toolActions(profile: string) {
       "review_record",
       "review_knowledge",
       "group_member",
+      "propose_workflow_outline",
+      "workflow_outline",
     ];
   if (profile === "source-analysis")
     return [
@@ -148,6 +158,12 @@ export function projectState(s: Store, p: string, sessionId: string) {
     sessionId,
     sources: listStories(s, p).slice(0, 200),
     records: listPreparationRecords(s, p),
+    workflowOutlines: workflowOutlines(s, p).map((r) => ({
+      id: r.id,
+      revision: r.revision,
+      previousId: r.previous_id,
+      title: r.content.title,
+    })),
     sessions: s.all(
       "SELECT ss.id,ss.title,a.name,a.id AS agent_id,n.node_type,pr.profile_id FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id LEFT JOIN node_ai_profiles pr ON pr.node_id=n.id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND ss.status='open' AND (a.id=? OR a.id IN (SELECT child_id FROM ai_relations WHERE parent_id=?) OR a.id IN (SELECT parent_id FROM ai_relations WHERE child_id=?))",
       p,
@@ -168,7 +184,7 @@ export async function executeTool(
   profile: string,
   input: unknown,
   runChild: ChildRunner,
-  group?: { id: string; triggerId: string },
+  group?: { id: string; triggerId: string; promptVersion?: number },
 ): Promise<{ result: unknown; media?: AiItem }> {
   const call = z
     .object({ action: z.string(), data: z.string().max(100_000) })
@@ -179,6 +195,20 @@ export async function executeTool(
   const key = () => z.uuid().parse(d.id);
   let result: unknown;
   switch (call.action) {
+    case "propose_workflow_outline":
+      assert(group && group.id === sessionId, "流程大纲由本群总控制定");
+      result = proposeWorkflowOutline(
+        s,
+        p,
+        sessionId,
+        d,
+        group.triggerId,
+        group.promptVersion,
+      );
+      break;
+    case "workflow_outline":
+      result = workflowOutline(s, p, key());
+      break;
     case "group_members":
       assert(group, "当前调用不在群聊执行中");
       result = groupCandidates(s, p, group.id);

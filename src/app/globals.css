@@ -1602,6 +1602,9 @@ pre {
   overflow: auto;
 }
 .message {
+  width: fit-content;
+  max-width: 90%;
+  min-width: min(240px, 80%);
   padding: 15px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1609,11 +1612,15 @@ pre {
   background: #fbfcf8;
 }
 .message.human {
+  margin-left: auto;
+  max-width: 80%;
   background: #eef3e6;
   border-color: #dce5d2;
 }
 .message-meta {
   display: flex;
+  gap: 8px 16px;
+  flex-wrap: wrap;
   justify-content: space-between;
   font-size: 11px;
 }
@@ -2908,6 +2915,39 @@ pre {
 .group-recipient {
   font-size: 11px;
   color: #527b6a;
+}
+.workflow-outline-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  margin: 12px 0;
+  padding: 14px 16px;
+  text-align: left;
+  background: #fff;
+  border-color: #b7d5c5;
+  color: var(--green);
+}
+.workflow-outline-card small {
+  display: block;
+  color: #6c8074;
+  margin-top: 4px;
+}
+.workflow-outline-preview .graph-viewport {
+  max-height: 360px;
+  overflow: auto;
+}
+.workflow-outline-preview h3 {
+  font-size: 14px;
+}
+.outline-step-detail {
+  border: 1px solid #c8dfd2;
+  border-radius: 10px;
+  background: #f3faf6;
+  padding: 12px 16px;
+  margin: 12px 0;
 }
 .message.ai-collaboration {
   background: #f6f7f4;

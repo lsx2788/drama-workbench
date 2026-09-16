@@ -72,7 +72,7 @@ export function MentionPicker({
         ))
       ) : (
         <p className="muted">
-          当前没有其他在场 AI，总控建立协作后可在这里选择。
+          没有匹配的在场 AI。需要其他协作者时，可以告诉总控。
         </p>
       )}
     </div>
