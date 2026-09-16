@@ -4,6 +4,7 @@ import { memo, useId } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkCjkFriendly from "remark-cjk-friendly";
+import { remarkChatMentions } from "@/client/remark-chat-mentions";
 
 const components: Components = {
   a: ({ href, children, title }) =>
@@ -44,14 +45,20 @@ const components: Components = {
 /** Render stored text; never interpret embedded HTML or mutate the source. */
 export const ChatMarkdown = memo(function ChatMarkdown({
   text,
+  mentionedNames = [],
 }: {
   text: string;
+  mentionedNames?: string[];
 }) {
   const prefix = useId();
   return (
     <div className="chat-markdown">
       <Markdown
-        remarkPlugins={[remarkGfm, remarkCjkFriendly]}
+        remarkPlugins={[
+          remarkGfm,
+          remarkCjkFriendly,
+          [remarkChatMentions, { names: mentionedNames }],
+        ]}
         remarkRehypeOptions={{ clobberPrefix: `message-${prefix}-` }}
         components={components}
       >

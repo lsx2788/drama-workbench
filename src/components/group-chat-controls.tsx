@@ -58,7 +58,7 @@ export function MentionPicker({
   return (
     <div className="mention-picker" role="group" aria-label="选择要 @ 的 AI">
       <div>
-        <small>选择接收者 · 总控同时收到</small>
+        <small>选择成员</small>
         <button type="button" onClick={onClose} aria-label="关闭提及选择">
           ×
         </button>

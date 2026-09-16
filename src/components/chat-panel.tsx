@@ -74,7 +74,15 @@ function StoryMessage({
   const attachments = messageAttachments(message);
   return (
     <>
-      <ChatMarkdown text={messageDisplay(message)} />
+      <ChatMarkdown
+        text={messageDisplay(message)}
+        mentionedNames={(
+          ((message.group as RecordData | null)?.recipients as RecordData[]) ??
+          []
+        )
+          .filter((r) => r.mentioned)
+          .map((r) => str(r, "name"))}
+      />
       {attachments.length > 0 && (
         <div className="story-message-attachments">
           {attachments.map((attachment) => {
@@ -220,22 +228,6 @@ export function ChatPanel({
                       ? "你"
                       : str(m, "sender_name") || str(m, "agent_name")}
                   </strong>
-                  {isGroup && (
-                    <span
-                      className={`group-recipient${forUser ? " user-reply-label" : ""}`}
-                    >
-                      {forUser
-                        ? "回复你"
-                        : (
-                            ((m.group as RecordData | null)
-                              ?.recipients as RecordData[]) ?? []
-                          )
-                            .filter((r) => r.mentioned)
-                            .map((r) => `@${r.name}`)
-                            .join(" ") ||
-                          (m.sender_type === "human" ? "发给总控" : "AI 协作")}
-                    </span>
-                  )}
                   <small>{date(m.created_at)}</small>
                 </div>
                 {isGroup && !!(m.group as RecordData | null)?.reply_to_id && (
@@ -385,31 +377,10 @@ export function ChatPanel({
               }}
             />
           )}
-          {mentions.some((m) => draft.includes(`@${str(m, "name")}`)) && (
-            <div className="mention-recipients">
-              <small>同时发给总控与</small>
-              {mentions
-                .filter((m) => draft.includes(`@${str(m, "name")}`))
-                .map((m) => (
-                  <button
-                    type="button"
-                    key={str(m, "id")}
-                    onClick={() => {
-                      setMentions((old) => old.filter((r) => r.id !== m.id));
-                      setDraft((old) =>
-                        old.replaceAll(`@${str(m, "name")}`, ""),
-                      );
-                    }}
-                  >
-                    @{str(m, "name")} ×
-                  </button>
-                ))}
-            </div>
-          )}
           <textarea
             ref={composerInput}
             aria-label="给总控的消息"
-            placeholder="说说你的想法，或 @ 在场 AI；不 @ 默认发给总控…"
+            placeholder="说说你的想法，输入 @ 选择成员…"
             value={draft}
             onChange={(e) => {
               setDraft(e.target.value);

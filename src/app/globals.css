@@ -3238,10 +3238,6 @@ pre {
   margin-top: 8px;
   font-size: 11px;
 }
-.group-recipient {
-  font-size: 11px;
-  color: #527b6a;
-}
 .workflow-outline-card {
   display: flex;
   align-items: center;
@@ -3300,14 +3296,6 @@ pre {
 .reply-to-user .message-meta > strong {
   font-size: 12px;
 }
-.group-recipient.user-reply-label {
-  margin-right: auto;
-  padding: 2px 9px;
-  border-radius: 20px;
-  background: #d9f2e5;
-  color: #216546;
-  font-weight: 600;
-}
 .group-reply-reference {
   border-left: 2px solid #c7d6ce;
   padding: 5px 10px;
@@ -3361,19 +3349,6 @@ pre {
 .composer-footer {
   flex-wrap: wrap;
   gap: 8px;
-}
-.mention-recipients {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.mention-recipients button {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 14px;
-  color: var(--accent);
 }
 .chat-panel > .session-meta > summary {
   padding: 4px 0;
