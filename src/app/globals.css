@@ -1732,6 +1732,9 @@ pre {
   flex-wrap: wrap;
   justify-content: space-between;
   font-size: 11px;
+  padding-bottom: 9px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #cedbd2;
 }
 .message-meta small {
   color: #8d9786;

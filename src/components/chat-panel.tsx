@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { mentionAt, selectedMentionIds } from "@/client/chat-mentions";
 import { str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
@@ -139,6 +139,24 @@ export function ChatPanel({
   const [mentionRange, setMentionRange] =
     useState<ReturnType<typeof mentionAt>>(null);
   const composerInput = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const input = composerInput.current;
+    if (!input || !quoteId) return;
+    // Mobile keyboards may emit beforeinput without a Backspace keydown.
+    const deleteEmptyQuote = (event: InputEvent) => {
+      if (
+        !event.isComposing &&
+        !input.value.length &&
+        (event.inputType === "deleteContentBackward" ||
+          event.inputType === "deleteContentForward")
+      ) {
+        event.preventDefault();
+        onClearQuote();
+      }
+    };
+    input.addEventListener("beforeinput", deleteEmptyQuote);
+    return () => input.removeEventListener("beforeinput", deleteEmptyQuote);
+  }, [quoteId, onClearQuote]);
   const updateMention = (value: string, caret: number) => {
     const range = mentionAt(
       value,
@@ -371,6 +389,16 @@ export function ChatPanel({
             }
             onKeyDown={(e) => {
               if (e.key === "Escape") setMentionOpen(false);
+              if (
+                quoteId &&
+                !e.currentTarget.value.length &&
+                !e.nativeEvent.isComposing &&
+                e.nativeEvent.keyCode !== 229 &&
+                (e.key === "Backspace" || e.key === "Delete")
+              ) {
+                e.preventDefault();
+                onClearQuote();
+              }
             }}
             disabled={ai.sending}
           />
