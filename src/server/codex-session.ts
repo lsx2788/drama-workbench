@@ -7,6 +7,8 @@ import { auditJson, chatContext } from "./ai-context";
 import { codexConnection } from "./codex-connection";
 import type { CodexRpc, RpcData, RpcNotice } from "./codex-rpc";
 import type { AiItem } from "./openai-provider";
+import { projectExists } from "./common";
+import { sessionInProject } from "./collaboration-service";
 
 type Handler = (params: RpcData) => Promise<unknown>;
 type Transport = Pick<CodexRpc, "request" | "notices" | "onRequest">;
@@ -42,9 +44,7 @@ type Options = {
 /** One persistent Codex thread per workbench session. Only scoped dynamic tools cross the boundary. */
 export async function runCodexSession(
   o: Options,
-  connect: (
-    s: Store,
-  ) => Promise<{
+  connect: (s: Store) => Promise<{
     rpc: Transport;
     status: { connected: boolean; imageGeneration: boolean };
     disabledServers: RpcData;
@@ -69,30 +69,6 @@ export async function runCodexSession(
     sessionId,
   );
   const reuse = previous?.tool_hash === toolHash;
-  const options = {
-    model: o.model,
-    cwd,
-    approvalPolicy: "never",
-    sandbox: "read-only",
-    baseInstructions: o.instructions,
-    developerInstructions: o.contentInstructions,
-    config: {
-      mcp_servers: disabledServers,
-      "features.image_generation": o.imageGeneration && status.imageGeneration,
-    },
-  };
-  const thread = reuse
-    ? await rpc.request("thread/resume", {
-        ...options,
-        threadId: previous.thread_id,
-        excludeTurns: true,
-      })
-    : await rpc.request("thread/start", {
-        ...options,
-        environments: [],
-        dynamicTools: [spec],
-      });
-  const threadId = String((thread.thread as RpcData).id);
   const context = chatContext(
     s,
     p,
@@ -102,10 +78,59 @@ export async function runCodexSession(
       ? String(previous.last_message_id)
       : undefined,
   );
+  const contextInstructions = context
+    .filter((m) => m.role === "developer")
+    .map((m) => String(m.content))
+    .join("\n");
+  const baseInstructions = `${o.instructions}\n\n# 上下文装载说明\n${contextInstructions}`;
+  const options = {
+    model: o.model,
+    cwd,
+    approvalPolicy: "never",
+    sandbox: "read-only",
+    baseInstructions,
+    developerInstructions: o.contentInstructions,
+    config: {
+      mcp_servers: disabledServers,
+      "features.image_generation": o.imageGeneration && status.imageGeneration,
+    },
+  };
+  const resume = () =>
+    rpc.request("thread/resume", {
+      ...options,
+      threadId: previous!.thread_id,
+      excludeTurns: true,
+    });
+  let thread: RpcData;
+  if (reuse) {
+    try {
+      thread = await resume();
+    } catch (error) {
+      if (!(error instanceof DomainError) || error.code !== "CODEX_ARCHIVED")
+        throw error;
+      await rpc.request("thread/unarchive", { threadId: previous.thread_id });
+      thread = await resume();
+    }
+  } else {
+    thread = await rpc.request("thread/start", {
+      ...options,
+      environments: [],
+      dynamicTools: [spec],
+    });
+  }
+  const threadId = String((thread.thread as RpcData).id);
+  const name =
+    `映序后台 · ${projectExists(s, p).name} · ${sessionInProject(s, p, sessionId).agent_name}`
+      .replace(/[\r\n]+/g, " ")
+      .slice(0, 100);
+  await rpc.request("thread/name/set", { threadId, name });
   const input = [
     {
       type: "text",
-      text: context.map((m) => `[${m.role}]\n${m.content}`).join("\n\n"),
+      text: context
+        .filter((m) => m.role !== "developer")
+        .map((m) => String(m.content))
+        .join("\n\n"),
       text_elements: [],
     },
   ];
@@ -133,7 +158,7 @@ export async function runCodexSession(
         provider: "codex",
         threadId,
         model: o.model,
-        instructions: o.instructions,
+        instructions: baseInstructions,
         contentInstructions: o.contentInstructions,
         dynamicTools: [spec],
         input,
@@ -143,6 +168,7 @@ export async function runCodexSession(
   });
   let responseId = "",
     settled = false,
+    turnEnded = false,
     timer: ReturnType<typeof setTimeout>;
   const seen = new Set<string>(),
     receipts = new Map<string, Promise<unknown>>();
@@ -211,6 +237,7 @@ export async function runCodexSession(
       }
       if (method === "turn/completed") {
         const turn = params.turn as RpcData;
+        turnEnded = true;
         responseId ||= String(turn.id);
         if (turn.status !== "completed") {
           fail("Codex 本轮未完整结束，已有结果已保存，请检查连接或额度后继续");
@@ -303,7 +330,24 @@ export async function runCodexSession(
     clearTimeout(timer);
     rpc.notices.delete(notice);
     handlers(rpc).delete(threadId);
-    // Release in-memory thread resources; its persistent history remains resumable.
+    // Completed background work stays out of the desktop's active task list.
+    // Keep native history for the next explicit unarchive/resume; never delete it.
+    if (turnEnded) {
+      try {
+        await rpc.request("thread/archive", { threadId }, 5000);
+      } catch {
+        s.run(
+          "INSERT INTO ai_tool_events VALUES(?,?,?,?,?,?,?)",
+          id(),
+          o.turnId,
+          sessionId,
+          "codex_archive",
+          JSON.stringify({ threadId }),
+          JSON.stringify({ warning: "后台会话暂未收起，聊天与成果已保存" }),
+          now(),
+        );
+      }
+    }
     await rpc.request("thread/unsubscribe", { threadId }, 5000).catch(() => {});
   }
 }

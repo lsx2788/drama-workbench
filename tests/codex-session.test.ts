@@ -11,6 +11,7 @@ import { queueAiTurn } from "../src/server/ai-runtime";
 import { runCodexSession } from "../src/server/codex-session";
 import { workbenchTool } from "../src/server/ai-tools";
 import type { RpcData, RpcNotice, RpcRequest } from "../src/server/codex-rpc";
+import { DomainError } from "../src/server/common";
 
 function fixture(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-codex-")),
@@ -35,6 +36,7 @@ class FakeRpc {
   requests: { method: string; params: RpcData }[] = [];
   starts = 0;
   fail = false;
+  archived = new Set<string>();
   emit(method: string, params: RpcData) {
     for (const notice of this.notices) notice(method, params);
   }
@@ -43,7 +45,14 @@ class FakeRpc {
     this.requests.push({ method, params });
     if (method === "thread/start")
       return { thread: { id: `thread-${++this.starts}` } };
-    if (method === "thread/resume") return { thread: { id: params.threadId } };
+    if (method === "thread/resume") {
+      if (this.archived.has(String(params.threadId)))
+        throw new DomainError("CODEX_ARCHIVED", "archived");
+      return { thread: { id: params.threadId } };
+    }
+    if (method === "thread/archive") this.archived.add(String(params.threadId));
+    if (method === "thread/unarchive")
+      this.archived.delete(String(params.threadId));
     if (method === "turn/start") {
       const turnId = randomUUID(),
         threadId = String(params.threadId);
@@ -150,6 +159,22 @@ test("Codex routes tools by thread, deduplicates receipts/items, resumes increme
   const calls = rpc.requests.filter((r) => r.method === "turn/start");
   assert.ok(!JSON.stringify(calls[1]).includes("first-secret"));
   assert.ok(JSON.stringify(calls[1]).includes("second-message"));
+  assert.ok(!JSON.stringify(calls).includes("[developer]"));
+  assert.ok(!JSON.stringify(calls).includes("当前仅带入"));
+  assert.ok(String(resume.params.baseInstructions).includes("当前仅带入"));
+  assert.equal(
+    rpc.requests.filter((r) => r.method === "thread/unarchive").length,
+    1,
+  );
+  assert.equal(
+    rpc.requests.filter((r) => r.method === "thread/archive").length,
+    2,
+  );
+  assert.ok(
+    rpc.requests
+      .filter((r) => r.method === "thread/name/set")
+      .every((r) => String(r.params.name).startsWith("映序后台 · 隔离验收 ·")),
+  );
   assert.equal(
     s.one("SELECT external_session_id FROM sessions WHERE id=?", ss)!
       .external_session_id,
@@ -200,6 +225,10 @@ test("Codex disconnect fails once, saves failure audit and never automatically r
     /连接中断/,
   );
   assert.equal(rpc.requests.filter((r) => r.method === "turn/start").length, 1);
+  assert.equal(
+    rpc.requests.filter((r) => r.method === "thread/archive").length,
+    0,
+  );
   assert.equal(
     JSON.parse(String(s.one("SELECT output_json FROM ai_calls")!.output_json))
       .status,

@@ -151,6 +151,17 @@ export class CodexRpc {
       clearTimeout(wait.timer);
       if (msg.error) {
         const code = Number((msg.error as RpcData).code);
+        const message = String((msg.error as RpcData).message ?? "");
+        if (code === -32600 && /session .+ is archived\./.test(message)) {
+          wait.reject(
+            new DomainError(
+              "CODEX_ARCHIVED",
+              "后台会话已收起，需要恢复后续接",
+              409,
+            ),
+          );
+          return;
+        }
         // Upstream error text can contain local paths or credentials; keep the public error bounded.
         wait.reject(
           new DomainError(
