@@ -53,7 +53,7 @@ export function PreparationRecords({
     </Panel>
   );
 }
-function PreparationRecordDialog({
+export function PreparationRecordDialog({
   p,
   recordId,
   w,

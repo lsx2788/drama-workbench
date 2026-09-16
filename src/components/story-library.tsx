@@ -33,7 +33,7 @@ const attributeLabels: Record<string, string> = {
   nodeId: "来源节点",
   entityKey: "对象标识",
 };
-function AssetRecord({
+export function AssetRecord({
   record,
   p,
   w,

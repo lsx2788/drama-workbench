@@ -2196,7 +2196,7 @@ pre {
 .conversation-toolbar button:hover {
   background: var(--soft);
 }
-.conversation-page > .chat-panel {
+.conversation-page .chat-panel {
   flex: 1;
   min-height: 0;
   border: 1px solid var(--line);
@@ -2204,6 +2204,203 @@ pre {
   overflow: auto;
   background: #fffefa;
   box-shadow: 0 5px 24px #36472e05;
+}
+.conversation-page.coordinator-workspace {
+  max-width: none;
+}
+.coordinator-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(290px, 1fr);
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+.coordinator-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.coordinator-view-tabs {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-bottom: 10px;
+}
+.coordinator-view-tabs button {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 8px 14px;
+  color: #78827c;
+}
+.coordinator-view-tabs button[aria-selected="true"] {
+  background: #e4eee6;
+  color: var(--green);
+  font-weight: 600;
+}
+.coordinator-view-tabs span {
+  font-size: 10px;
+  margin-left: 8px;
+}
+.coordinator-primary-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+.coordinator-primary-panel[hidden] {
+  display: none;
+}
+.coordinator-primary-panel > .chat-panel {
+  width: 100%;
+}
+.outline-workspace-panel {
+  width: 100%;
+  min-width: 0;
+  overflow: auto;
+  background: #fffefa;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+}
+.outline-workspace-panel > header h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.outline-workspace-panel > header label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.outline-workspace-panel select {
+  min-width: 0;
+  max-width: 75%;
+  font-size: 12px;
+}
+.outline-workspace-panel .graph-viewport {
+  max-height: 55vh;
+}
+.project-reference-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: #fffefa;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.project-reference-panel > header {
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.project-reference-panel h2 {
+  font-size: 14px;
+  margin: 0;
+}
+.project-reference-panel header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.project-reference-scroll {
+  padding: 4px 20px 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.project-reference-scroll section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.project-reference-scroll section:last-child {
+  border-bottom: 0;
+}
+.project-reference-scroll h3 {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+.project-reference-scroll h3 > span,
+.reference-folder summary > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.reference-summary {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  margin: 8px 0;
+  background: #f8faf6;
+  border-color: #e6ebe3;
+  overflow-wrap: anywhere;
+}
+.reference-summary > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.reference-summary strong {
+  font-size: 12px;
+  min-width: 0;
+}
+.reference-summary b {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  margin: 7px 0;
+}
+.reference-summary small {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: #727c74;
+  font-size: 11px;
+  margin-top: 6px;
+}
+.reference-folder {
+  padding: 10px 0;
+}
+.reference-folder summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.reference-folder summary > span {
+  float: right;
+}
+.reference-sources {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.reference-sources button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.project-reference-panel .empty {
+  padding: 20px 6px;
+  font-size: 12px;
+}
+@media (max-width: 1100px) {
+  .conversation-page.coordinator-workspace {
+    height: auto;
+    min-height: 100%;
+  }
+  .coordinator-workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .coordinator-main {
+    height: max(620px, calc(100dvh - 170px));
+  }
+  .project-reference-scroll {
+    max-height: 65vh;
+  }
 }
 .conversation-page .messages {
   max-height: none;

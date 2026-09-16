@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { History, Plus, FileText } from "lucide-react";
 import { str, type Workspace } from "@/client/api";
 import { coordinatorSessions } from "@/client/coordinator-sessions";
@@ -11,6 +11,8 @@ import { NodeDetails } from "./node-details";
 import { ChatPanel } from "./chat-panel";
 import { Empty } from "./ui";
 import { StoryReader } from "./story-reader";
+import { ProjectReferencePanel } from "./project-reference-panel";
+import { WorkflowOutlinePanel } from "./workflow-outline-panel";
 
 export function WorkspacePage({
   page,
@@ -30,6 +32,13 @@ export function WorkspacePage({
   clearQuote: () => void;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [view, setView] = useState<"chat" | "outline">(() =>
+    !page.quoteId && w.workflowOutlines?.length ? "outline" : "chat",
+  );
+  useEffect(() => {
+    if (page.quoteId) setView("chat");
+  }, [page.quoteId]);
+  const [outlineId, setOutlineId] = useState("");
   const p = page.projectId;
   const coordinators = coordinatorSessions(w);
   const session =
@@ -99,7 +108,9 @@ export function WorkspacePage({
   }
   if (!session) return <Empty>总控聊天尚未就绪。</Empty>;
   return (
-    <div className="conversation-page">
+    <div
+      className={`conversation-page${session.node_type === "coordinator" ? " coordinator-workspace" : ""}`}
+    >
       <div className="conversation-toolbar">
         <h2>
           {page.kind === "coordinator"
@@ -160,7 +171,68 @@ export function WorkspacePage({
             ))}
         </div>
       )}
-      <ChatPanel key={str(session, "id")} {...props} session={session} />
+      {session.node_type === "coordinator" ? (
+        <div className="coordinator-workspace-grid">
+          <div className="coordinator-main">
+            <div
+              className="coordinator-view-tabs"
+              role="tablist"
+              aria-label="讨论与流程"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "chat"}
+                onClick={() => setView("chat")}
+              >
+                聊天
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "outline"}
+                onClick={() => setView("outline")}
+              >
+                流程大纲
+                {(w.workflowOutlines?.length ?? 0) > 0 && <span>已有草案</span>}
+              </button>
+            </div>
+            <div
+              className="coordinator-primary-panel"
+              role="tabpanel"
+              aria-label="聊天"
+              hidden={view !== "chat"}
+            >
+              <ChatPanel
+                key={str(session, "id")}
+                {...props}
+                session={session}
+                onOutlineOpen={(id) => {
+                  setOutlineId(id);
+                  setView("outline");
+                }}
+              />
+            </div>
+            <div
+              className="coordinator-primary-panel"
+              role="tabpanel"
+              aria-label="流程大纲"
+              hidden={view !== "outline"}
+            >
+              {view === "outline" && (
+                <WorkflowOutlinePanel
+                  outlines={w.workflowOutlines ?? []}
+                  selectedId={outlineId}
+                  onSelect={setOutlineId}
+                />
+              )}
+            </div>
+          </div>
+          <ProjectReferencePanel w={w} p={p} />
+        </div>
+      ) : (
+        <ChatPanel key={str(session, "id")} {...props} session={session} />
+      )}
     </div>
   );
 }

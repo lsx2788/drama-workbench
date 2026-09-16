@@ -110,6 +110,7 @@ export function ChatPanel({
   fail,
   onQuote,
   onClearQuote,
+  onOutlineOpen,
 }: {
   w: Workspace;
   p: string;
@@ -120,6 +121,7 @@ export function ChatPanel({
   fail: (e: unknown) => void;
   onQuote: (messageId: string) => void;
   onClearQuote: () => void;
+  onOutlineOpen?: (id: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -263,7 +265,11 @@ export function ChatPanel({
                 {(w.workflowOutlines ?? [])
                   .filter((o) => o.message_id === m.id)
                   .map((o) => (
-                    <WorkflowOutlinePreview key={str(o, "id")} outline={o} />
+                    <WorkflowOutlinePreview
+                      key={str(o, "id")}
+                      outline={o}
+                      onOpen={onOutlineOpen}
+                    />
                   ))}
                 <div className="message-actions">
                   <MessagePrompt
