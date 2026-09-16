@@ -16,6 +16,7 @@ export type TabAction =
   | { type: "open"; page: Omit<WorkspacePage, "id"> }
   | { type: "select"; id: string }
   | { type: "close"; id: string }
+  | { type: "closeProject"; projectId: string }
   | { type: "clearQuote"; id: string };
 
 export const pageTitles: Record<ProjectView, string> = {
@@ -25,6 +26,15 @@ export const pageTitles: Record<ProjectView, string> = {
 };
 
 export function tabReducer(state: TabState, action: TabAction): TabState {
+  if (action.type === "closeProject") {
+    const pages = state.pages.filter((p) => p.projectId !== action.projectId);
+    return {
+      pages,
+      activeId: pages.some((p) => p.id === state.activeId)
+        ? state.activeId
+        : (pages.at(-1)?.id ?? ""),
+    };
+  }
   if (action.type === "open") {
     const { page } = action;
     const id = `${page.projectId}:${page.kind}:${page.kind === "chat" || page.kind === "node" || page.kind === "story" ? page.targetId : ""}`;

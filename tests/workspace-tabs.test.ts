@@ -2,6 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { tabReducer, type TabState } from "../src/client/workspace-tabs";
 
+test("trashing a project closes all its tabs and preserves other projects", () => {
+  let state: TabState = { pages: [], activeId: "" };
+  for (const projectId of ["keep", "trash"])
+    for (const kind of ["coordinator", "flow"] as const)
+      state = tabReducer(state, {
+        type: "open",
+        page: { projectId, kind, title: kind },
+      });
+  state = tabReducer(state, { type: "closeProject", projectId: "trash" });
+  assert.equal(state.pages.length, 2);
+  assert.ok(state.pages.every((p) => p.projectId === "keep"));
+  assert.ok(state.pages.some((p) => p.id === state.activeId));
+  state = tabReducer(state, { type: "closeProject", projectId: "keep" });
+  assert.deepEqual(state, { pages: [], activeId: "" });
+});
+
 test("internal pages keep identity and conversation context when reopening or switching projects", () => {
   let state: TabState = { pages: [], activeId: "" };
   state = tabReducer(state, {

@@ -35,7 +35,7 @@ export function createProject(s: Store, input: unknown) {
 }
 export function listProjects(s: Store, archived = false) {
   return s.all(
-    `SELECT p.* FROM projects p WHERE ${archived ? "" : "NOT "}EXISTS(SELECT 1 FROM project_archives a WHERE a.project_id=p.id) ORDER BY p.created_at DESC`,
+    `SELECT p.* FROM projects p WHERE NOT EXISTS(SELECT 1 FROM project_trash t WHERE t.project_id=p.id) AND ${archived ? "" : "NOT "}EXISTS(SELECT 1 FROM project_archives a WHERE a.project_id=p.id) ORDER BY p.created_at DESC`,
   );
 }
 export function archiveProject(s: Store, p: string, archived: boolean) {

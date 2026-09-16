@@ -278,6 +278,115 @@ small {
   color: #68786a;
   padding: 30px 8px 0;
 }
+.tree-project-line {
+  display: flex;
+  align-items: center;
+}
+.tree-project-line .tree-project {
+  flex: 1;
+  min-width: 0;
+}
+.tree-project-more {
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+}
+.tree-project-line:hover .tree-project-more,
+.tree-project-line:focus-within .tree-project-more {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tree-project-more {
+    opacity: 1;
+  }
+}
+.project-trash-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+.project-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+.project-context-menu {
+  position: absolute;
+  width: 172px;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px #213b3026;
+}
+.project-context-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  color: #a54337;
+  background: transparent;
+  padding: 9px;
+  text-align: left;
+}
+.project-context-menu button:hover,
+.project-context-menu button:focus-visible {
+  background: #fcf0ec;
+}
+.trash-description {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.trash-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+.trash-confirm {
+  color: #fff;
+  background: #a54337;
+  border-color: #a54337;
+}
+.trash-list {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+}
+.trash-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.trash-list li div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trash-list small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.trash-list button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 .sidebar-bottom small {
   display: block;
   font-size: 9px;

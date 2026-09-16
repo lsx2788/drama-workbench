@@ -5,4 +5,4 @@ type Context = { params: Promise<{ segments: string[] }> };
 async function handler(request: Request, context: Context) {
   return handleApi(request, (await context.params).segments);
 }
-export { handler as GET, handler as POST, handler as PATCH };
+export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };

@@ -1,6 +1,10 @@
 "use client";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { Clapperboard, FolderOpen, Plus, X } from "lucide-react";
+import { Clapperboard, FolderOpen, Plus, Trash2, X } from "lucide-react";
+import {
+  DeleteProjectDialog,
+  ProjectTrashDialog,
+} from "./project-trash-dialog";
 import { api, str, type Workspace, type RecordData } from "@/client/api";
 import {
   pageTitles,
@@ -18,6 +22,8 @@ import { StoryNavigation } from "./story-link";
 
 export function Workbench() {
   const [projects, setProjects] = useState<RecordData[]>([]);
+  const [deleteProject, setDeleteProject] = useState<RecordData | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
   const [workspaces, setWorkspaces] = useState<Record<string, Workspace>>({});
   const [tabs, dispatch] = useReducer(tabReducer, { pages: [], activeId: "" });
@@ -121,7 +127,7 @@ export function Workbench() {
       {directoryOpen && (
         <button
           className="directory-backdrop"
-          aria-label="关闭项目目录"
+          aria-label="关闭剧本目录"
           onClick={() => setDirectoryOpen(false)}
         />
       )}
@@ -131,7 +137,7 @@ export function Workbench() {
       >
         <button
           className="directory-close"
-          aria-label="收起项目目录"
+          aria-label="收起剧本目录"
           onClick={() => setDirectoryOpen(false)}
         >
           <X size={18} />
@@ -144,7 +150,7 @@ export function Workbench() {
             映序<small>DRAMA WORKBENCH</small>
           </div>
         </a>
-        <div className="workspace-label">项目</div>
+        <div className="workspace-label">剧本</div>
         <ProjectTree
           projects={projects}
           projectId={p}
@@ -155,9 +161,16 @@ export function Workbench() {
           }
           onProject={setSelectedProject}
           onNavigate={navigate}
+          onDelete={setDeleteProject}
         />
         <button className="new-project" onClick={() => create("project")}>
-          <Plus size={16} /> 创建项目
+          <Plus size={16} /> 创建剧本
+        </button>
+        <button
+          className="project-trash-link"
+          onClick={() => setTrashOpen(true)}
+        >
+          <Trash2 size={14} /> 垃圾箱
         </button>
       </aside>
       <main className="workspace-main">
@@ -168,10 +181,10 @@ export function Workbench() {
             aria-expanded={directoryOpen}
             onClick={() => setDirectoryOpen(!directoryOpen)}
           >
-            <FolderOpen size={17} /> 项目目录
+            <FolderOpen size={17} /> 剧本目录
           </button>
           <div>
-            <strong>{project ? str(project, "name") : "我的项目"}</strong>
+            <strong>{project ? str(project, "name") : "我的剧本"}</strong>
           </div>
         </header>
         <WorkspaceTabs
@@ -198,13 +211,13 @@ export function Workbench() {
         )}
         <div className="workspace-panels">
           {loading ? (
-            <Empty>正在读取项目…</Empty>
+            <Empty>正在读取剧本…</Empty>
           ) : !projects.length ? (
             <section className="welcome content">
               <h1>从一个故事开始。</h1>
               <p>保存故事，与总控一起确定制作方向。</p>
               <button className="primary" onClick={() => create("project")}>
-                创建第一个项目
+                创建第一个剧本
               </button>
             </section>
           ) : null}
@@ -256,6 +269,34 @@ export function Workbench() {
           ))}
         </div>
       </main>
+      {deleteProject && (
+        <DeleteProjectDialog
+          project={deleteProject}
+          onClose={() => setDeleteProject(null)}
+          onDeleted={async (id) => {
+            dispatch({ type: "closeProject", projectId: id });
+            requests.current.delete(id);
+            setProjects((previous) => previous.filter((row) => row.id !== id));
+            setSelectedProject((previous) => (previous === id ? "" : previous));
+            setWorkspaces((previous) => {
+              const next = { ...previous };
+              delete next[id];
+              return next;
+            });
+            if (form?.projectId === id) setForm(null);
+            setNotice("剧本已移入垃圾箱，可以随时恢复。");
+          }}
+        />
+      )}
+      {trashOpen && (
+        <ProjectTrashDialog
+          onClose={() => setTrashOpen(false)}
+          onRestored={async () => {
+            setNotice("剧本已恢复到目录。");
+            await loadProjects();
+          }}
+        />
+      )}
       {form && (
         <CreateForm
           kind={form.kind}

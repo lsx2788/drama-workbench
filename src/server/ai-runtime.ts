@@ -1,4 +1,5 @@
 import { WORKFLOW_PLANNING_POLICY } from "./workflow-outline-service";
+import { assertProjectNotTrashed } from "./project-trash";
 import { createHash } from "node:crypto";
 import { unlinkSync } from "node:fs";
 import path from "node:path";
@@ -93,6 +94,7 @@ export function queueAiTurn(
   input: unknown,
 ) {
   const d = submitSchema.parse(input);
+  assertProjectNotTrashed(s, p);
   recover(s);
   const ss = sessionInProject(s, p, sessionId);
   assert(

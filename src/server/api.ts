@@ -9,6 +9,12 @@ import { z } from "zod";
 import { getStore, type Store } from "./db";
 import { DomainError, projectExists } from "./common";
 import {
+  assertProjectNotTrashed,
+  listProjectTrash,
+  trashProject,
+  restoreProject,
+} from "./project-trash";
+import {
   listProjects,
   archiveProject,
   createDocument,
@@ -185,8 +191,19 @@ async function route(request: Request, parts: string[]) {
       return createProjectWithCoordinator(s, await request.json());
   }
   if (parts[0] !== "projects" || !parts[1]) return missing();
+  if (parts.length === 2 && parts[1] === "trash" && method === "GET")
+    return listProjectTrash(s);
   const [, p, resource, key, action] = parts;
   projectExists(s, p);
+  if (parts.length === 2 && method === "DELETE") {
+    z.object({ confirmed: z.literal(true) })
+      .strict()
+      .parse(await request.json());
+    return trashProject(s, p);
+  }
+  if (parts.length === 3 && resource === "restore" && method === "POST")
+    return restoreProject(s, p);
+  assertProjectNotTrashed(s, p);
   if (resource === "sessions" && key && action === "group-members") {
     if (method === "GET") return groupCandidates(s, p, key);
     if (method === "PATCH") {
