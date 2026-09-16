@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Folder, ChevronRight } from "lucide-react";
 import { str, type Workspace, type RecordData } from "@/client/api";
 import {
   groupProjectReferences,
@@ -114,6 +115,9 @@ function ReferenceSection({
 
 /** Group persisted facts by review state; never infer confirmation from prose. */
 export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
+  const [folder, setFolder] = useState<
+    "confirmed" | "discussing" | "sources" | null
+  >(null);
   const [recordId, setRecordId] = useState<string | null>(null);
   const [asset, setAsset] = useState<ReferenceAsset | null>(null);
   const [highlight, setHighlight] = useState<RecordData | null>(null);
@@ -130,32 +134,80 @@ export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
     onAsset: setAsset,
   };
   return (
-    <aside className="project-reference-panel" aria-label="已有信息与资产">
-      <header>
-        <h2>已有信息与资产</h2>
-        <p>仅展示已保存内容，按确认状态区分</p>
-      </header>
-      <div className="project-reference-scroll">
-        <ReferenceSection group={confirmed} confirmed {...actions} />
-        <ReferenceSection group={discussing} confirmed={false} {...actions} />
-        {w.stories.length > 0 && (
-          <section aria-label="已保存资料">
-            <h3>
-              已保存资料 <span>{w.stories.length}</span>
-            </h3>
-            <div className="reference-sources">
-              {w.stories.map((r) => (
-                <StoryPreview
-                  key={str(r, "id")}
-                  p={p}
-                  storyId={str(r, "id")}
-                  filename={str(r, "original_name") || str(r, "title")}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
+    <div className="reference-folder-library" aria-label="已有信息与资产">
+      {(
+        [
+          {
+            key: "confirmed",
+            name: "已确定",
+            count: referenceCount(confirmed),
+          },
+          {
+            key: "discussing",
+            name: "讨论中",
+            count: referenceCount(discussing),
+          },
+          { key: "sources", name: "已保存资料", count: w.stories.length },
+        ] as const
+      )
+        .filter((item) => item.count > 0)
+        .map((item) => (
+          <button
+            key={item.key}
+            className={`reference-folder-entry ${item.key}`}
+            onClick={() => setFolder(item.key)}
+          >
+            <Folder size={24} strokeWidth={1.5} />
+            <span>
+              <strong>{item.name}</strong>
+              <small>{item.count} 项</small>
+            </span>
+            <ChevronRight size={14} />
+          </button>
+        ))}
+      {folder && (
+        <PromptDialog
+          title={
+            folder === "confirmed"
+              ? "已确定"
+              : folder === "discussing"
+                ? "讨论中"
+                : "已保存资料"
+          }
+          closeLabel="关闭资料文件夹"
+          onClose={() => setFolder(null)}
+        >
+          <div className="project-reference-scroll">
+            {folder === "confirmed" && (
+              <ReferenceSection group={confirmed} confirmed {...actions} />
+            )}
+            {folder === "discussing" && (
+              <ReferenceSection
+                group={discussing}
+                confirmed={false}
+                {...actions}
+              />
+            )}
+            {folder === "sources" && (
+              <section aria-label="已保存资料">
+                <h3>
+                  已保存资料 <span>{w.stories.length}</span>
+                </h3>
+                <div className="reference-sources">
+                  {w.stories.map((r) => (
+                    <StoryPreview
+                      key={str(r, "id")}
+                      p={p}
+                      storyId={str(r, "id")}
+                      filename={str(r, "original_name") || str(r, "title")}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </PromptDialog>
+      )}
       {recordId && (
         <PreparationRecordDialog
           p={p}
@@ -184,6 +236,6 @@ export function ProjectReferencePanel({ w, p }: { w: Workspace; p: string }) {
           {!!highlight.rationale && <p>{str(highlight, "rationale")}</p>}
         </PromptDialog>
       )}
-    </aside>
+    </div>
   );
 }

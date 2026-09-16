@@ -234,19 +234,6 @@ export function ChatPanel({
                   </strong>
                   <small>{date(m.created_at)}</small>
                 </div>
-                {isGroup && !!(m.group as RecordData | null)?.reply_to_id && (
-                  <div className="group-reply-reference">
-                    回复{" "}
-                    {(() => {
-                      const ref = w.messages.find(
-                        (r) => r.id === (m.group as RecordData).reply_to_id,
-                      );
-                      return ref
-                        ? `${ref.sender_type === "human" ? "你" : str(ref, "sender_name") || str(ref, "agent_name")}：${messageDisplay(ref).slice(0, 90)}`
-                        : "此前消息";
-                    })()}
-                  </div>
-                )}
                 {m.quote_id ? (
                   <blockquote>
                     <ChatMarkdown
