@@ -410,7 +410,7 @@ export function MessagePrompt({
           onClose={() => setOpen(false)}
         >
           <p className="muted">
-            这是提交这条消息时关联的提示词，不代表模型已经执行。
+              这是这条消息关联的提示词版本；模型实际输入与执行状态请查看聊天中的 AI 执行记录。
           </p>
           {error ? (
             <p className="error" role="alert">

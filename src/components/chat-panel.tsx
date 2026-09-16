@@ -1,10 +1,15 @@
 "use client";
 import { useState } from "react";
-import { api, str, type Workspace, type RecordData } from "@/client/api";
+import { str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
 import { StoryPreview } from "./story-preview";
 import { AgentPromptSettings, MessagePrompt } from "./agent-prompt-settings";
+import { OpenaiSettings } from "./openai-settings";
+import { useAiChat } from "./use-ai-chat";
+import { StoryFileUpload } from "./story-file-upload";
+import { ChatImages } from "./chat-images";
+import { AiExecutionDetails } from "./ai-execution-details";
 
 function messageAttachments(message: RecordData): RecordData[] {
   if (Array.isArray(message.attachments)) return message.attachments;
@@ -91,9 +96,17 @@ export function ChatPanel({
   onClearQuote: () => void;
 }) {
   const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [fileError, setFileError] = useState("");
+  const ai = useAiChat(p, str(session, "id"), refresh, fail);
+  const busy = ai.sending || ai.running;
   const messages = w.messages.filter((m) => m.session_id === session.id);
   const quoted = w.messages.find((m) => m.id === quoteId);
+  const latest = messages.at(-1);
+  const pending =
+    latest?.sender_type === "human" &&
+    !ai.turns.some((t) => t.message_id === latest.id);
   return (
     <section className="chat-panel">
       <div className="chat-header">
@@ -107,6 +120,9 @@ export function ChatPanel({
           </small>
         </div>
         <div className="chat-settings-actions">
+          {session.node_type === "coordinator" && (
+            <OpenaiSettings value={ai.settings} changed={ai.loadSettings} />
+          )}
           <AgentPromptSettings
             p={p}
             agentId={str(session, "agent_id")}
@@ -124,9 +140,14 @@ export function ChatPanel({
         </p>
         <p>前继会话：{(session?.predecessor_id as string) || "无"}</p>
       </details>
+      <AiExecutionDetails p={p} turns={ai.turns} />
       {session.node_type === "coordinator" && (
         <p className="muted" role="status">
-          消息已保存。总控 AI 执行器尚未接入，分析还未开始。
+          {ai.running
+            ? "总控正在处理，回复和协作记录会自动更新…"
+            : ai.settings?.configured
+              ? "OpenAI 已配置 · 消息、附件和生成结果会自动保存"
+              : "消息已保存。连接 OpenAI 后即可开始讨论。"}
         </p>
       )}
       <div className="messages">
@@ -149,6 +170,7 @@ export function ChatPanel({
                 </blockquote>
               ) : null}
               <StoryMessage p={p} message={m} stories={w.stories} />
+              <ChatImages images={m.images} />
               <div className="message-actions">
                 <MessagePrompt
                   p={p}
@@ -180,27 +202,34 @@ export function ChatPanel({
           <Empty>围绕当前目标开始讨论。消息和引用会持续保存。</Empty>
         )}
       </div>
+      {session.node_type === "coordinator" && (
+        <>
+          {ai.turns[0]?.error ? (
+            <p role="alert" className="error">
+              {str(ai.turns[0], "error")}
+            </p>
+          ) : null}
+          {pending && ai.settings?.configured && !busy && (
+            <button
+              type="button"
+              className="pending-ai-message"
+              onClick={() => void ai.send("", [], "", str(latest!, "id"))}
+            >
+              让总控处理这条消息
+            </button>
+          )}
+        </>
+      )}
       {session?.node_type === "coordinator" ? (
         <form
           className="composer"
           onSubmit={async (e) => {
             e.preventDefault();
-            setBusy(true);
-            try {
-              await api(`/projects/${p}/sessions/${session.id}/messages`, {
-                method: "POST",
-                body: JSON.stringify({
-                  content: draft,
-                  ...(quoteId ? { quoteId } : {}),
-                }),
-              });
+            if (await ai.send(draft, files, quoteId)) {
               setDraft("");
+              setFiles([]);
+              setAttachmentsOpen(false);
               onClearQuote();
-              await refresh();
-            } catch (err) {
-              fail(err);
-            } finally {
-              setBusy(false);
             }
           }}
         >
@@ -217,12 +246,41 @@ export function ChatPanel({
             placeholder="和总控说说你的想法…"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            required
+            disabled={ai.sending}
           />
+          {(attachmentsOpen || files.length > 0) && (
+            <div className="chat-attachment-picker">
+              <StoryFileUpload
+                files={files}
+                disabled={busy}
+                onChange={setFiles}
+                onError={setFileError}
+              />
+              {fileError && (
+                <p className="error" role="alert">
+                  {fileError}
+                </p>
+              )}
+            </div>
+          )}
           <div className="composer-footer">
-            <small>当前保存讨论；真实 AI 执行器尚未接入。</small>
-            <button className="primary" disabled={busy || !draft.trim()}>
-              发送给总控 ↗
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setAttachmentsOpen(!attachmentsOpen)}
+            >
+              ＋ 文件 / 图片{files.length ? ` · ${files.length}` : ""}
+            </button>
+            <small>也可以直接告诉总控你想生成什么图片</small>
+            <button
+              className="primary"
+              disabled={
+                busy ||
+                !ai.settings?.configured ||
+                (!draft.trim() && !files.length)
+              }
+            >
+              {ai.sending ? "发送中…" : ai.running ? "处理中…" : "发送 ↗"}
             </button>
           </div>
         </form>

@@ -9,7 +9,7 @@ export function workspace(s: Store, p: string) {
   projectExists(s, p);
   const attachments = new Map<string, Row[]>();
   for (const row of s.all(
-    "SELECT d.message_id,st.id,st.title,st.original_name,st.project_id FROM story_discussions d JOIN story_sources st ON st.id=d.story_id WHERE st.project_id=? ORDER BY d.position",
+    "SELECT d.message_id,st.id,st.title,st.original_name,st.project_id FROM (SELECT message_id,story_id,position FROM story_discussions UNION ALL SELECT message_id,story_id,position FROM chat_attachments) d JOIN story_sources st ON st.id=d.story_id WHERE st.project_id=? ORDER BY d.position",
     p,
   )) {
     const key = String(row.message_id);
@@ -73,6 +73,12 @@ export function workspace(s: Store, p: string) {
         const sources = attachments.get(String(message.id)) ?? [];
         return {
           ...message,
+          images: s
+            .all(
+              "SELECT f.id,f.original_name,f.mime,f.version_id FROM ai_images i JOIN files f ON f.id=i.file_id WHERE i.message_id=?",
+              String(message.id),
+            )
+            .map((f) => ({ ...f, url: `/api/v1/projects/${p}/files/${f.id}` })),
           attachments: sources,
           story_id: sources[0]?.id ?? null,
           story_title: sources[0]?.title ?? null,

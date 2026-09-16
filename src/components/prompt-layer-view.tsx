@@ -27,7 +27,7 @@ export function SystemCapabilities({ layers }: { layers: PromptLayers }) {
         <p className="muted">当前未配置系统必备 Skill。</p>
       )}
       <p className="muted">
-        必备能力由平台提供；基础接口可用不代表 AI 执行器已接入。
+        必备能力由平台提供；本次实际调用的能力与输入可在聊天的 AI 执行记录中查看。
       </p>
     </section>
   );

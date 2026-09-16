@@ -2677,3 +2677,75 @@ pre {
 .story-knowledge .panel {
   margin-bottom: 16px;
 }
+/* Chat connection and persisted media */
+.ai-settings-form {
+  display: grid;
+  gap: 16px;
+}
+.ai-settings-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.ai-settings-form input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.ai-connect-button {
+  font-size: 12px;
+}
+.ai-audit-json {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 55vh;
+  overflow: auto;
+}
+.chat-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.chat-images:empty {
+  display: none;
+}
+.chat-images figure {
+  margin: 12px 0 0;
+  width: min(100%, 360px);
+}
+.chat-images figure button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  width: 100%;
+}
+.chat-images img {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+}
+.chat-images figcaption {
+  font-size: 12px;
+  margin-top: 8px;
+  color: #6b7280;
+}
+.chat-images figcaption a {
+  margin-left: 12px;
+}
+.chat-image-full {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.chat-attachment-picker .story-upload-empty {
+  min-height: 80px;
+  padding: 12px;
+}
+.pending-ai-message {
+  align-self: flex-start;
+  margin-bottom: 12px;
+}
+.composer-footer {
+  flex-wrap: wrap;
+  gap: 8px;
+}

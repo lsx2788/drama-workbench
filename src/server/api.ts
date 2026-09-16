@@ -56,6 +56,18 @@ import {
 import { listStoryPreferences } from "./story-preference-catalog";
 import { storyImage } from "./story-image";
 import { listStories, storyDetail, storyFile } from "./story-service";
+import {
+  publicOpenaiConfig,
+  saveOpenaiConfig,
+  requireOpenaiConfig,
+} from "./openai-config";
+import { testOpenaiConnection } from "./openai-provider";
+import {
+  queueAiTurn,
+  scheduleAiTurn,
+  listAiTurns,
+  turnDetail,
+} from "./ai-runtime";
 
 import { importStoryRequest } from "./story-import-request";
 import {
@@ -122,6 +134,16 @@ async function route(request: Request, parts: string[]) {
   if (parts.length > 5) return missing();
   const s = getStore(),
     method = request.method;
+  if (parts[0] === "openai" && parts.length <= 2) {
+    if (parts.length === 1 && method === "GET") return publicOpenaiConfig(s);
+    if (parts.length === 1 && method === "PATCH")
+      return saveOpenaiConfig(s, await request.json());
+    if (parts[1] === "test" && method === "POST") {
+      const config = requireOpenaiConfig(s);
+      return testOpenaiConnection(config.apiKey, config.model);
+    }
+    return missing();
+  }
   if (
     parts.length === 1 &&
     parts[0] === "story-preferences" &&
@@ -149,6 +171,16 @@ async function route(request: Request, parts: string[]) {
   if (parts[0] !== "projects" || !parts[1]) return missing();
   const [, p, resource, key, action] = parts;
   projectExists(s, p);
+  if (resource === "sessions" && key && action === "turns") {
+    if (method === "GET") return listAiTurns(s, p, key);
+    if (method === "POST") {
+      const turn = queueAiTurn(s, p, key, await request.json());
+      scheduleAiTurn(s, p, String(turn.id));
+      return turn;
+    }
+  }
+  if (resource === "ai-turns" && key && !action && method === "GET")
+    return turnDetail(s, p, key);
   if (method === "GET") {
     if (resource === "versions" && key && !action) {
       const version = versionInProject(s, p, key);
@@ -284,10 +316,29 @@ async function route(request: Request, parts: string[]) {
         .object({ storyIds: z.array(z.uuid()).min(1).max(20) })
         .passthrough()
         .parse(await request.json());
-      return startStoriesDiscussion(s, p, storyIds, input);
+      const discussion = startStoriesDiscussion(s, p, storyIds, input);
+      if (publicOpenaiConfig(s).configured) {
+        const turn = queueAiTurn(s, p, discussion.sessionId, {
+          requestKey: discussion.messageId,
+          messageId: discussion.messageId,
+        });
+        scheduleAiTurn(s, p, String(turn.id));
+        return { ...discussion, execution: turn.status };
+      }
+      return discussion;
     }
-    if (resource === "stories" && key && action === "discussion")
-      return startStoryDiscussion(s, p, key, await request.json());
+    if (resource === "stories" && key && action === "discussion") {
+      const discussion = startStoryDiscussion(s, p, key, await request.json());
+      if (publicOpenaiConfig(s).configured) {
+        const turn = queueAiTurn(s, p, discussion.sessionId, {
+          requestKey: discussion.messageId,
+          messageId: discussion.messageId,
+        });
+        scheduleAiTurn(s, p, String(turn.id));
+        return { ...discussion, execution: turn.status };
+      }
+      return discussion;
+    }
     if (resource === "stories" && !key)
       return importStoryRequest(s, request, p);
     if (resource && creators[resource] && !key)

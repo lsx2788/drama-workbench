@@ -12,6 +12,7 @@ import { migrateChildCollaboration } from "./child-collaboration-migration";
 import { migrateCoordinatorHandoff } from "./coordinator-handoff-migration";
 import { migrateAgentConfigLayers } from "./agent-config-migration";
 import { migratePreparation } from "./preparation-migration";
+import { migrateAiRuntime } from "./ai-migration";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -36,6 +37,7 @@ export class Store {
     migrateCoordinatorHandoff(this);
     migrateAgentConfigLayers(this);
     migratePreparation(this);
+    migrateAiRuntime(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];
