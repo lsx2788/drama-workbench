@@ -1,4 +1,5 @@
 import type { Root } from "mdast";
+import { findMentions } from "./chat-mentions";
 
 type Node = {
   type: string;
@@ -6,9 +7,9 @@ type Node = {
   children?: Node[];
 };
 const textNode = (value: string): Node => ({ type: "text", value });
-const mentionNode = (name: string): Node => ({
+const mentionNode = (name: string, literal = `@${name}`): Node => ({
   type: "strong",
-  children: [textNode(`@${name}`)],
+  children: [textNode(literal)],
 });
 
 /** Presentation only: recipient identities come from persisted delivery metadata. */
@@ -16,13 +17,6 @@ export function remarkChatMentions({ names = [] }: { names?: string[] } = {}) {
   return (root: Root) => {
     const unique = [...new Set(names.filter(Boolean))];
     if (!unique.length) return;
-    const escaped = [...unique]
-      .sort((a, b) => b.length - a.length)
-      .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    const pattern = new RegExp(
-      `(^|[^\\w@])[@＠](${escaped.join("|")})(?=$|[\\s，。！？、：；,.!?:;])`,
-      "gu",
-    );
     const found = new Set<string>();
     const visit = (node: Node, alreadyBold = false) => {
       // Literal examples and link targets must keep their original meaning.
@@ -41,13 +35,13 @@ export function remarkChatMentions({ names = [] }: { names?: string[] } = {}) {
         const value = child.value ?? "";
         const pieces: Node[] = [];
         let offset = 0;
-        for (const match of value.matchAll(pattern)) {
-          const start = match.index! + match[1].length;
-          const end = match.index! + match[0].length;
-          found.add(match[2]);
+        for (const { name, start, end } of findMentions(value, unique)) {
+          found.add(name);
           pieces.push(textNode(value.slice(offset, start)));
           pieces.push(
-            alreadyBold ? textNode(`@${match[2]}`) : mentionNode(match[2]),
+            alreadyBold
+              ? textNode(value.slice(start, end))
+              : mentionNode(name, value.slice(start, end)),
           );
           offset = end;
         }

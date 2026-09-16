@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { mentionAt } from "@/client/chat-mentions";
+import { mentionAt, selectedMentionIds } from "@/client/chat-mentions";
 import { str, type Workspace, type RecordData } from "@/client/api";
 import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
@@ -155,8 +155,12 @@ export function ChatPanel({
   const members = (w.groupCandidates ?? []).filter(
     (m) => m.group_id === session.id,
   );
+  const mentionIds = selectedMentionIds(
+    draft,
+    mentions.map((m) => ({ id: str(m, "id"), name: str(m, "name") })),
+  );
   const selectedMentions = mentions.filter((m) =>
-    draft.includes(`@${str(m, "name")}`),
+    mentionIds.includes(str(m, "id")),
   );
   const unavailableMention = selectedMentions.some(
     (m) =>
@@ -319,15 +323,7 @@ export function ChatPanel({
           onSubmit={async (e) => {
             e.preventDefault();
             if (unavailableMention) return;
-            if (
-              await ai.send(
-                draft,
-                files,
-                quoteId,
-                undefined,
-                selectedMentions.map((m) => str(m, "id")),
-              )
-            ) {
+            if (await ai.send(draft, files, quoteId, undefined, mentionIds)) {
               setDraft("");
               setFiles([]);
               setAttachmentsOpen(false);

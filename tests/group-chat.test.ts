@@ -99,6 +99,55 @@ test("unmentioned user input is delivered only to coordinator, never leaked to c
   assert.throws(() => chatContext(s, p, child, String(turn.message_id)));
 });
 
+test("middle-of-message multi-mentions deliver one intact message to each child and coordinator once", async (t) => {
+  const { s, p, ss, child } = fixture(t);
+  startPreparation(s, p, {
+    coordinatorSessionId: ss,
+    profile: "screenwriting",
+  });
+  const writer = groupCandidates(s, p, ss).find(
+    (r) => r.id !== ss && r.id !== child,
+  )!;
+  setGroupMember(s, p, ss, String(writer.id), "active");
+  const content = `先请@原作初步分析 AI 分析原文，再请@${writer.name} 提建议，最后@原作初步分析 AI 核对。`;
+  const turn = queueAiTurn(s, p, ss, {
+    requestKey: randomUUID(),
+    content,
+    mentionSessionIds: [child, String(writer.id)],
+  });
+  const deliveries = groupEnvelope(s, String(turn.message_id))!.recipients;
+  assert.deepEqual(
+    new Set(deliveries.map((r) => r.session_id)),
+    new Set([ss, child, writer.id]),
+  );
+  assert.equal(deliveries.length, 3);
+  let calls = 0;
+  await executeAiTurn(s, p, String(turn.id), async (_key, body) => {
+    assert.ok(JSON.stringify(body).includes(content));
+    calls++;
+    return reply(calls === 3 ? SILENT_REPLY : `已完成第${calls}项分析`);
+  });
+  assert.equal(calls, 3);
+  assert.equal(
+    s.one("SELECT status FROM ai_turns WHERE id=?", String(turn.id))!.status,
+    "completed",
+  );
+  assert.equal(
+    s.one("SELECT count(*) n FROM messages WHERE sender_type='human'")!.n,
+    1,
+  );
+  assert.equal(
+    s.one("SELECT content FROM messages WHERE id=?", String(turn.message_id))!
+      .content,
+    content,
+  );
+  for (const id of [ss, child, String(writer.id)])
+    assert.equal(
+      s.one("SELECT count(*) n FROM ai_calls WHERE session_id=?", id)!.n,
+      1,
+    );
+});
+
 test("@ stores one human message, delivers to both with true identity and independent pinned prompts, coordinator can stay silent", async (t) => {
   const { s, p, ss, child, reader } = fixture(t);
   const input = {

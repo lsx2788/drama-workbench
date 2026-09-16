@@ -7,6 +7,31 @@ import { ChatMarkdown } from "../src/components/chat-markdown";
 const render = (text: string) =>
   renderToStaticMarkup(createElement(ChatMarkdown, { text }));
 
+test("multiple mentions retain their exact sentence positions, spacing, punctuation and repetitions", () => {
+  const text = "先请@原作 AI 看看，再让@编剧 AI 整理，最后@原作 AI 核对。";
+  const html = renderToStaticMarkup(
+    createElement(ChatMarkdown, {
+      text,
+      mentionedNames: ["原作 AI", "编剧 AI"],
+    }),
+  );
+  assert.match(
+    html,
+    /<p>先请<strong>@原作 AI<\/strong> 看看，再让<strong>@编剧 AI<\/strong> 整理，最后<strong>@原作 AI<\/strong> 核对。<\/p>/,
+  );
+  assert.equal(html.match(/@原作 AI/g)?.length, 2);
+  const adjacent = renderToStaticMarkup(
+    createElement(ChatMarkdown, {
+      text: "请（＠原作 AI），@编剧 AI@原作 AI 一起看。",
+      mentionedNames: ["原作 AI", "编剧 AI"],
+    }),
+  );
+  assert.match(
+    adjacent,
+    /请（<strong>＠原作 AI<\/strong>），<strong>@编剧 AI<\/strong><strong>@原作 AI<\/strong> 一起看。/,
+  );
+});
+
 test("verified group mentions appear bold inline once, without implicit recipient labels", () => {
   const message = "@原作分析 AI 请先分析这个故事。";
   const renderMention = (text: string, mentionedNames: string[]) =>
