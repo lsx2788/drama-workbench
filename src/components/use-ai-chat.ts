@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type RecordData } from "@/client/api";
 import { createImportKey } from "@/shared/story-import";
-import type { OpenaiSettingsValue } from "./openai-settings";
+import type { AiConnectionStatus } from "@/shared/ai-connection";
 
 export function useAiChat(
   p: string,
@@ -10,7 +10,7 @@ export function useAiChat(
   refresh: () => Promise<void>,
   fail: (error: unknown) => void,
 ) {
-  const [settings, setSettings] = useState<OpenaiSettingsValue | null>(null);
+  const [settings, setSettings] = useState<AiConnectionStatus | null>(null);
   const [turns, setTurns] = useState<RecordData[]>([]);
   const [sending, setSending] = useState(false);
   const refs = useRef({ refresh, fail });
@@ -22,7 +22,7 @@ export function useAiChat(
     uploadKey: string;
   } | null>(null);
   const loadSettings = useCallback(async () => {
-    setSettings(await api<OpenaiSettingsValue>("/openai"));
+    setSettings(await api<AiConnectionStatus>("/ai-connection"));
   }, []);
   const loadTurns = useCallback(async () => {
     const next = await api<RecordData[]>(

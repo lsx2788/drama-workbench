@@ -20,6 +20,7 @@ import {
 import { searchAssets, assetDetail } from "./asset-service";
 import { delegateWriting, postAgentMessage } from "./writer-collaboration";
 import { sourceInput, imageInput } from "./ai-context";
+import { readDocument } from "./document-reader";
 import type { AiItem } from "./openai-provider";
 
 const contracts: Record<string, string> = {
@@ -27,6 +28,8 @@ const contracts: Record<string, string> = {
   history: "{offset?:number,limit?:number}: 本会话历史，从最近消息倒序分页。",
   read_source_range:
     '{storyId,startByte,endByte,encoding:"utf-8"|"gb18030"}: 按字节范围读 TXT/MD，单次最多 48KB。由你决定范围，不固定章节；要标注局部阅读。',
+  read_document:
+    "{storyId,page?:number,start?:number,length?:number}: 按需读 PDF 指定页（从1开始）或 DOCX；start 从0开始，length 最多24000字符。返回页数、文本长度与读取范围；不做 OCR。",
   view_source:
     "{storyId}: 看原始图片或把 PDF/Word 交模型读取。文档全件计入上下文，长篇小说优先 TXT 分段。",
   view_asset_image: "{fileId}: 查看本项目已存图片，后续编辑必须先看。",
@@ -78,11 +81,18 @@ export function toolActions(profile: string) {
       "review_knowledge",
     ];
   if (profile === "source-analysis")
-    return [...common, "read_source_range", "save_record", "propose_knowledge"];
+    return [
+      ...common,
+      "read_source_range",
+      "read_document",
+      "save_record",
+      "propose_knowledge",
+    ];
   if (profile === "screenwriting")
     return [
       ...common,
       "read_source_range",
+      "read_document",
       "save_record",
       "propose_knowledge",
       "delegate_writer",
@@ -91,14 +101,22 @@ export function toolActions(profile: string) {
     ];
   return common;
 }
-export function workbenchTool(profile: string) {
+export function workbenchTool(
+  profile: string,
+  provider: "openai" | "codex" = "openai",
+) {
   const actions = toolActions(profile);
   return {
     type: "function",
     name: "workbench",
     description:
       "调用当前项目的确定性接口。data 是严格遵循相应契约的 JSON 字符串；身份与项目由服务器绑定，不能传 actor/session 伪装他人。\n" +
-      actions.map((a) => `${a}: ${contracts[a]}`).join("\n"),
+      actions
+        .map(
+          (a) =>
+            `${a}: ${a === "view_source" && provider === "codex" ? "{storyId}: 查看原始图片。PDF/DOCX 请交原作分析 AI 用 read_document 按范围读取；旧 DOC 需转换。" : contracts[a]}`,
+        )
+        .join("\n"),
     strict: true,
     parameters: {
       type: "object",
@@ -148,6 +166,11 @@ export async function executeTool(
   const key = () => z.uuid().parse(d.id);
   let result: unknown;
   switch (call.action) {
+    case "read_document": {
+      const { storyId, ...range } = d;
+      result = await readDocument(s, p, z.uuid().parse(storyId), range);
+      break;
+    }
     case "state":
       result = projectState(s, p, sessionId);
       break;

@@ -1,5 +1,12 @@
 # 标准 API v1
 
+## AI 连接
+
+- GET `/api/v1/ai-connection`：当前提供方、是否可用、模型与可选模型，不返回账号标识或凭据。
+- PATCH `/api/v1/ai-connection`：`{provider:"codex"|"openai",model?:string}`。Codex 校验本机 ChatGPT 登录和模型目录；修改仅影响以后排队的执行。
+- POST `/api/v1/ai-connection/test`：重新检测本机 Codex 登录与连接；不调用生成模型。
+- 原有 `/openai` 配置接口保留，只有明确选择 OpenAI API 时用于运行。见 [本机 Codex 接入](本机Codex接入.md)。
+
 所有请求返回 `{data,error,requestId}`；错误为 `{code,message}`。400 参数错误、404 不存在、409 状态/引用冲突、401 令牌缺失、403 跨来源写入。文件接口直接返回二进制。
 
 API 不调用 AI 推理，不自动放宽筛选。每项资源先验证 projectId。外部 agent API 认证和提供方执行器尚未接入，不能伪造 agent 消息或成功执行。

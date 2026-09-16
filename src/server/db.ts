@@ -13,6 +13,7 @@ import { migrateCoordinatorHandoff } from "./coordinator-handoff-migration";
 import { migrateAgentConfigLayers } from "./agent-config-migration";
 import { migratePreparation } from "./preparation-migration";
 import { migrateAiRuntime } from "./ai-migration";
+import { migrateCodex } from "./codex-migration";
 
 export type Row = Record<string, unknown>;
 export class Store {
@@ -38,6 +39,7 @@ export class Store {
     migrateAgentConfigLayers(this);
     migratePreparation(this);
     migrateAiRuntime(this);
+    migrateCodex(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];

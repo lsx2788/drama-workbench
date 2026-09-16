@@ -5,7 +5,7 @@ import { Badge, Empty, date } from "./ui";
 import type { CreateAction } from "./view-types";
 import { StoryPreview } from "./story-preview";
 import { AgentPromptSettings, MessagePrompt } from "./agent-prompt-settings";
-import { OpenaiSettings } from "./openai-settings";
+import { AiConnectionSettings } from "./ai-connection-settings";
 import { useAiChat } from "./use-ai-chat";
 import { StoryFileUpload } from "./story-file-upload";
 import { ChatImages } from "./chat-images";
@@ -121,7 +121,10 @@ export function ChatPanel({
         </div>
         <div className="chat-settings-actions">
           {session.node_type === "coordinator" && (
-            <OpenaiSettings value={ai.settings} changed={ai.loadSettings} />
+            <AiConnectionSettings
+              value={ai.settings}
+              changed={ai.loadSettings}
+            />
           )}
           <AgentPromptSettings
             p={p}
@@ -146,8 +149,8 @@ export function ChatPanel({
           {ai.running
             ? "总控正在处理，回复和协作记录会自动更新…"
             : ai.settings?.configured
-              ? "OpenAI 已配置 · 消息、附件和生成结果会自动保存"
-              : "消息已保存。连接 OpenAI 后即可开始讨论。"}
+              ? `${ai.settings.provider === "codex" ? "本机 Codex" : "OpenAI API"} 已连接 · 消息、附件和生成结果会自动保存`
+              : "消息已保存。连接 AI 后即可开始讨论。"}
         </p>
       )}
       <div className="messages">
@@ -206,7 +209,7 @@ export function ChatPanel({
         <>
           {ai.turns[0]?.error ? (
             <p role="alert" className="error">
-              {str(ai.turns[0], "error")}
+              上次执行未完成：{str(ai.turns[0], "error")}。可发送补充消息继续。
             </p>
           ) : null}
           {pending && ai.settings?.configured && !busy && (

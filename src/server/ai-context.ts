@@ -50,6 +50,7 @@ export function chatContext(
   p: string,
   sessionId: string,
   untilMessageId?: string,
+  afterMessageId?: string,
 ): AiItem[] {
   const session = sessionInProject(s, p, sessionId);
   const until = untilMessageId
@@ -62,10 +63,11 @@ export function chatContext(
       )
     : null;
   const rows = s.all(
-    "SELECT * FROM messages WHERE session_id=? AND (? IS NULL OR rowid<=?) ORDER BY rowid DESC LIMIT 41",
+    "SELECT * FROM messages WHERE session_id=? AND (? IS NULL OR rowid<=?) AND rowid>COALESCE((SELECT rowid FROM messages WHERE id=?),0) ORDER BY rowid DESC LIMIT 41",
     sessionId,
     until ?? null,
     until ?? null,
+    afterMessageId ?? null,
   );
   const selected = [];
   let characters = 0;
@@ -89,6 +91,7 @@ export function chatContext(
   for (const row of selected.reverse()) {
     const ownReply =
       row.sender_type === "agent" && row.sender_id === session.agent_id;
+    if (afterMessageId && ownReply) continue;
     let text = `[消息 ID ${row.id}; ${ownReply ? "本 AI" : row.sender_type === "human" ? "用户" : "上级/协作 AI"}]\n${row.content}`;
     if (row.quote_id) {
       const quote = s.one(

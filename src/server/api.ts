@@ -63,6 +63,12 @@ import {
 } from "./openai-config";
 import { testOpenaiConnection } from "./openai-provider";
 import {
+  connectionStatus,
+  saveConnection,
+  ensureConnection,
+  refreshCodexStatus,
+} from "./codex-connection";
+import {
   queueAiTurn,
   scheduleAiTurn,
   listAiTurns,
@@ -134,6 +140,15 @@ async function route(request: Request, parts: string[]) {
   if (parts.length > 5) return missing();
   const s = getStore(),
     method = request.method;
+  if (parts[0] === "ai-connection" && parts.length <= 2) {
+    if (parts.length === 1 && method === "GET") return connectionStatus(s);
+    if (parts.length === 1 && method === "PATCH")
+      return saveConnection(s, await request.json());
+    if (parts[1] === "test" && method === "POST") {
+      await refreshCodexStatus(s);
+      return connectionStatus(s);
+    }
+  }
   if (parts[0] === "openai" && parts.length <= 2) {
     if (parts.length === 1 && method === "GET") return publicOpenaiConfig(s);
     if (parts.length === 1 && method === "PATCH")
@@ -174,7 +189,16 @@ async function route(request: Request, parts: string[]) {
   if (resource === "sessions" && key && action === "turns") {
     if (method === "GET") return listAiTurns(s, p, key);
     if (method === "POST") {
-      const turn = queueAiTurn(s, p, key, await request.json());
+      const input = await request.json();
+      if (
+        !s.one(
+          "SELECT 1 FROM ai_turns WHERE project_id=? AND request_key=?",
+          p,
+          String(input.requestKey ?? ""),
+        )
+      )
+        await ensureConnection(s);
+      const turn = queueAiTurn(s, p, key, input);
       scheduleAiTurn(s, p, String(turn.id));
       return turn;
     }
@@ -317,7 +341,7 @@ async function route(request: Request, parts: string[]) {
         .passthrough()
         .parse(await request.json());
       const discussion = startStoriesDiscussion(s, p, storyIds, input);
-      if (publicOpenaiConfig(s).configured) {
+      if ((await connectionStatus(s)).configured) {
         const turn = queueAiTurn(s, p, discussion.sessionId, {
           requestKey: discussion.messageId,
           messageId: discussion.messageId,
@@ -329,7 +353,7 @@ async function route(request: Request, parts: string[]) {
     }
     if (resource === "stories" && key && action === "discussion") {
       const discussion = startStoryDiscussion(s, p, key, await request.json());
-      if (publicOpenaiConfig(s).configured) {
+      if ((await connectionStatus(s)).configured) {
         const turn = queueAiTurn(s, p, discussion.sessionId, {
           requestKey: discussion.messageId,
           messageId: discussion.messageId,

@@ -2,6 +2,8 @@
 
 Read docs/方案.md before changing domain behavior. This is a local-first foundation, not an operational autonomous film studio yet. OpenAI runtime contracts and current limitations are in docs/OpenAI接入.md.
 
+Local Codex contracts are in docs/本机Codex接入.md. Separate App Server transport, session orchestration and domain tools. Never read or copy Codex auth tokens. Bind tools to the project/session server-side; disable inherited host tools, MCP and plugins. Preserve incremental thread resumption, pinned configurations, failure audits and no automatic retries. PDF/DOCX extraction is an explicit AI tool action, never part of upload or metadata lookup.
+
 - Overview is a read model derived from authoritative tables. Never persist duplicate current-stage fields on projects.
 - Agents belong to workflow nodes. No job/role-template entity. A coordinator is attached to a coordinator node.
 - Workflow creation, node setup, node AI assignment and work-item setup belong to the AI-facing APIs. Keep the workflow UI focused on inspection, navigation, discussion and user review; do not reintroduce manual setup controls.
