@@ -40,6 +40,26 @@ function messageDisplay(message: RecordData) {
   return content.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** Use delivery and sender identities, never guess the audience from the prose. */
+function repliesToUser(
+  message: RecordData,
+  coordinator: RecordData,
+  messages: RecordData[],
+) {
+  if (message.sender_type !== "agent") return false;
+  const group = message.group as RecordData | null;
+  const recipients = (group?.recipients as RecordData[]) ?? [];
+  if (recipients.some((r) => r.session_id !== coordinator.id)) return false;
+  if (
+    message.sender_id === coordinator.agent_id &&
+    message.session_id === coordinator.id
+  )
+    return true;
+  return messages.some(
+    (m) => m.id === group?.reply_to_id && m.sender_type === "human",
+  );
+}
+
 function StoryMessage({
   p,
   message,
@@ -171,79 +191,89 @@ export function ChatPanel({
       )}
       <div className="messages">
         {messages.length ? (
-          messages.map((m) => (
-            <article key={str(m, "id")} className={`message ${m.sender_type}`}>
-              <div className="message-meta">
-                <strong>
-                  {m.sender_type === "human"
-                    ? "你"
-                    : str(m, "sender_name") || str(m, "agent_name")}
-                </strong>
-                {isGroup && (
-                  <span className="group-recipient">
-                    {(
-                      ((m.group as RecordData | null)
-                        ?.recipients as RecordData[]) ?? []
-                    )
-                      .filter((r) => r.mentioned)
-                      .map((r) => `@${r.name}`)
-                      .join(" ") ||
-                      (m.sender_type === "human" ? "发给总控" : "群内回复")}
-                  </span>
-                )}
-                <small>{date(m.created_at)}</small>
-              </div>
-              {isGroup && !!(m.group as RecordData | null)?.reply_to_id && (
-                <div className="group-reply-reference">
-                  回复{" "}
-                  {(() => {
-                    const ref = w.messages.find(
-                      (r) => r.id === (m.group as RecordData).reply_to_id,
-                    );
-                    return ref
-                      ? `${ref.sender_type === "human" ? "你" : str(ref, "sender_name") || str(ref, "agent_name")}：${messageDisplay(ref).slice(0, 90)}`
-                      : "此前消息";
-                  })()}
+          messages.map((m) => {
+            const forUser = isGroup && repliesToUser(m, session, w.messages);
+            return (
+              <article
+                key={str(m, "id")}
+                className={`message ${m.sender_type}${forUser ? " reply-to-user" : isGroup && m.sender_type === "agent" ? " ai-collaboration" : ""}`}
+              >
+                <div className="message-meta">
+                  <strong>
+                    {m.sender_type === "human"
+                      ? "你"
+                      : str(m, "sender_name") || str(m, "agent_name")}
+                  </strong>
+                  {isGroup && (
+                    <span
+                      className={`group-recipient${forUser ? " user-reply-label" : ""}`}
+                    >
+                      {forUser
+                        ? "回复你"
+                        : (
+                            ((m.group as RecordData | null)
+                              ?.recipients as RecordData[]) ?? []
+                          )
+                            .filter((r) => r.mentioned)
+                            .map((r) => `@${r.name}`)
+                            .join(" ") ||
+                          (m.sender_type === "human" ? "发给总控" : "AI 协作")}
+                    </span>
+                  )}
+                  <small>{date(m.created_at)}</small>
                 </div>
-              )}
-              {m.quote_id ? (
-                <blockquote>
-                  <ChatMarkdown
-                    text={messageDisplay(
-                      w.messages.find((x) => x.id === m.quote_id) ?? {},
-                    )}
+                {isGroup && !!(m.group as RecordData | null)?.reply_to_id && (
+                  <div className="group-reply-reference">
+                    回复{" "}
+                    {(() => {
+                      const ref = w.messages.find(
+                        (r) => r.id === (m.group as RecordData).reply_to_id,
+                      );
+                      return ref
+                        ? `${ref.sender_type === "human" ? "你" : str(ref, "sender_name") || str(ref, "agent_name")}：${messageDisplay(ref).slice(0, 90)}`
+                        : "此前消息";
+                    })()}
+                  </div>
+                )}
+                {m.quote_id ? (
+                  <blockquote>
+                    <ChatMarkdown
+                      text={messageDisplay(
+                        w.messages.find((x) => x.id === m.quote_id) ?? {},
+                      )}
+                    />
+                  </blockquote>
+                ) : null}
+                <StoryMessage p={p} message={m} stories={w.stories} />
+                <ChatImages images={m.images} />
+                <div className="message-actions">
+                  <MessagePrompt
+                    p={p}
+                    messageId={str(m, "id")}
+                    version={m.prompt_version}
                   />
-                </blockquote>
-              ) : null}
-              <StoryMessage p={p} message={m} stories={w.stories} />
-              <ChatImages images={m.images} />
-              <div className="message-actions">
-                <MessagePrompt
-                  p={p}
-                  messageId={str(m, "id")}
-                  version={m.prompt_version}
-                />
-                <button
-                  onClick={() => {
-                    onQuote(str(m, "id"));
-                  }}
-                >
-                  引用给总控
-                </button>
-                <button
-                  onClick={() =>
-                    create("highlight", {
-                      nodeId: str(m, "node_id"),
-                      sourceMessageId: str(m, "id"),
-                      content: messageDisplay(m),
-                    })
-                  }
-                >
-                  记录为重点
-                </button>
-              </div>
-            </article>
-          ))
+                  <button
+                    onClick={() => {
+                      onQuote(str(m, "id"));
+                    }}
+                  >
+                    引用给总控
+                  </button>
+                  <button
+                    onClick={() =>
+                      create("highlight", {
+                        nodeId: str(m, "node_id"),
+                        sourceMessageId: str(m, "id"),
+                        content: messageDisplay(m),
+                      })
+                    }
+                  >
+                    记录为重点
+                  </button>
+                </div>
+              </article>
+            );
+          })
         ) : (
           <Empty>围绕当前目标开始讨论。消息和引用会持续保存。</Empty>
         )}

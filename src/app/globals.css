@@ -2909,6 +2909,39 @@ pre {
   font-size: 11px;
   color: #527b6a;
 }
+.message.ai-collaboration {
+  background: #f6f7f4;
+  color: #53615b;
+}
+.message.reply-to-user {
+  background: linear-gradient(115deg, #effbf5, #fff 70%);
+  border-color: #9bcbb6;
+  box-shadow:
+    inset 3px 0 #36966f,
+    0 3px 12px #254e4209;
+  color: #203b31;
+  padding-left: 19px;
+}
+.reply-to-user .chat-markdown,
+.reply-to-user .chat-markdown p {
+  font-size: 13px;
+}
+.reply-to-user .message-meta {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.reply-to-user .message-meta > strong {
+  font-size: 12px;
+}
+.group-recipient.user-reply-label {
+  margin-right: auto;
+  padding: 2px 9px;
+  border-radius: 20px;
+  background: #d9f2e5;
+  color: #216546;
+  font-weight: 600;
+}
 .group-reply-reference {
   border-left: 2px solid #c7d6ce;
   padding: 5px 10px;
