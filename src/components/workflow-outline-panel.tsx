@@ -3,7 +3,6 @@ import { useState } from "react";
 import { GitBranch } from "lucide-react";
 import { str, type RecordData } from "@/client/api";
 import {
-  initialWorkflowOutline,
   withFixedOutlineStart,
   FIXED_OUTLINE_KEYS,
   type WorkflowOutline,
@@ -13,23 +12,18 @@ import { WorkflowOutlineContent } from "./workflow-outline-preview";
 
 export function WorkflowOutlinePanel({
   outlines,
-  selectedId,
-  onSelect,
   compact = false,
 }: {
   outlines: RecordData[];
-  selectedId: string;
-  onSelect: (id: string) => void;
   compact?: boolean;
 }) {
   const [preview, setPreview] = useState(false);
   const [stepKey, setStepKey] = useState("");
-  const selected = outlines.find((o) => o.id === selectedId) ??
-    outlines.at(-1) ?? {
-      id: "fixed-start",
-      revision: 0,
-      content: initialWorkflowOutline(),
-    };
+  const selected = outlines.find((o) => o.status === "confirmed");
+  if (!selected)
+    return (
+      <section className="outline-workspace-panel" aria-label="流程大纲" />
+    );
   const rawContent = selected.content as WorkflowOutline;
   const content = {
     ...rawContent,
@@ -40,22 +34,7 @@ export function WorkflowOutlinePanel({
     <section className="outline-workspace-panel" aria-label="流程大纲">
       <header>
         <h2>{str(selected.content as RecordData, "title")}</h2>
-        {outlines.length > 1 && (
-          <label>
-            草案版本
-            <select
-              value={str(selected, "id")}
-              onChange={(e) => onSelect(e.target.value)}
-            >
-              {[...outlines].reverse().map((o) => (
-                <option key={str(o, "id")} value={str(o, "id")}>
-                  {str(o.content as RecordData, "title")} · 第{" "}
-                  {String(o.revision)} 版
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <small>已确认</small>
       </header>
       {compact ? (
         <>

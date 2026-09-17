@@ -13,6 +13,7 @@ import {
 } from "@/client/project-references";
 import { ProjectReferencePanel } from "./project-reference-panel";
 import { WorkflowOutlinePanel } from "./workflow-outline-panel";
+import { WorkflowOutlineContent } from "./workflow-outline-preview";
 import { PromptDialog } from "./prompt-dialog";
 
 /** Side panes follow available workspace width; the conversation stays mounted. */
@@ -53,14 +54,11 @@ export function CoordinatorWorkspace({
   const rightExpanded = canDockRight && rightOpen;
   const openOutline = (id: string) => {
     setOutlineId(id);
-    if (canDockLeft) setLeftOpen(true);
-    else setDialog("outline");
   };
+  const chatOutline = w.workflowOutlines?.find((o) => o.id === outlineId);
   const outline = (compact = false) => (
     <WorkflowOutlinePanel
       outlines={w.workflowOutlines ?? []}
-      selectedId={outlineId}
-      onSelect={setOutlineId}
       compact={compact}
     />
   );
@@ -148,6 +146,15 @@ export function CoordinatorWorkspace({
           ) : (
             <ProjectReferencePanel w={w} p={p} sessionId={sessionId} />
           )}
+        </PromptDialog>
+      )}
+      {chatOutline && (
+        <PromptDialog
+          title="群聊流程方案"
+          closeLabel="关闭群聊流程方案"
+          onClose={() => setOutlineId("")}
+        >
+          <WorkflowOutlineContent key={outlineId} outline={chatOutline} />
         </PromptDialog>
       )}
     </div>

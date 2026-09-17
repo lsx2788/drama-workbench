@@ -16,7 +16,10 @@ import { migrateAiRuntime } from "./ai-migration";
 import { migrateCodex } from "./codex-migration";
 import { migrateGroups } from "./group-migration";
 import { migrateDynamicCollaboration } from "./dynamic-collaboration-migration";
-import { migrateWorkflowOutlines } from "./workflow-outline-service";
+import {
+  migrateWorkflowOutlines,
+  migrateOutlineConfirmations,
+} from "./workflow-outline-service";
 import { migrateProjectTrash } from "./project-trash";
 import { migrateReviewPolicy } from "./review-policy";
 import {
@@ -56,6 +59,7 @@ export class Store {
     migrateReviewPolicy(this);
     migrateChatConfirmations(this);
     migrateReplyConfirmations(this);
+    migrateOutlineConfirmations(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];

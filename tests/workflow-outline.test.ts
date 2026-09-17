@@ -10,7 +10,11 @@ import { postHumanMessage } from "../src/server/collaboration-service";
 import { publishGroupMessage } from "../src/server/group-service";
 import { workspace } from "../src/server/read-service";
 import { executeTool } from "../src/server/ai-tools";
-import { workflowOutline } from "../src/server/workflow-outline-service";
+import {
+  workflowOutline,
+  confirmWorkflowOutline,
+  proposeWorkflowOutline,
+} from "../src/server/workflow-outline-service";
 import { mentionAt } from "../src/client/chat-mentions";
 import {
   initialWorkflowOutline,
@@ -224,4 +228,153 @@ test("typed mentions respect cursor position, fullwidth input, email boundaries 
   assert.equal(mentionAt("a@example.com", 13, []), null);
   assert.equal(mentionAt("@原作 AI 请看看", 10, ["原作 AI"]), null);
   assert.equal(mentionAt("没有提及", 4, []), null);
+});
+
+test("only explicit coordinator confirmation exposes the current outline; drafts, history and evidence remain separate", async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), "drama-outline-confirm-"));
+  let s = new Store(root);
+  t.after(() => {
+    s.close();
+    assert.ok(path.resolve(root).startsWith(path.resolve(tmpdir()) + path.sep));
+    rmSync(root, { recursive: true, force: true });
+  });
+  const imported = importStory(s, {
+    source: "text",
+    title: "确认流程验收",
+    text: "云澜御剑飞行",
+    importKey: randomUUID(),
+  });
+  const p = String(imported.project.id),
+    ss = String(workspace(s, p).sessions[0].id);
+  const human = (content: string) => {
+    const m = postHumanMessage(s, p, ss, { content }).message!;
+    publishGroupMessage(s, p, ss, String(m.id), []);
+    return String(m.id);
+  };
+  const trigger = human("请提出整体流程");
+  const first = proposeWorkflowOutline(s, p, ss, plan, trigger);
+  assert.equal(workflowOutline(s, p, first.id).status, "draft");
+  const confirm = (outlineId: string, userMessageId: string) =>
+    confirmWorkflowOutline(s, p, ss, {
+      id: outlineId,
+      userMessageId,
+      reason: "用户已明确认可本版流程",
+    });
+  assert.throws(() => confirm(first.id, trigger), /确认消息/);
+  assert.throws(() => confirm(first.id, first.messageId), /确认消息/);
+  const approval = human("同意这版流程，按它开展");
+  assert.equal(
+    workflowOutline(s, p, first.id).status,
+    "draft",
+    "human reply alone never marks a plan approved",
+  );
+  await assert.rejects(
+    executeTool(
+      s,
+      p,
+      ss,
+      "source-analysis",
+      {
+        action: "confirm_workflow_outline",
+        data: JSON.stringify({
+          id: first.id,
+          userMessageId: approval,
+          reason: "同意",
+        }),
+      },
+      async () => null,
+    ),
+    /权限/,
+  );
+  const group = { id: ss, triggerId: approval };
+  const approved = await executeTool(
+    s,
+    p,
+    ss,
+    "coordinator",
+    {
+      action: "confirm_workflow_outline",
+      data: JSON.stringify({
+        id: first.id,
+        userMessageId: approval,
+        reason: "用户认可",
+      }),
+    },
+    async () => null,
+    group,
+  );
+  assert.equal((approved.result as { status: string }).status, "confirmed");
+  confirm(first.id, approval);
+  assert.equal(
+    s.one("SELECT count(*) n FROM workflow_outline_confirmations")!.n,
+    1,
+  );
+  const second = proposeWorkflowOutline(
+    s,
+    p,
+    ss,
+    {
+      ...plan,
+      previousId: first.id,
+      steps: [
+        { key: "delivery", name: "交付", objective: "保存成片", dependsOn: [] },
+      ],
+    },
+    approval,
+  );
+  assert.deepEqual(
+    workspace(s, p).workflowOutlines.map((o) => o.status),
+    ["confirmed", "draft"],
+  );
+  assert.throws(() => confirm(second.id, approval), /确认消息/);
+  const other = importStory(s, {
+    source: "text",
+    text: "另一本",
+    importKey: randomUUID(),
+  });
+  const otherP = String(other.project.id),
+    otherSS = String(workspace(s, otherP).sessions[0].id);
+  const foreign = postHumanMessage(s, otherP, otherSS, {
+    content: "同意",
+  }).message!;
+  assert.throws(() => confirm(second.id, String(foreign.id)), /确认消息/);
+  const third = proposeWorkflowOutline(
+    s,
+    p,
+    ss,
+    {
+      ...plan,
+      previousId: second.id,
+      steps: [
+        { key: "archive", name: "归档", objective: "保存记录", dependsOn: [] },
+      ],
+    },
+    approval,
+  );
+  const latestApproval = human("同意最新方案，包括交付和归档");
+  assert.throws(() => confirm(second.id, latestApproval), /最新/);
+  confirm(third.id, latestApproval);
+  assert.deepEqual(
+    workspace(s, p).workflowOutlines.map((o) => o.status),
+    ["superseded", "draft", "confirmed"],
+  );
+  assert.equal(
+    s.one("SELECT count(*) n FROM nodes")!.n,
+    2,
+    "confirmation does not start production or create nodes",
+  );
+  assert.throws(() =>
+    s.run(
+      "DELETE FROM workflow_outline_confirmations WHERE outline_id=?",
+      first.id,
+    ),
+  );
+  s.close();
+  s = new Store(root);
+  assert.equal(
+    workflowOutline(s, p, third.id).confirmation_message_id,
+    latestApproval,
+  );
+  assert.equal(workflowOutline(s, p, first.id).status, "superseded");
+  assert.deepEqual(s.all("PRAGMA foreign_key_check"), []);
 });

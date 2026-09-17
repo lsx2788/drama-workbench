@@ -41,6 +41,7 @@ import {
 import type { AiItem } from "./openai-provider";
 import {
   proposeWorkflowOutline,
+  confirmWorkflowOutline,
   workflowOutline,
   workflowOutlines,
 } from "./workflow-outline-service";
@@ -61,6 +62,8 @@ const contracts: Record<string, string> = {
   propose_workflow_outline:
     "{title,summary,steps:[{key,name,objective,outputs?:[],dependsOn?:[]}],questions?:[],previousId?}: 总控续写流程。系统固定提供总控→原文分析→编剧，steps 仅包含最多40个新增节点，不能重建或覆盖已有节点。有大纲时 previousId 必须是最新版本；dependsOn 可引用已有或新增 key，省略前置默认接已有末端，首次可接 fixed_screenwriting。自动保存新版本及群预览卡片，不发布制作。",
   workflow_outline: "{id}: 按 ID 查询本项目已保存的流程大纲。",
+  confirm_workflow_outline:
+    "{id,userMessageId,reason}: 仅总控在用户明确同意最新流程草案后调用。userMessageId 必须是当前群内草案之后的真实用户确认消息；要求修改或普通回复不算同意。保存正式确认标记后左侧才显示流程图，不自动启动制作。",
   group_members:
     "{}: 获取可用 AI、真实 session ID 和 available（未参与）/active（在场）/paused（已退出）状态。",
   group_member:
@@ -130,6 +133,7 @@ export function toolActions(profile: string) {
       "review_asset",
       "group_member",
       "propose_workflow_outline",
+      "confirm_workflow_outline",
       "workflow_outline",
     ];
   if (profile === "source-analysis")
@@ -197,6 +201,7 @@ export function projectState(s: Store, p: string, sessionId: string) {
       revision: r.revision,
       previousId: r.previous_id,
       title: r.content.title,
+      status: r.status,
     })),
     sessions: s.all(
       "SELECT ss.id,ss.title,a.name,a.id AS agent_id,n.node_type,pr.profile_id FROM sessions ss JOIN agents a ON a.id=ss.agent_id JOIN nodes n ON n.id=a.node_id LEFT JOIN node_ai_profiles pr ON pr.node_id=n.id JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=? AND ss.status='open' AND (a.id=? OR a.id IN (SELECT child_id FROM ai_relations WHERE parent_id=?) OR a.id IN (SELECT parent_id FROM ai_relations WHERE child_id=?))",
@@ -273,6 +278,10 @@ export async function executeTool(
       break;
     case "workflow_outline":
       result = workflowOutline(s, p, key());
+      break;
+    case "confirm_workflow_outline":
+      assert(group && group.id === sessionId, "流程确认由本群总控登记");
+      result = confirmWorkflowOutline(s, p, sessionId, d);
       break;
     case "group_members":
       assert(group, "当前调用不在群聊执行中");

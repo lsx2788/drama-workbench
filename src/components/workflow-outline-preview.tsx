@@ -27,7 +27,14 @@ export function WorkflowOutlinePreview({
       >
         <span>
           <strong>{content.title}</strong>
-          <small>流程大纲 · 第 {String(outline.revision)} 版 · 待讨论</small>
+          <small>
+            流程方案 · 第 {String(outline.revision)} 版 ·{" "}
+            {outline.status === "confirmed"
+              ? "已确认"
+              : outline.status === "superseded"
+                ? "历史已确认"
+                : "待讨论"}
+          </small>
         </span>
         <span>查看流程图 →</span>
       </button>
@@ -49,12 +56,12 @@ export function WorkflowOutlineContent({ outline }: { outline: RecordData }) {
   const raw = outline.content as WorkflowOutline;
   const content = { ...raw, steps: withFixedOutlineStart(raw.steps) };
   const step = content.steps.find((r) => r.key === selected);
+  const confirmed =
+    outline.status === "confirmed" || outline.status === "superseded";
   return (
     <div className="workflow-outline-preview">
       <p className="muted">
-        {outline.revision === 0
-          ? "固定流程起点"
-          : `第 ${String(outline.revision)} 版草案`}{" "}
+        {`第 ${String(outline.revision)} 版 · ${outline.status === "superseded" ? "历史已确认" : confirmed ? "已确认流程" : "讨论草案"}`}{" "}
         · 点击节点查看目标与交付物
       </p>
       <p>{content.summary}</p>
@@ -63,7 +70,11 @@ export function WorkflowOutlineContent({ outline }: { outline: RecordData }) {
           id: r.key,
           name: r.name,
           objective: r.objective,
-          status: FIXED_OUTLINE_KEYS.has(r.key) ? "fixed" : "draft",
+          status: confirmed
+            ? "confirmed"
+            : FIXED_OUTLINE_KEYS.has(r.key)
+              ? "fixed"
+              : "draft",
         }))}
         dependencies={content.steps.flatMap((r) =>
           r.dependsOn.map((dep) => ({ node_id: r.key, depends_on: dep })),
@@ -90,7 +101,7 @@ export function WorkflowOutlineContent({ outline }: { outline: RecordData }) {
           )}
         </section>
       )}
-      {content.questions.length > 0 && (
+      {!confirmed && content.questions.length > 0 && (
         <section>
           <h3>待讨论</h3>
           <ul>
@@ -101,7 +112,9 @@ export function WorkflowOutlineContent({ outline }: { outline: RecordData }) {
         </section>
       )}
       <p className="muted">
-        这是一份讨论草案。修改意见可以直接发给总控，预览不会启动制作。
+        {confirmed
+          ? "流程方案已确认。点击节点查看目标与交付物。"
+          : "这是一份讨论草案。修改意见可以直接发给总控，确认后才进入左侧流程大纲。"}
       </p>
     </div>
   );

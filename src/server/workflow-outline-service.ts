@@ -56,7 +56,7 @@ export function workflowOutlines(
   p: string,
 ): (Row & { content: WorkflowOutline })[] {
   return s
-    .all("SELECT * FROM workflow_outlines WHERE project_id=? ORDER BY rowid", p)
+    .all(`${outlineSelect} WHERE o.project_id=? ORDER BY o.rowid`, p)
     .map((r) => ({ ...r, content: JSON.parse(String(r.content_json)) }));
 }
 export function workflowOutline(
@@ -65,14 +65,90 @@ export function workflowOutline(
   outlineId: string,
 ): Row & { content: WorkflowOutline } {
   const row = requireRow(
-    s.one(
-      "SELECT * FROM workflow_outlines WHERE id=? AND project_id=?",
-      outlineId,
-      p,
-    ),
+    s.one(`${outlineSelect} WHERE o.id=? AND o.project_id=?`, outlineId, p),
     "流程大纲",
   );
   return { ...row, content: JSON.parse(String(row.content_json)) };
+}
+
+export function migrateOutlineConfirmations(s: Store) {
+  s.transaction(() => {
+    if (s.one("SELECT 1 FROM schema_migrations WHERE version=28")) return;
+    s.db.exec(`
+      CREATE TABLE workflow_outline_confirmations(
+        outline_id TEXT PRIMARY KEY REFERENCES workflow_outlines(id),
+        session_id TEXT NOT NULL REFERENCES sessions(id),
+        user_message_id TEXT NOT NULL REFERENCES messages(id),
+        reason TEXT NOT NULL, created_at TEXT NOT NULL
+      );
+      CREATE TRIGGER outline_confirmation_immutable_update BEFORE UPDATE ON workflow_outline_confirmations BEGIN SELECT RAISE(ABORT,'Outline confirmations are immutable'); END;
+      CREATE TRIGGER outline_confirmation_immutable_delete BEFORE DELETE ON workflow_outline_confirmations BEGIN SELECT RAISE(ABORT,'Outline confirmations are immutable'); END;
+      INSERT INTO schema_migrations VALUES(28,datetime('now'));
+    `);
+  });
+}
+
+const outlineSelect = `SELECT o.*, c.user_message_id AS confirmation_message_id, c.created_at AS confirmed_at,
+  CASE WHEN c.outline_id IS NULL THEN 'draft'
+    WHEN EXISTS(SELECT 1 FROM workflow_outlines newer JOIN workflow_outline_confirmations nc ON nc.outline_id=newer.id WHERE newer.project_id=o.project_id AND newer.rowid>o.rowid) THEN 'superseded'
+    ELSE 'confirmed' END AS status
+  FROM workflow_outlines o LEFT JOIN workflow_outline_confirmations c ON c.outline_id=o.id`;
+
+export function confirmWorkflowOutline(
+  s: Store,
+  p: string,
+  sessionId: string,
+  input: unknown,
+) {
+  coordinatorSession(s, p, sessionId);
+  const d = z
+    .object({
+      id: z.uuid(),
+      userMessageId: z.uuid(),
+      reason: z.string().trim().min(1).max(3000),
+    })
+    .strict()
+    .parse(input);
+  return s.transaction(() => {
+    const outline = workflowOutline(s, p, d.id);
+    const prior = s.one(
+      "SELECT * FROM workflow_outline_confirmations WHERE outline_id=?",
+      d.id,
+    );
+    if (prior) {
+      assert(prior.user_message_id === d.userMessageId, "该流程已有确认记录");
+      return outline;
+    }
+    assert(
+      s.one(
+        "SELECT id FROM workflow_outlines WHERE project_id=? ORDER BY rowid DESC LIMIT 1",
+        p,
+      )?.id === d.id,
+      "只能确认当前最新流程草案",
+    );
+    assert(
+      s.one(
+        "SELECT 1 FROM messages WHERE id=? AND session_id=? AND sender_type='human' AND rowid>(SELECT rowid FROM messages WHERE id=?)",
+        d.userMessageId,
+        sessionId,
+        String(outline.message_id),
+      ),
+      "需引用当前总控群内、草案提出之后的真实用户确认消息",
+    );
+    s.run(
+      "INSERT INTO workflow_outline_confirmations VALUES(?,?,?,?,?)",
+      d.id,
+      sessionId,
+      d.userMessageId,
+      d.reason,
+      now(),
+    );
+    audit(s, p, "workflow.outline_confirmed", d.id, {
+      userMessageId: d.userMessageId,
+      reason: d.reason,
+    });
+    return workflowOutline(s, p, d.id);
+  });
 }
 
 export function proposeWorkflowOutline(
@@ -218,5 +294,5 @@ export const WORKFLOW_PLANNING_POLICY = `
 总控的重要目标是与用户共同制定适合当前作品的制作流程。了解原作概况和用户基本目标后，应先提出整体路线；用户问下一步或要求流程时，优先解释各阶段目标、依赖、交付物与需要用户参与的位置，不陷入镜头动作、画面参数等局部细节的反复追问。
 固定起点始终是：总控（fixed_coordinator）→原文分析（fixed_source_analysis）→编剧（fixed_screenwriting），由系统提供。propose_workflow_outline 是续写接口：steps 只提交新增后续节点，不重复、改写或省去固定起点，也不重新生成已有节点。有大纲时先查 state / workflow_outline 最新版本，传 previousId；后台保留原有节点和依赖并追加，旧版本不改写。无前置的新增节点默认接到已有流程末端；显式 dependsOn 可引用已有节点或本次新节点，支持分支，但须衔接在编剧之后。首次续写可直接引用 fixed_screenwriting。该固定结构不代表三个 AI 必须同时入群，仍由总控按需调用。
 根据故事类型、规模、已知偏好确定后续步骤：单条视觉短片可以不分集，长篇可先用可扩展的分集制作步骤说明后续逐集开展，不必提前穷举。交付物用自然语言写入 outputs。不确定的条件列为 questions，需要用户回答的独立问题另用 ask_confirmation 登记。固定环节始终保留，后续流程逐步续写。最新版本与历史版本分开查看，不把过期草案当当前计划。
-大纲是待讨论的规划，不是已确认的制作任务，也不启动制作；只在接口确实完成时才声称正式流程已发布。用户确认后，继续按既有成果确认与流程接口落实；不能将上传资料或查看预览当成确认。
+propose_workflow_outline 生成的草案只能在聊天群卡片中展示，确认前左侧流程大纲为空，不展示固定起点或任何草案。用户明确认可该版本后，调用 confirm_workflow_outline，传草案 id、真正表达认可的 userMessageId 和 reason。不能把回复提问、要求修改、查看预览、跳过问题或提醒已回应当成同意。只有接口保存确认标记后，该版本才进入左侧正式流程图，不再标草案。新续写仍是群内草案，确认后才替换左侧当前版本，旧确认保留历史。确认流程规划不自动启动制作或批准资产；实际任务继续按既有成果确认与流程接口落实。
 `;
