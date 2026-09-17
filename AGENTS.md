@@ -2,6 +2,8 @@
 
 Read docs/方案.md before changing domain behavior. This is a local-first foundation, not an operational autonomous film studio yet. OpenAI runtime contracts and current limitations are in docs/OpenAI接入.md.
 
+The current product requirements baseline is docs/产品需求文档.md (2026-09-17). Read it before proposing new domain changes: fixed product stages, dynamic node tasks, independent node content review, coordinator baseline approval and task acceptance, and shared personal/team foundations. It supersedes older product-direction assumptions but does not claim implementation or authorize an unsolicited migration. Keep its open questions unresolved until discussed; distinguish current runtime contracts below from the target design.
+
 Local Codex contracts are in docs/本机Codex接入.md. Separate App Server transport, session orchestration and domain tools. Never read or copy Codex auth tokens. Bind tools to the project/session server-side; disable inherited host tools, MCP and plugins. Preserve incremental thread resumption, pinned configurations, failure audits and no automatic retries. PDF/DOCX extraction into AI context is an explicit AI tool action, never part of upload or metadata lookup. Explicit user-opened DOCX previews may render on demand in the browser, without persisting extracted content or sending it to AI.
 
 Keep developer/system context notes out of Codex user input. Give owned backend threads explicit project/agent names, archive them after terminal turns, and unarchive/resume the same thread on the next request. Never delete native history or archive unrelated desktop tasks. Running backend threads may remain visible until completion.
