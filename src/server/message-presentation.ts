@@ -36,9 +36,17 @@ export function messagePresenter(s: Store, p: string) {
     "SELECT id,original_name,sha256 FROM story_sources WHERE project_id=?",
     p,
   );
+  const authorizationCodes = s
+    .all(
+      "SELECT authorization_code FROM child_authorizations WHERE project_id=? AND authorization_code IS NOT NULL",
+      p,
+    )
+    .map((r) => String(r.authorization_code));
   return (message: Row) => {
     let text = String(message.content ?? "");
     if (message.sender_type !== "agent") return text;
+    for (const code of authorizationCodes)
+      text = text.replaceAll(code, "[授权信息已隐藏]");
     // Checksums are transport metadata, not story details.
     text = text.replace(
       /\bsha[-_ ]?256\s*[:：=]?\s*[a-f0-9]{64}\b[，,;；]?\s*/gi,

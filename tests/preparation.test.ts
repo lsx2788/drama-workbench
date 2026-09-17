@@ -457,70 +457,22 @@ test("preparation confirms separate outputs before writer creates stable, empty 
     reopened.close();
   }
 });
-test("writer delegates without coordinator relay, preserving parent-child boundaries and idempotency", (t) => {
-  const f = fixture(t),
-    { s, p, writer, coordinator, analyst, storyId } = f;
-  const input = {
-    parentSessionId: writer,
-    requestKey: randomUUID(),
-    name: "分段整理",
-    objective: "分析指定范围并反馈衔接问题",
-    sourceIds: [storyId],
-  };
-  const delegation = delegateWriting(s, p, input),
-    child = String(delegation.child_session_id);
-  assert.equal(delegation.execution, "not_configured");
-  assert.deepEqual(delegateWriting(s, p, input), delegation);
-  assert.equal(
-    s.all("SELECT * FROM messages WHERE session_id=?", coordinator).length,
-    0,
-  );
-  assert.throws(
-    () => postHumanMessage(s, p, child, { content: "绕过总控" }),
-    /只能向总控/,
-  );
-  postAgentMessage(s, p, writer, {
-    fromSessionId: child,
-    content: "这段需要补查前情。",
-  });
-  const visibleReply = workspace(s, p).messages.find(
-    (row) => row.session_id === writer,
-  );
-  assert.equal(visibleReply?.sender_name, "分段整理");
-  assert.throws(
-    () =>
-      postAgentMessage(s, p, coordinator, {
-        fromSessionId: child,
-        content: "跳过上级编剧",
-      }),
-    /上下级/,
-  );
-  assert.throws(
-    () =>
-      postAgentMessage(s, p, analyst, {
-        fromSessionId: child,
-        content: "直接找其他节点",
-      }),
-    /上下级/,
-  );
-  const nested = delegateWriting(s, p, {
-    ...input,
-    parentSessionId: child,
-    requestKey: randomUUID(),
-    name: "前情核对",
-  });
-  assert.ok(nested.child_session_id);
+test("legacy writer delegation cannot bypass coordinator authorization", (t) => {
+  const { s, p, writer } = fixture(t);
+  const before = s.one("SELECT count(*) n FROM agents")!.n;
   assert.throws(
     () =>
       delegateWriting(s, p, {
-        ...input,
-        parentSessionId: analyst,
+        parentSessionId: writer,
         requestKey: randomUUID(),
+        name: "分段整理",
+        objective: "分析指定范围",
       }),
-    /只有编剧/,
+    /总控授权/,
   );
-  assert.equal(s.all("PRAGMA foreign_key_check").length, 0);
+  assert.equal(s.one("SELECT count(*) n FROM agents")!.n, before);
 });
+
 test("invalid source or cross-project data rolls back an entire episode batch", (t) => {
   const f = fixture(t),
     { s, p, writer, coordinator, source } = f,

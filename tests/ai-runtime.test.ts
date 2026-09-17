@@ -28,6 +28,7 @@ import {
 } from "../src/server/openai-provider";
 import { chatContext, auditJson } from "../src/server/ai-context";
 import { postHumanMessage } from "../src/server/collaboration-service";
+import { createChildAgent } from "../src/server/child-authorization";
 
 function fixture(t: TestContext) {
   const root = mkdtempSync(path.join(tmpdir(), "drama-ai-"));
@@ -84,6 +85,83 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+kE3sAAAAASUVORK5CYII=",
   "base64",
 );
+
+test("coordinator grants a child request then resumes it for authorized nested execution", async (t) => {
+  const { s, p, ss } = fixture(t);
+  const parent = String(
+    createChildAgent(s, p, ss, ss, {
+      key: "planner",
+      spec: { name: "分镜 AI", objective: "设计镜头" },
+    }).sessionId,
+  );
+  const turn = queueAiTurn(s, p, ss, {
+    requestKey: randomUUID(),
+    content: "请安排协作",
+  });
+  let step = 0;
+  await executeAiTurn(s, p, String(turn.id), async () => {
+    step++;
+    const request = s.one(
+      "SELECT * FROM child_authorizations ORDER BY rowid DESC LIMIT 1",
+    );
+    if (step === 1)
+      return call("ask_child", {
+        sessionId: parent,
+        content: "请检查任务是否需要协助",
+      });
+    if (step === 2)
+      return call("request_child_authorization", {
+        key: "continuity",
+        spec: { name: "连续性 AI", objective: "检查镜头衔接" },
+        reason: "需要独立检查",
+      });
+    if (step === 3) return reply("已提交协作申请，等待总控授权。");
+    if (step === 4)
+      return call("review_child_authorization", {
+        id: request!.id,
+        decision: "approved",
+        reason: "同意进行独立核对",
+      });
+    if (step === 5)
+      return call("ask_child", {
+        sessionId: parent,
+        content: "申请已批准，请查询授权后继续。",
+      });
+    if (step === 6) return call("child_authorizations", {});
+    if (step === 7)
+      return call("create_child", {
+        key: "continuity-child",
+        authorizationCode: request!.authorization_code,
+      });
+    if (step === 8)
+      return call("ask_child", {
+        sessionId: request!.child_session_id,
+        content: "请检查人物动作的衔接。",
+        authorizationCode: request!.authorization_code,
+      });
+    if (step === 9) return reply("核对完成，第二镜需要补充人物朝向说明。");
+    if (step === 10) return reply("已收到连续性检查结果，请总控审核。");
+    return reply("协作已完成，结果等待审核。");
+  });
+  assert.equal(step, 11);
+  assert.equal(listAiTurns(s, p, ss)[0].status, "completed");
+  const grant = s.one("SELECT * FROM child_authorizations")!;
+  assert.equal(grant.used_calls, 1);
+  assert.ok(grant.child_session_id);
+  assert.ok(
+    !JSON.stringify(turnDetail(s, p, String(turn.id))).includes(
+      String(grant.authorization_code),
+    ),
+  );
+  const messages = workspace(s, p).messages;
+  assert.ok(
+    messages.some(
+      (m) =>
+        m.sender_name === "连续性 AI" && String(m.content).includes("第二镜"),
+    ),
+  );
+  assert.ok(messages.some((m) => String(m.content).includes("已批准协作授权")));
+});
 
 test("AI config never returns keys and preserves them when editing models", (t) => {
   const { s, root } = fixture(t);
@@ -277,7 +355,10 @@ test("tool boundary rejects cross-project files, child-to-parent execution and u
     execute("ask_child", { sessionId: ss, content: "自调用" }),
   );
   assert.ok(!toolActions("source-analysis").includes("review_record"));
-  assert.ok(!toolActions("source-analysis").includes("ask_child"));
+  assert.ok(toolActions("source-analysis").includes("ask_child"));
+  assert.ok(
+    !toolActions("source-analysis").includes("review_child_authorization"),
+  );
   assert.throws(() =>
     queueAiTurn(s, other, ss, { requestKey: randomUUID(), content: "越权" }),
   );

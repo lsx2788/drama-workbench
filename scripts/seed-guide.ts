@@ -18,10 +18,13 @@ import {
   proposeKnowledge,
   reviewKnowledge,
 } from "../src/server/knowledge-service";
+import { postAgentMessage } from "../src/server/writer-collaboration";
 import {
-  delegateWriting,
-  postAgentMessage,
-} from "../src/server/writer-collaboration";
+  requestChildAuthorization,
+  reviewChildAuthorization,
+  childAuthorizations,
+  createChildAgent,
+} from "../src/server/child-authorization";
 import { audit, id } from "../src/server/common";
 import {
   guideParts,
@@ -155,17 +158,29 @@ export function seedGuide(s: Store) {
       reason:
         "三集都有独立问题与承接线索；同意压缩过渡而保留核验。先建立入口与原文引用。",
     });
-    const delegated = delegateWriting(s, p, {
-      parentSessionId: writer,
-      requestKey: id(),
-      name: "线索与数量核对 AI",
-      objective:
-        "【预置讨论】核对三百石、一百八十石、一百二十石、六石湿损及九十六石加二十四石的对应关系；检查秦穆行程、铜钉和收据的铺垫。将疑问直接反馈给上级编剧，只返回依据与结论，不写剧本。",
-      sourceIds: [storyId],
-      recordIds: [String(framework.id)],
+    const authorization = requestChildAuthorization(s, p, coordinator, writer, {
+      key: id(),
+      reason: "【预置讨论】需要独立核对数量与线索",
+      spec: {
+        name: "线索与数量核对 AI",
+        objective:
+          "【预置讨论】核对三百石、一百八十石、一百二十石、六石湿损及九十六石加二十四石的对应关系；检查秦穆行程、铜钉和收据的铺垫。将疑问直接反馈给上级编剧，只返回依据与结论，不写剧本。",
+      },
+    });
+    reviewChildAuthorization(s, p, coordinator, coordinator, {
+      id: authorization.id,
+      decision: "approved",
+      reason: "【预置讨论】同意在编剧节点内核对",
+    });
+    const grant = childAuthorizations(s, p, coordinator, writer).find(
+      (r) => r.id === authorization.id,
+    )!;
+    const delegated = createChildAgent(s, p, coordinator, writer, {
+      key: id(),
+      authorizationCode: grant.authorizationCode,
     });
     discuss(
-      String(delegated.child_session_id),
+      String(delegated.sessionId),
       writer,
       "数量链闭合：180＋120＝300，96＋24＝120，6 石湿损属于县仓的 180 石。首段口信预告秦穆行程和新铜钉；末段由孟九报信促成提前核仓。第二集抄录只是线索，第三集须保留原始交割联、收据、车夫出仓簿和实物核对。",
     );

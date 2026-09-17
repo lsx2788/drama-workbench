@@ -1,4 +1,5 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { migrateChildAuthorizations } from "./child-authorization";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { migration } from "./migration";
@@ -60,6 +61,7 @@ export class Store {
     migrateChatConfirmations(this);
     migrateReplyConfirmations(this);
     migrateOutlineConfirmations(this);
+    migrateChildAuthorizations(this);
   }
   all(sql: string, ...args: SQLInputValue[]): Row[] {
     return this.db.prepare(sql).all(...args) as Row[];

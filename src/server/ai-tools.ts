@@ -23,7 +23,15 @@ import {
   knowledgeProposal,
 } from "./knowledge-service";
 import { searchAssets, assetDetail } from "./asset-service";
-import { delegateWriting, postAgentMessage } from "./writer-collaboration";
+import { postAgentMessage } from "./writer-collaboration";
+import {
+  createChildAgent,
+  requestChildAuthorization,
+  reviewChildAuthorization,
+  revokeChildAuthorization,
+  childAuthorizations,
+  authorizeChildMessage,
+} from "./child-authorization";
 import { sourceInput, imageInput } from "./ai-context";
 import { readDocument } from "./document-reader";
 import { pendingReviews, reviewAsset } from "./result-review";
@@ -47,6 +55,16 @@ import {
 } from "./workflow-outline-service";
 
 const contracts: Record<string, string> = {
+  create_child:
+    "{key,spec?:{name,objective,instructions?,nodeId?},authorizationCode?}: 总控直接创建专业子 AI（不能创建总控），spec 定义职责，可指定现有非总控节点；未指定则新建工作节点。其他 AI 必须先获批准，只传 key 和 authorizationCode，按获批任务创建或取回同一子 AI。不自动执行。",
+  request_child_authorization:
+    "{key,spec:{name,objective,instructions?,nodeId?,childSessionId?},reason}: 子 AI 请求总控授权创建一个下级，或通过 childSessionId 申请继续调用已有直接下级。只能在自己节点协作。申请自动显示总控群；返回后先汇报等待审批，不能循环等待。",
+  child_authorizations:
+    "{}: 总控查看本群授权申请；子 AI 只查看自己的申请及获批授权码。授权码只用于工具参数，不写到群聊。",
+  review_child_authorization:
+    "{id,decision:approved|rejected,reason,maxCalls?:1..30,validHours?:1..72}: 总控审批申请，默认允许8次调用、24小时有效。自动显示审批结果，随后请 ask_child 通知申请者查询授权继续。",
+  revoke_child_authorization:
+    "{id,reason}: 总控撤销授权并在群里说明，阻止后续代理转发，保留会话历史。",
   confirmations:
     "{}: 查询当前群已登记的用户问题与 pending/answered/skipped 状态。跳过和已回应都不是审批。",
   ask_confirmation:
@@ -88,9 +106,7 @@ const contracts: Record<string, string> = {
   prepare:
     "{profile:source-analysis|screenwriting}: 按当前任务仅创建或查找这一种专业 AI，返回 sessionId。不创建其他 AI，也不自动加入群或执行。先 group_members/state 查已有会话，需要谁就 ask_child 邀请谁。",
   ask_child:
-    "{sessionId,content,sourceIds?:[],recordIds?:[],episodeIds?:[]}: 邀请或恢复指定直接子 AI 并等待回复。content 是群里可见的自然语言任务，不写 UUID、哈希、接口名或技术路径；技术引用放对应 ID 数组，由后台单独传递。不要复制原文。调用不会邀请其他 AI。",
-  delegate_writer:
-    "{name,objective,sourceIds?:[],recordIds?:[],episodeIds?:[]}: 编剧自行建立子任务，返回 child_session_id，随后 ask_child。",
+    "{sessionId,content,authorizationCode?,sourceIds?:[],recordIds?:[],episodeIds?:[]}: 向子 AI 发任务并等待回复。总控可联系本群任意层级的下级；其他 AI 只能调用直接下级，必须每次提供该目标的有效授权码，服务器校验后才转发。content 是群里可见的自然语言任务，不写授权码、UUID、哈希、接口名或技术路径；引用单独传递。",
   save_record:
     "{kind:overview|requirements|framework,basisId?,previousId?,content:{title,summary,details?,unresolved?:[],sources?:[{storyId,startByte?,endByte?,encoding?,locator?}],episodeCount?,minutesPerEpisode?,scope?,constraints?:[]}}: 保存成果。requirements 引用 confirmed overview；framework 引用 confirmed requirements。",
   review_record:
@@ -104,6 +120,10 @@ const contracts: Record<string, string> = {
 };
 export function toolActions(profile: string) {
   const common = [
+    "create_child",
+    "request_child_authorization",
+    "child_authorizations",
+    "ask_child",
     "state",
     "history",
     "view_source",
@@ -126,7 +146,8 @@ export function toolActions(profile: string) {
       "ask_confirmation",
       "resolve_confirmation",
       "prepare",
-      "ask_child",
+      "review_child_authorization",
+      "revoke_child_authorization",
       "save_record",
       "review_record",
       "review_knowledge",
@@ -151,11 +172,9 @@ export function toolActions(profile: string) {
       "read_document",
       "save_record",
       "propose_knowledge",
-      "delegate_writer",
-      "ask_child",
       "create_episodes",
     ];
-  return common;
+  return [...common, "read_source_range", "read_document"];
 }
 export function workbenchTool(
   profile: string,
@@ -190,6 +209,10 @@ export function projectState(s: Store, p: string, sessionId: string) {
   return {
     project: projectExists(s, p),
     sessionId,
+    nodes: s.all(
+      "SELECT n.id,n.name,n.node_type FROM nodes n JOIN workflows w ON w.id=n.workflow_id WHERE w.project_id=?",
+      p,
+    ),
     sources: listStories(s, p).slice(0, 200),
     records: listPreparationRecords(s, p),
     workflowStart: {
@@ -234,6 +257,23 @@ export async function executeTool(
   const key = () => z.uuid().parse(d.id);
   let result: unknown;
   switch (call.action) {
+    case "create_child":
+    case "request_child_authorization":
+    case "child_authorizations":
+    case "review_child_authorization":
+    case "revoke_child_authorization": {
+      assert(group, "协作授权必须在总控群中开展");
+      if (call.action === "create_child")
+        result = createChildAgent(s, p, group.id, sessionId, d);
+      else if (call.action === "request_child_authorization")
+        result = requestChildAuthorization(s, p, group.id, sessionId, d);
+      else if (call.action === "child_authorizations")
+        result = childAuthorizations(s, p, group.id, sessionId);
+      else if (call.action === "review_child_authorization")
+        result = reviewChildAuthorization(s, p, group.id, sessionId, d);
+      else result = revokeChildAuthorization(s, p, group.id, sessionId, d);
+      break;
+    }
     case "confirmations":
       result = chatConfirmations(s, p, sessionId);
       break;
@@ -394,32 +434,6 @@ export async function executeTool(
       });
       break;
     }
-    case "delegate_writer": {
-      result = delegateWriting(
-        s,
-        p,
-        {
-          ...d,
-          parentSessionId: sessionId,
-          requestKey: id(),
-        },
-        group
-          ? (childId, messageId) => {
-              setGroupMember(s, p, group.id, childId, "active", true);
-              publishGroupMessage(
-                s,
-                p,
-                group.id,
-                messageId,
-                [childId],
-                [],
-                group.triggerId,
-              );
-            }
-          : undefined,
-      );
-      break;
-    }
     case "create_episodes":
       result = createEpisodes(s, p, {
         ...d,
@@ -446,23 +460,22 @@ export async function executeTool(
         .object({
           sessionId: z.uuid(),
           content: z.string().min(1).max(10000),
+          authorizationCode: z.string().optional(),
           sourceIds: z.array(z.uuid()).max(30).default([]),
           recordIds: z.array(z.uuid()).max(30).default([]),
           episodeIds: z.array(z.uuid()).max(30).default([]),
         })
         .strict()
         .parse(d);
-      const from = sessionInProject(s, p, sessionId),
-        to = sessionInProject(s, p, q.sessionId);
-      assert(
-        s.one(
-          "SELECT 1 FROM ai_relations WHERE parent_id=? AND child_id=?",
-          String(from.agent_id),
-          String(to.agent_id),
-        ),
-        "只能执行直接子 AI",
-      );
       const posted = s.transaction(() => {
+        authorizeChildMessage(
+          s,
+          p,
+          sessionId,
+          q.sessionId,
+          q.authorizationCode,
+          group?.id,
+        );
         q.sourceIds.forEach((key) => storyDetail(s, p, key));
         q.recordIds.forEach((key) => preparationRecord(s, p, key));
         q.episodeIds.forEach((key) => episodeDetail(s, p, key));
@@ -470,6 +483,7 @@ export async function executeTool(
         const posted = postAgentMessage(s, p, q.sessionId, {
           fromSessionId: sessionId,
           content: q.content,
+          authorizationCode: q.authorizationCode,
         });
         s.run(
           "INSERT INTO message_context VALUES(?,?)",
