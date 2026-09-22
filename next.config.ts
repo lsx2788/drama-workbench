@@ -1,5 +1,14 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
-  serverExternalPackages: ["node:sqlite", "pdfjs-dist", "mammoth"],
+  outputFileTracingIncludes: {
+    "/api/studio/**/*": [
+      "./src/server/ai/rules/*.md",
+      "./src/server/ai/skills/**/*.md",
+    ],
+    "/api/studio": [
+      "./src/server/ai/rules/*.md",
+      "./src/server/ai/skills/**/*.md",
+    ],
+  },
 };
 export default config;

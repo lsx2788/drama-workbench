@@ -1,0 +1,208 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 13px;
+  background: white;
+  color: var(--ink);
+  transition: 0.16s;
+}
+button:hover {
+  border-color: #9aafa2;
+  background: #f2f5f0;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #afc8bc;
+  outline-offset: 3px;
+}
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #dfe3db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  color: var(--ink);
+  outline: none;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px #254e4210;
+}
+textarea {
+  resize: vertical;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+
+:root {
+  --bg: #f5f5f0;
+  --ink: #263d35;
+  --line: #e2e7df;
+  --green: #34624e;
+}
+.chat-markdown {
+  overflow-wrap: anywhere;
+  color: #24332d;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.chat-markdown p {
+  margin: 0 0 14px;
+}
+.chat-markdown :is(h1, h2, h3, h4, h5, h6) {
+  color: #182c23;
+  line-height: 1.5;
+  margin: 24px 0 12px;
+}
+.chat-markdown h1 {
+  font-size: 22px;
+}
+.chat-markdown h2 {
+  font-size: 19px;
+}
+.chat-markdown h3 {
+  font-size: 17px;
+}
+.chat-markdown :is(h4, h5, h6) {
+  font-size: 15px;
+}
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+.chat-markdown :is(ul, ol) {
+  padding-left: 1.7em;
+  margin: 12px 0;
+}
+.chat-markdown li + li {
+  margin-top: 8px;
+}
+.chat-markdown strong {
+  color: #182c23;
+  font-weight: 700;
+}
+.chat-markdown blockquote {
+  margin: 16px 0;
+  padding: 10px 16px;
+  border-left: 3px solid #80988a;
+  background: #f2f5f3;
+  color: #42574c;
+}
+.chat-markdown blockquote > :last-child {
+  margin-bottom: 0;
+}
+.chat-markdown code {
+  padding: 2px 5px;
+  background: #eef2ef;
+  border-radius: 4px;
+  font-size: 0.93em;
+}
+.chat-markdown pre {
+  padding: 14px;
+  background: #f2f5f3;
+  border-radius: 8px;
+}
+.chat-markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+.chat-copyable-text {
+  min-width: 0;
+  margin: 16px 0;
+  background: #f2f5f3;
+  border: 1px solid #d8e0db;
+  border-radius: 8px;
+}
+.chat-copyable-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #d8e0db;
+  font-size: 12px;
+}
+.chat-copyable-toolbar button {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.chat-copyable-text pre {
+  margin: 0;
+}
+.studio-video-prompt pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.8;
+}
+@media (pointer: coarse) {
+  .chat-copyable-toolbar button {
+    min-height: 44px;
+  }
+}
+.chat-markdown a {
+  color: #235c80;
+  text-decoration: underline;
+}
+.chat-markdown th {
+  background: #f2f5f3;
+  text-align: left;
+}
+.chat-markdown hr {
+  border: 0;
+  border-top: 1px solid #d8e0db;
+  margin: 20px 0;
+}
+.chat-markdown-table {
+  margin: 16px 0;
+}
+.chat-markdown :is(pre, .chat-markdown-table) {
+  scrollbar-width: thin;
+}
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+.chat-markdown pre,
+.chat-markdown-table {
+  overflow: auto;
+  max-width: 100%;
+}
+.chat-markdown table {
+  border-collapse: collapse;
+}
+.chat-markdown th,
+.chat-markdown td {
+  padding: 8px;
+  border: 1px solid #e2e7df;
+}

@@ -1,32 +1,30 @@
 {
-  "name": "drama-workbench",
+  "name": "drama-studio",
   "version": "0.1.0",
-  "description": "Node-based AI drama production workbench",
+  "description": "Drama production studio with persisted tasks and local Codex coordination",
   "scripts": {
-    "test": "tsx --test tests/*.test.ts",
-    "dev": "next dev --hostname 127.0.0.1",
+    "dev": "next dev --hostname 127.0.0.1 --port 3001",
     "build": "next build",
-    "start": "next start --hostname 127.0.0.1",
-    "remote": "node scripts/remote-access.mjs",
+    "start": "next start --hostname 127.0.0.1 --port 3001",
+    "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "seed:demo": "tsx scripts/seed-guide.ts",
-    "format": "prettier --write src scripts tests docs README.md AGENTS.md"
+    "format": "prettier --write src tests docs README.md AGENTS.md"
   },
   "keywords": [],
   "author": "",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
-    "dompurify": "^3.4.15",
+    "jszip": "3.10.2",
     "lucide-react": "^1.46.0",
     "mammoth": "^1.12.3",
     "next": "^16.3.5",
-    "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "remark-cjk-friendly": "^2.3.1",
     "remark-gfm": "^4.0.1",
+    "sharp": "^0.35.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {
